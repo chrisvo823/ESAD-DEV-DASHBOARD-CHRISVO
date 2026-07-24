@@ -184,7 +184,10 @@ jobs:
 
           if git merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
             echo "Fast-forwarding mach/main to this main ($LOCAL)"
-            git push mach main:main
+            if ! git push mach main:main; then
+              echo "::error::Push to longnguyen-mach/esad_dev_dashboard failed. The sync_pat account needs write access on that repo (add collaborator, or use a PAT owned by longnguyen-mach)."
+              exit 1
+            fi
             echo "Pushed this main to longnguyen-mach/esad_dev_dashboard"
             exit 0
           fi
@@ -194,7 +197,10 @@ jobs:
           if [ "$FORCE" = "true" ] || [ "$EVENT_NAME" = "push" ]; then
             echo "Histories diverged; force-pushing this main to mach"
             git log --oneline --left-right --cherry-pick main...mach/main | head -20 || true
-            git push --force mach main:main
+            if ! git push --force mach main:main; then
+              echo "::error::Push to longnguyen-mach/esad_dev_dashboard failed. The sync_pat account needs write access on that repo (add collaborator, or use a PAT owned by longnguyen-mach)."
+              exit 1
+            fi
             echo "Force-mirrored this main to longnguyen-mach/esad_dev_dashboard"
             exit 0
           fi
