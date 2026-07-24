@@ -1,0 +1,195 @@
+# Sync main between:
+#   chrisvo823/ESAD-DEV-DASHBOARD-CHRISVO  (this repo)
+#   longnguyen-mach/esad_dev_dashboard
+#
+# Requires Actions secret: sync_pat
+#   Classic PAT (repo) or fine-grained PAT with Contents: Read and write
+#   on BOTH repositories.
+#
+# Behavior:
+#   - push to main here  → push this main to longnguyen-mach (to-mach)
+#   - schedule           → pull longnguyen-mach into this main when ahead (from-mach)
+#   - workflow_dispatch  → choose direction / optional force
+#
+# Commits containing "[skip sync]" do not trigger outbound sync (loop guard).
+
+name: Sync repos
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Pull remote changes into this repo periodically.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: Sync direction
+        required: true
+        default: to-mach
+        type: choice
+        options:
+          - to-mach
+          - from-mach
+          - both
+      force:
+        description: Force-push when histories diverge (use carefully)
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: sync-repos-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve sync direction
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DIRECTION: ${{ inputs.direction }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+
+          to_mach=false
+          from_mach=false
+          force=false
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "${DISPATCH_DIRECTION}" in
+              to-mach) to_mach=true ;;
+              from-mach) from_mach=true ;;
+              both) to_mach=true; from_mach=true ;;
+              *) echo "Unknown direction: ${DISPATCH_DIRECTION}"; exit 1 ;;
+            esac
+            if [ "${{ inputs.force }}" = "true" ]; then
+              force=true
+            fi
+          elif [ "$EVENT_NAME" = "schedule" ]; then
+            from_mach=true
+          else
+            # push to main
+            if printf '%s' "$COMMIT_MESSAGE" | grep -Fq '[skip sync]'; then
+              echo "Skipping outbound sync due to [skip sync] in commit message."
+            else
+              to_mach=true
+            fi
+          fi
+
+          echo "to_mach=${to_mach}" >> "$GITHUB_OUTPUT"
+          echo "from_mach=${from_mach}" >> "$GITHUB_OUTPUT"
+          echo "force=${force}" >> "$GITHUB_OUTPUT"
+          echo "Plan: to_mach=${to_mach} from_mach=${from_mach} force=${force}"
+
+      - name: Checkout this repo
+        if: steps.plan.outputs.to_mach == 'true' || steps.plan.outputs.from_mach == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure git + remotes
+        if: steps.plan.outputs.to_mach == 'true' || steps.plan.outputs.from_mach == 'true'
+        env:
+          SYNC_PAT: ${{ secrets.sync_pat }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SYNC_PAT}" ]; then
+            echo "::error::Missing Actions secret 'sync_pat'. Add a PAT with read/write on both repos."
+            exit 1
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Avoid accidentally using the default GITHUB_TOKEN credentials.
+          git remote remove origin || true
+          git remote add origin "https://x-access-token:${SYNC_PAT}@github.com/${GITHUB_REPOSITORY}.git"
+          git remote add mach "https://x-access-token:${SYNC_PAT}@github.com/longnguyen-mach/esad_dev_dashboard.git"
+
+          git fetch origin main
+          git fetch mach main
+          git checkout -B main origin/main
+
+      - name: Sync from longnguyen-mach → this repo
+        if: steps.plan.outputs.from_mach == 'true'
+        env:
+          FORCE: ${{ steps.plan.outputs.force }}
+        run: |
+          set -euo pipefail
+
+          LOCAL=$(git rev-parse main)
+          REMOTE=$(git rev-parse mach/main)
+
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "Already in sync with longnguyen-mach/esad_dev_dashboard@main"
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor "$LOCAL" "$REMOTE"; then
+            echo "Fast-forwarding this repo to mach/main ($REMOTE)"
+            git reset --hard mach/main
+            git push origin main
+            echo "Pulled mach/main into this repo."
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
+            echo "This repo is ahead of mach/main; nothing to pull."
+            exit 0
+          fi
+
+          if [ "$FORCE" = "true" ]; then
+            echo "Histories diverged; force-updating this repo from mach/main"
+            git reset --hard mach/main
+            git push --force origin main
+            exit 0
+          fi
+
+          echo "::error::Histories diverged. Re-run with force=true after reviewing, or reconcile manually."
+          git log --oneline --left-right --cherry-pick main...mach/main | head -50
+          exit 1
+
+      - name: Sync from this repo → longnguyen-mach
+        if: steps.plan.outputs.to_mach == 'true'
+        env:
+          FORCE: ${{ steps.plan.outputs.force }}
+        run: |
+          set -euo pipefail
+
+          # Refresh remotes in case from-mach just moved main.
+          git fetch origin main
+          git fetch mach main
+          git checkout -B main origin/main
+
+          LOCAL=$(git rev-parse main)
+          REMOTE=$(git rev-parse mach/main)
+
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "longnguyen-mach/esad_dev_dashboard@main already matches this repo"
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
+            echo "Fast-forwarding mach/main to this main ($LOCAL)"
+            git push mach main:main
+            echo "Pushed this main to longnguyen-mach/esad_dev_dashboard"
+            exit 0
+          fi
+
+          if [ "$FORCE" = "true" ]; then
+            echo "Histories diverged; force-pushing this main to mach"
+            git push --force mach main:main
+            exit 0
+          fi
+
+          echo "::error::Histories diverged. Re-run workflow_dispatch with force=true after reviewing, or reconcile manually."
+          git log --oneline --left-right --cherry-pick main...mach/main | head -50
+          exit 1
