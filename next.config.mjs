@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Firebase App Hosting's adapter rewrites next.config.ts with
-  // `module.exports`, which breaks vinext/Vite ESM loading.
-  // Keep this file as .mjs so Firebase generates an ESM override instead.
+  // Required for Firebase App Hosting's Next.js adapter (standalone bundle).
+  output: "standalone",
+  // Keep this file as .mjs: Firebase's adapter emits ESM overrides for .mjs,
+  // but CommonJS `module.exports` for .ts/.js under `"type": "module"`.
   images: {
     unoptimized: true,
   },
