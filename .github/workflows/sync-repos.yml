@@ -165,6 +165,7 @@ jobs:
         if: steps.plan.outputs.to_mach == 'true'
         env:
           FORCE: ${{ steps.plan.outputs.force }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
 
@@ -188,12 +189,16 @@ jobs:
             exit 0
           fi
 
-          if [ "$FORCE" = "true" ]; then
+          # Automatic push events treat this repo as source of truth and force-mirror.
+          # Manual runs still require force=true to overwrite diverged history.
+          if [ "$FORCE" = "true" ] || [ "$EVENT_NAME" = "push" ]; then
             echo "Histories diverged; force-pushing this main to mach"
+            git log --oneline --left-right --cherry-pick main...mach/main | head -20 || true
             git push --force mach main:main
+            echo "Force-mirrored this main to longnguyen-mach/esad_dev_dashboard"
             exit 0
           fi
 
-          echo "::error::Histories diverged. Re-run workflow_dispatch with force=true after reviewing, or reconcile manually."
+          echo "::error::Histories diverged. Re-run workflow_dispatch with force=true after reviewing, or push a commit to main to auto-mirror."
           git log --oneline --left-right --cherry-pick main...mach/main | head -50
           exit 1
