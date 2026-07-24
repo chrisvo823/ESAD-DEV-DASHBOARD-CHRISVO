@@ -7,9 +7,13 @@
 #   on BOTH repositories.
 #
 # Behavior:
-#   - push to main here  → push this main to longnguyen-mach (to-mach)
-#   - schedule           → pull longnguyen-mach into this main when ahead (from-mach)
+#   - push to main here  → mirror this main to longnguyen-mach (to-mach)
+#   - schedule           → fast-forward this main from longnguyen-mach when safe
 #   - workflow_dispatch  → choose direction / optional force
+#
+# This repo is the source of truth for automatic outbound sync. If histories
+# diverged (separate roots), outbound sync force-pushes to mach so the mirror
+# can catch up. Inbound sync never force-pushes unless workflow_dispatch force=true.
 #
 # Commits containing "[skip sync]" do not trigger outbound sync (loop guard).
 
