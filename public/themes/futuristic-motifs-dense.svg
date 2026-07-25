@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" fill="none">
+  <!-- Smaller repeating tile: drones, missiles, chevrons -->
+  <g stroke="#3ec7ff" stroke-opacity="0.171" stroke-width="1.8" stroke-linejoin="round">
+    <!-- Jet -->
+    <path d="M70 80l70 10 20-24 12 6-6 24 46 8-10 10-42-2-14 22-16-16-30 6z"/>
+    <!-- Drone -->
+    <rect x="220" y="70" width="44" height="18" rx="4"/>
+    <circle cx="214" cy="68" r="10"/>
+    <circle cx="270" cy="68" r="10"/>
+    <circle cx="214" cy="90" r="10"/>
+    <circle cx="270" cy="90" r="10"/>
+    <!-- Missile -->
+    <path d="M360 60h90l16-6 8 8-8 8-16-4H360l-12-6z"/>
+    <path d="M400 66v18l12-6 6 10 8-12"/>
+    <!-- Rocket -->
+    <path d="M520 40c0-18 10-36 18-48 8 12 18 30 18 48v56h-36z"/>
+    <path d="M520 96l-12 22 16-6 14 14 14-14 16 6-12-22"/>
+    <!-- UAV -->
+    <path d="M650 70c24-4 52-2 72 8l20-16 10 6-8 18 28 8-10 8-24-2-12 16-14-10-24 4c-16-6-34-10-52-8z"/>
+    <!-- Plane top-right -->
+    <path d="M780 120l70 8 22-18 10 8-10 18 36 6-12 10-34-2-16 18-14-12-24 4z"/>
+  </g>
+
+  <g stroke="#ffc857" stroke-opacity="0.155" stroke-width="1.6">
+    <path d="M80 220l10-40 8 2-4 40z"/>
+    <path d="M80 220l-8 16 12-4 10 10 4-12z"/>
+    <path d="M200 250h80l14-6 6 6-6 6-14-4H200l-10-4z"/>
+    <path d="M420 230v-50l8-16 8 16v50l-8 12z"/>
+    <path d="M520 210l60 8-12 14-20-4-10 16-14-10-18 4z"/>
+  </g>
+
+  <g stroke="#47e0a0" stroke-opacity="0.155" stroke-width="1.5">
+    <circle cx="160" cy="400" r="24"/>
+    <path d="M160 368v12M160 420v12M128 400h12M180 400h12"/>
+    <circle cx="760" cy="380" r="20"/>
+    <path d="M760 352v10M760 398v10M732 380h10M778 380h10"/>
+    <path d="M300 390h40M320 370v40" stroke-opacity="0.217"/>
+  </g>
+
+  <g stroke="#7cf0ff" stroke-opacity="0.139" stroke-width="1.4" stroke-dasharray="5 7">
+    <path d="M40 500C140 460 260 470 360 440S560 360 680 390 820 470 880 450"/>
+    <path d="M60 620C180 580 300 600 420 560S680 500 820 540"/>
+  </g>
+
+  <g stroke="#ff5d6c" stroke-opacity="0.155" stroke-width="1.7">
+    <path d="M600 520c0-22 10-44 18-58 8 14 18 36 18 58v64h-36z"/>
+    <path d="M600 584l-14 26 18-8 16 16 16-16 18 8-14-26"/>
+    <path d="M740 540l90 12-18 16-28-4-14 22-20-14-28 6z"/>
+  </g>
+
+  <!-- Chevron formations -->
+  <g stroke="#3ec7ff" stroke-opacity="0.186" stroke-width="1.8">
+    <path d="M80 660l24-16 24 16"/>
+    <path d="M120 680l24-16 24 16"/>
+    <path d="M160 660l24-16 24 16"/>
+    <path d="M700 640l24-16 24 16"/>
+    <path d="M740 660l24-16 24 16"/>
+    <path d="M780 640l24-16 24 16"/>
+  </g>
+</svg>

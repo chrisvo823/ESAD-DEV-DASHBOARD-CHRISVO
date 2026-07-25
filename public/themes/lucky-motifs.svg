@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" fill="none">
+  <defs>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d4a34a" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#8f6a2a" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Diagonal field chevrons -->
+  <g stroke="#c8963a" stroke-opacity="0.12" stroke-width="10" stroke-linecap="square">
+    <path d="M-40 120l180-180M40 200l180-180M120 280l180-180"/>
+    <path d="M1180 40l180 180M1260 40l180 180M1340 40l180 180"/>
+    <path d="M-20 780l180 180M60 780l180 180M140 780l180 180"/>
+  </g>
+
+  <!-- Compass rose -->
+  <g stroke="#e0b45a" stroke-opacity="0.28" stroke-width="2">
+    <circle cx="210" cy="200" r="54"/>
+    <circle cx="210" cy="200" r="86"/>
+    <path d="M210 120v160M130 200h160"/>
+    <path d="M210 128l18 54-18 18-18-18z" fill="#e0b45a" fill-opacity="0.16"/>
+    <path d="M210 272l-18-54 18-18 18 18z" fill="#8f6a2a" fill-opacity="0.14"/>
+  </g>
+
+  <!-- Star burst -->
+  <g stroke="url(#brass)" stroke-width="2.2" stroke-linejoin="round">
+    <path d="M980 160l22 48 52 4-40 34 14 50-48-28-48 28 14-50-40-34 52-4z"/>
+  </g>
+
+  <!-- Four-point luck mark -->
+  <g stroke="#9bbf6a" stroke-opacity="0.3" stroke-width="2">
+    <path d="M460 240c28-40 56-40 84 0-28 40-56 40-84 0z"/>
+    <path d="M502 198c40 28 40 56 0 84-40-28-40-56 0-84z"/>
+    <circle cx="502" cy="240" r="7" fill="#9bbf6a" fill-opacity="0.2"/>
+  </g>
+
+  <!-- Target reticle -->
+  <g stroke="#d4a34a" stroke-opacity="0.26" stroke-width="1.8">
+    <circle cx="1180" cy="620" r="36"/>
+    <circle cx="1180" cy="620" r="64"/>
+    <path d="M1180 540v40M1180 660v40M1100 620h40M1220 620h40"/>
+  </g>
+
+  <!-- Field striping -->
+  <g stroke="#6f8f4a" stroke-opacity="0.14" stroke-width="3">
+    <path d="M700 520h220M700 548h180M700 576h200"/>
+    <path d="M160 620h160M160 648h120"/>
+  </g>
+
+  <!-- Brass arc gauges -->
+  <g stroke="#e0b45a" stroke-opacity="0.22" stroke-width="2" stroke-dasharray="6 8">
+    <path d="M760 180a90 90 0 0 1 90 90"/>
+    <path d="M320 680a70 70 0 0 0 70-70"/>
+  </g>
+</svg>

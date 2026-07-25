@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" fill="none">
+  <!-- Dense warm chevron lattice -->
+  <g stroke="#c8963a" stroke-opacity="0.09" stroke-width="1.4">
+    <path d="M20 40l40-40M60 40l40-40M100 40l40-40M140 40l40-40M180 40l40-40"/>
+    <path d="M20 90l40-40M60 90l40-40M100 90l40-40M140 90l40-40M180 90l40-40"/>
+    <path d="M700 40l40 40M740 40l40 40M780 40l40 40"/>
+    <path d="M700 90l40 40M740 90l40 40M780 90l40 40"/>
+  </g>
+
+  <!-- Small stars -->
+  <g fill="#e0b45a" fill-opacity="0.14">
+    <path d="M120 180l6 12 14 1-10 9 3 13-13-7-13 7 3-13-10-9 14-1z"/>
+    <path d="M780 220l5 10 12 1-9 7 3 11-11-6-11 6 3-11-9-7 12-1z"/>
+    <path d="M420 520l5 10 12 1-9 7 3 11-11-6-11 6 3-11-9-7 12-1z"/>
+  </g>
+
+  <!-- Olive hash marks -->
+  <g stroke="#8faf5a" stroke-opacity="0.16" stroke-width="1.6" stroke-dasharray="3 7">
+    <path d="M40 360h140M40 380h110M40 400h160"/>
+    <path d="M680 480h160M680 500h120M680 520h150"/>
+  </g>
+
+  <!-- Mini compass -->
+  <g stroke="#d4a34a" stroke-opacity="0.2" stroke-width="1.5">
+    <circle cx="450" cy="180" r="28"/>
+    <path d="M450 152v56M422 180h56"/>
+  </g>
+
+  <!-- Corner brackets -->
+  <g stroke="#b8893a" stroke-opacity="0.18" stroke-width="2">
+    <path d="M40 620h36v36"/>
+    <path d="M860 40h-36v36"/>
+    <path d="M860 660h-36v-36"/>
+  </g>
+</svg>
