@@ -1,7 +1,7 @@
 import {
   DEFAULT_OVERDUE_LED_THRESHOLDS,
   type OverdueLedThresholds,
-} from "./dsb-tasks.ts";
+} from "./dsb-tasks";
 
 /** Top-level dashboard title / program lead shown in the hero header. */
 export type ProgramConfig = {

@@ -1,8 +1,8 @@
 import {
   ESAD_PROJECT_INTEGRATIONS,
   type EsadProjectCode,
-} from "./esad-projects.ts";
-import { getSmartsheetSheet } from "./smartsheet.ts";
+} from "./esad-projects";
+import { getSmartsheetSheet } from "./smartsheet";
 
 export const AVIONICS_MASTER_SCHEDULE_SHEET_ID = 2069122061913988;
 export const DSB_SCHEDULE_TASK_NAME =

@@ -1,5 +1,5 @@
-import { AVIONICS_MASTER_SCHEDULE_PERMALINK } from "./esad-projects.ts";
-import type { EsadProjectCode } from "./esad-projects.ts";
+import { AVIONICS_MASTER_SCHEDULE_PERMALINK } from "./esad-projects";
+import type { EsadProjectCode } from "./esad-projects";
 
 /** Fixed dashboard slots: 1 top-left, 2 top-right, 3 bottom-left, 4 bottom-right. */
 export type FixedDashboardId = "1" | "2" | "3" | "4";
@@ -84,7 +84,7 @@ export const DASHBOARD_CONFIGS: Record<FixedDashboardId, DashboardConfig> = {
   },
 };
 
-export const DASHBOARD_ID_BY_CODE: Record<EsadProjectCode, DashboardId> = {
+export const DASHBOARD_ID_BY_CODE: Record<EsadProjectCode, FixedDashboardId> = {
   DSB: "1",
   HVFB: "2",
   PRI: "3",

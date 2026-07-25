@@ -501,15 +501,20 @@ function HealthCore({ status }: { status: ProgramTaskTotals }) {
   );
 }
 
+function isEsadProjectCode(code: string): code is EsadProjectCode {
+  return code === "DSB" || code === "HVFB" || code === "PRI" || code === "IND";
+}
+
 function applyLiveProjectStats(
   projectList: Project[],
   taskStatsByCode: Partial<Record<EsadProjectCode, DsbTaskStats>>,
   scheduleStatsByCode: Partial<Record<EsadProjectCode, DsbScheduleStats>>,
 ): Project[] {
   return projectList.map((project) => {
-    const stats = taskStatsByCode[project.code] ?? null;
-    const scheduleStats = scheduleStatsByCode[project.code] ?? null;
-    const sheetHref = sheetEditUrlFor(project.code);
+    const code = isEsadProjectCode(project.code) ? project.code : null;
+    const stats = code ? (taskStatsByCode[code] ?? null) : null;
+    const scheduleStats = code ? (scheduleStatsByCode[code] ?? null) : null;
+    const sheetHref = code ? sheetEditUrlFor(code) : "";
 
     let nextProject = { ...project, metrics: [...project.metrics] };
 
