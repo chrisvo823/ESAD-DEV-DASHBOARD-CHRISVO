@@ -172,7 +172,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /label: "Current Task"/);
   assert.match(page, /label: "Next Task"/);
   assert.match(page, /valueText: current\?\.name/);
-  assert.match(page, /valueText: scheduleStats\.nextTask\?\.name/);
+  assert.match(page, /valueText: schedule\.nextTask\?\.name/);
   assert.match(page, /valuePercentLabel/);
   assert.match(page, /valueDateLabel/);
   assert.match(page, /formatSchedulePercentComplete/);
@@ -180,9 +180,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /current\?\.finish/);
   assert.match(page, /nextTask\?\.start/);
   assert.match(page, /focusTaskId: current\?\.id/);
-  assert.match(page, /focusTaskId: scheduleStats\.nextTask\?\.id/);
+  assert.match(page, /focusTaskId: schedule\.nextTask\?\.id/);
   assert.match(page, /valueHref: current\?\.permalink/);
-  assert.match(page, /valueHref:\s*\n?\s*scheduleStats\.nextTask\?\.permalink|valueHref: schedule\.nextTask\?\.permalink/);
+  assert.match(page, /valueHref: schedule\.nextTask\?\.permalink/);
   assert.match(page, /metricsWithScheduleStats/);
   assert.match(page, /fallbackScheduleFromMetrics/);
   assert.match(page, /findCurrentScheduleTask/);
