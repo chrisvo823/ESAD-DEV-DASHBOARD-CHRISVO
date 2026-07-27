@@ -176,7 +176,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /valueText: current\?\.name|const valueText = current\?\.name/);
   assert.match(
     page,
-    /valueText: schedule\.nextTask\?\.name|const valueText = schedule\.nextTask\?\.name/,
+    /valueText: schedule\.nextTask\?\.name|const valueText = next\?\.name|const valueText = schedule\.nextTask\?\.name/,
   );
   assert.match(page, /valuePercentLabel/);
   assert.match(page, /valueDateLabel/);
