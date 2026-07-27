@@ -24,6 +24,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   const [draft, setDraft] = useState(() => formatDashboardConfigText(config));
   const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const titleId = useId();
   const errorId = useId();
 
@@ -41,6 +43,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     setDraft(nextDraft);
     setErrors(validateDashboardConfigSyntax(nextDraft));
     setSaved(false);
+    setSaveError(null);
+    setSaving(false);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -51,14 +55,16 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   function handleDraftChange(value: string) {
     setDraft(value);
     setSaved(false);
+    setSaveError(null);
     setErrors(validateDashboardConfigSyntax(value));
   }
 
-  function handleSave() {
+  async function handleSave() {
     const syntaxErrors = validateDashboardConfigSyntax(draft);
     if (syntaxErrors.length > 0) {
       setErrors(syntaxErrors);
       setSaved(false);
+      setSaveError(null);
       return;
     }
 
@@ -66,18 +72,32 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     if ("error" in parsed) {
       setErrors(parsed.errors);
       setSaved(false);
+      setSaveError(null);
       return;
     }
 
-    if (isCustomCardId(parsed.config.dashboardId)) {
-      syncCustomCardConfig(parsed.config);
-    } else {
-      writeDashboardConfig(parsed.config);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      if (isCustomCardId(parsed.config.dashboardId)) {
+        await syncCustomCardConfig(parsed.config);
+      } else {
+        await writeDashboardConfig(parsed.config);
+      }
+      const savedText = formatDashboardConfigText(parsed.config);
+      setDraft(savedText);
+      setErrors([]);
+      setSaved(true);
+    } catch (err) {
+      setSaved(false);
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save card configuration on the host.",
+      );
+    } finally {
+      setSaving(false);
     }
-    const savedText = formatDashboardConfigText(parsed.config);
-    setDraft(savedText);
-    setErrors([]);
-    setSaved(true);
   }
 
   if (!authenticated) return null;
@@ -120,10 +140,10 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     <button
                       type="button"
                       className="config-window-save"
-                      onClick={handleSave}
-                      disabled={hasSyntaxErrors}
+                      onClick={() => void handleSave()}
+                      disabled={hasSyntaxErrors || saving}
                     >
-                      Save
+                      {saving ? "Saving…" : "Save"}
                     </button>
                     <button
                       type="button"
@@ -135,8 +155,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Each value must be inside quotes, e.g. Board Name: "Digital
-                  Safety Board".
+                  Saved on the host and shared for all users. Each value must be
+                  inside quotes, e.g. Board Name: &quot;Digital Safety Board&quot;.
                 </p>
                 <textarea
                   className={`config-window-editor${
@@ -159,8 +179,15 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     ))}
                   </ul>
                 ) : null}
-                {saved && !hasSyntaxErrors ? (
-                  <p className="config-window-saved">Configuration saved</p>
+                {saveError ? (
+                  <p className="config-window-errors" role="alert">
+                    {saveError}
+                  </p>
+                ) : null}
+                {saved && !hasSyntaxErrors && !saveError ? (
+                  <p className="config-window-saved">
+                    Configuration saved on host
+                  </p>
                 ) : null}
               </div>
             </div>,

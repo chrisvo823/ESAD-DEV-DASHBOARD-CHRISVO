@@ -29,6 +29,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const titleId = useId();
   const identityEditorId = useId();
   const ledEditorId = useId();
@@ -54,6 +56,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
       ),
     );
     setSaved(false);
+    setSaveError(null);
+    setSaving(false);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -65,6 +69,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     setIdentityDraft(nextIdentity);
     setLedDraft(nextLed);
     setSaved(false);
+    setSaveError(null);
     setErrors(
       validateProgramConfigSyntax(
         combineProgramConfigEditors(nextIdentity, nextLed),
@@ -72,12 +77,13 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
     const combined = combineProgramConfigEditors(identityDraft, ledDraft);
     const syntaxErrors = validateProgramConfigSyntax(combined);
     if (syntaxErrors.length > 0) {
       setErrors(syntaxErrors);
       setSaved(false);
+      setSaveError(null);
       return;
     }
 
@@ -85,14 +91,28 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     if ("error" in parsed) {
       setErrors(parsed.errors);
       setSaved(false);
+      setSaveError(null);
       return;
     }
 
-    writeProgramConfig(parsed.config);
-    setIdentityDraft(formatProgramIdentityText(parsed.config));
-    setLedDraft(formatProgramLedThresholdText(parsed.config));
-    setErrors([]);
-    setSaved(true);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await writeProgramConfig(parsed.config);
+      setIdentityDraft(formatProgramIdentityText(parsed.config));
+      setLedDraft(formatProgramLedThresholdText(parsed.config));
+      setErrors([]);
+      setSaved(true);
+    } catch (err) {
+      setSaved(false);
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save Dashboard Configuration on the host.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!authenticated) return null;
@@ -137,10 +157,10 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     <button
                       type="button"
                       className="config-window-save"
-                      onClick={handleSave}
-                      disabled={hasSyntaxErrors}
+                      onClick={() => void handleSave()}
+                      disabled={hasSyntaxErrors || saving}
                     >
-                      Save
+                      {saving ? "Saving…" : "Save"}
                     </button>
                     <button
                       type="button"
@@ -152,11 +172,12 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Each value must be inside quotes. Card status LED thresholds
-                  use Over Due counts: Green: &quot;1&quot; lights green when
-                  overdue is below Yellow, Yellow: &quot;3&quot; lights yellow when
-                  overdue is 3 or more, Red: &quot;5&quot; lights red when overdue
-                  is 5 or more.
+                  Saved on the host and shared for all users (Themes stay in this
+                  browser). Each value must be inside quotes. Card status LED
+                  thresholds use Over Due counts: Green: &quot;1&quot; lights green
+                  when overdue is below Yellow, Yellow: &quot;3&quot; lights yellow
+                  when overdue is 3 or more, Red: &quot;5&quot; lights red when
+                  overdue is 5 or more.
                 </p>
                 <label
                   className="config-window-section-label"
@@ -207,8 +228,15 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     ))}
                   </ul>
                 ) : null}
-                {saved && !hasSyntaxErrors ? (
-                  <p className="config-window-saved">Configuration saved</p>
+                {saveError ? (
+                  <p className="config-window-errors" role="alert">
+                    {saveError}
+                  </p>
+                ) : null}
+                {saved && !hasSyntaxErrors && !saveError ? (
+                  <p className="config-window-saved">
+                    Configuration saved on host
+                  </p>
                 ) : null}
               </div>
             </div>,

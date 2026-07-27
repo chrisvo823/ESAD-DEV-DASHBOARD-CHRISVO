@@ -318,7 +318,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /\/api\/site-config/);
   assert.match(programConfigStore, /persistSiteConfigPatch/);
+  assert.match(programConfigStore, /programConfig:\s*next/);
   assert.match(dashboardConfigStore, /persistSiteConfigPatch/);
+  assert.match(dashboardConfigStore, /dashboardConfig:/);
   assert.doesNotMatch(
     programConfigStore,
     /localStorage\.setItem\(\s*PROGRAM_CONFIG_STORAGE_KEY/,
@@ -327,6 +329,7 @@ test("keeps dashboard metadata and project data in source", async () => {
     dashboardConfigStore,
     /localStorage\.setItem\(\s*DASHBOARD_CONFIG_STORAGE_KEY/,
   );
+
   assert.match(themeStore, /localStorage\.setItem\(THEME_STORAGE_KEY/);
   assert.match(themeStore, /esad-dashboard-theme/);
   assert.match(heroHeader, /hydrateSiteConfigFromHost/);
@@ -442,14 +445,26 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /Yellow: "/);
   assert.match(programConfigSource, /Red: "/);
 
-  const programConfigWindow = await readFile(
-    new URL("../app/program-config-window.tsx", import.meta.url),
-    "utf8",
-  );
+  const [programConfigWindow, configWindow, adminLoginsPanel] =
+    await Promise.all([
+      readFile(
+        new URL("../app/program-config-window.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../app/config-window.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/admin-logins-panel.tsx", import.meta.url),
+        "utf8",
+      ),
+    ]);
   assert.match(programConfigWindow, /Card LED Threshold/);
   assert.match(programConfigWindow, /formatProgramLedThresholdText/);
   assert.match(programConfigWindow, /config-window-editor--led/);
   assert.match(programConfigWindow, /status LED/);
+  assert.match(programConfigWindow, /Saved on the host/);
+  assert.match(configWindow, /Saved on the host/);
+  assert.match(adminLoginsPanel, /running list of unique Google sign-ins/);
+  assert.match(adminLoginsPanel, /summary\?\.users/);
   assert.match(page, /function HealthCore\(/);
   assert.match(page, /programStatusFromProjects/);
   assert.match(page, /aggregateProgramTaskStats/);

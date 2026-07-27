@@ -64,17 +64,15 @@ export function readDashboardConfigs(): ConfigMap {
   return Object.keys(cached).length > 0 ? cached : cloneDefaults();
 }
 
-export function writeDashboardConfig(config: DashboardConfig): ConfigMap {
+export async function writeDashboardConfig(
+  config: DashboardConfig,
+): Promise<ConfigMap> {
   const next = {
     ...readDashboardConfigs(),
     [config.dashboardId]: { ...config, dashboardId: config.dashboardId },
   };
   emitLegacyConfigEvent(next[config.dashboardId]!);
-  void persistSiteConfigPatch({ dashboardConfig: next[config.dashboardId]! }).catch(
-    () => {
-      // Host save failures are surfaced by re-hydration in persist helper.
-    },
-  );
+  await persistSiteConfigPatch({ dashboardConfig: next[config.dashboardId]! });
   return next;
 }
 

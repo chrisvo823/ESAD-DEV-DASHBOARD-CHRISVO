@@ -22,7 +22,9 @@ export function readProgramConfig(): ProgramConfig {
   return readCachedProgramConfig();
 }
 
-export function writeProgramConfig(config: ProgramConfig): ProgramConfig {
+export async function writeProgramConfig(
+  config: ProgramConfig,
+): Promise<ProgramConfig> {
   const next = withDefaultProgramLedThresholds({
     dashboardName: config.dashboardName.trim(),
     programLead: config.programLead.trim(),
@@ -35,9 +37,7 @@ export function writeProgramConfig(config: ProgramConfig): ProgramConfig {
       new CustomEvent(PROGRAM_CONFIG_EVENT, { detail: { config: next } }),
     );
   }
-  void persistSiteConfigPatch({ programConfig: next }).catch(() => {
-    // Host save failures are surfaced by re-hydration in persist helper.
-  });
+  await persistSiteConfigPatch({ programConfig: next });
   return next;
 }
 
