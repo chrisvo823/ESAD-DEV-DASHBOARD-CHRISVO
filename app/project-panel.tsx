@@ -1,9 +1,14 @@
 "use client";
 
+import type { KeyboardEvent, MouseEvent } from "react";
 import { ConfigWindow } from "./config-window";
 import { useDashboardConfig } from "./dashboard-config-store";
 import { useProgramConfig } from "./program-config-store";
 import { ScheduleHoverLabel } from "./schedule-hover";
+import {
+  toggleSelectedCardId,
+  useSelectedCardId,
+} from "./selected-card-store";
 import { TaskHoverLabel } from "./task-hover";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import type { EsadProjectCode } from "../lib/esad-projects";
@@ -165,6 +170,8 @@ export function ProjectPanel({
 }) {
   const config = useDashboardConfig(project.config.dashboardId);
   const programConfig = useProgramConfig();
+  const selectedCardId = useSelectedCardId();
+  const selected = selectedCardId === config.dashboardId;
   const metrics = metricsWithLiveLinkState(
     project.metrics,
     config.googleDriveLink,
@@ -186,16 +193,40 @@ export function ProjectPanel({
     project.taskProgressPercent != null
       ? `Task progress ${progressPercent} percent done versus open`
       : `Average board progress ${boardAverage} percent`;
-  const panelClass =
+  const panelClass = [
     layout === "custom"
       ? "project-panel project-panel--custom"
-      : `project-panel project-panel--${index + 1}`;
+      : `project-panel project-panel--${index + 1}`,
+    selected ? "is-selected" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  function handleSelectToggle(
+    event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
+  ) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("a, button, input, textarea, select, label")) {
+      return;
+    }
+    toggleSelectedCardId(config.dashboardId);
+  }
 
   return (
     <article
       className={panelClass}
       data-dashboard-id={config.dashboardId}
       data-card-layout={layout}
+      data-selected={selected ? "true" : "false"}
+      aria-label={`${config.boardNickname} project card${selected ? ", selected" : ""}`}
+      tabIndex={0}
+      onClick={handleSelectToggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleSelectToggle(event);
+        }
+      }}
     >
       <div className="panel-topline" aria-hidden="true" />
       <header className="panel-header">
