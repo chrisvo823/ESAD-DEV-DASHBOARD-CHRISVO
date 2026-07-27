@@ -119,6 +119,21 @@ export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
     );
   }
 
+  // Local / preview hosts without Firebase env still show the dashboard so
+  // Current Task, Next Task, and card Configuration can be inspected.
+  if (state.status === "missing-config") {
+    return (
+      <>
+        <div className="company-auth-bar company-auth-bar--preview" role="status">
+          <span className="company-auth-user">
+            Preview mode — Firebase Auth is not configured
+          </span>
+        </div>
+        {children}
+      </>
+    );
+  }
+
   return (
     <main className="company-auth-shell">
       <section className="company-auth-card" aria-label="Company sign in">
@@ -135,15 +150,6 @@ export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
           continue.
         </p>
 
-        {state.status === "missing-config" ? (
-          <p className="company-auth-error">
-            Firebase Auth is not configured. Set{" "}
-            <code>NEXT_PUBLIC_FIREBASE_*</code> and{" "}
-            <code>NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN</code> in Firebase App
-            Hosting environment variables, then redeploy.
-          </p>
-        ) : null}
-
         {state.status === "blocked" ? (
           <p className="company-auth-error">
             {state.email} is not allowed. Use an @{allowedDomain} account.
@@ -156,11 +162,7 @@ export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
           type="button"
           className="company-auth-google"
           onClick={handleGoogleSignIn}
-          disabled={
-            busy ||
-            state.status === "missing-config" ||
-            state.status === "loading"
-          }
+          disabled={busy || state.status === "loading"}
         >
           {busy || state.status === "loading"
             ? "Working…"
