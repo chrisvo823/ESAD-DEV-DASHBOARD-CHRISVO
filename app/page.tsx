@@ -104,6 +104,13 @@ const dsbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         "2026-07-24T08:00:00",
         "2026-08-20T16:59:59",
       ),
+      // Next after Schematic on the Rev A schedule (not Rev B Requirements).
+      scheduleTask(
+        3705936781605108,
+        "Layout",
+        "2026-08-21T08:00:00",
+        "2026-09-29T16:59:59",
+      ),
     ],
   },
   {
@@ -157,6 +164,12 @@ const hvfbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         "Schematic",
         "2026-07-24T08:00:00",
         "2026-08-20T16:59:59",
+      ),
+      scheduleTask(
+        3847047892716212,
+        "Layout",
+        "2026-08-21T08:00:00",
+        "2026-09-29T16:59:59",
       ),
     ],
   },
@@ -352,15 +365,15 @@ const projects: Project[] = [
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(4913359450996612),
-        valueText: "Requirements",
+        href: smartsheetRowUrl(3705936781605108),
+        valueText: "Layout",
         valueDateLabel:
           formatScheduleDateRange(
-            "2026-09-29T16:59:59",
+            "2026-08-21T08:00:00",
             "2026-09-29T16:59:59",
           ) ?? undefined,
-        valueHref: smartsheetRowUrl(4913359450996612),
-        focusTaskId: 4913359450996612,
+        valueHref: smartsheetRowUrl(3705936781605108),
+        focusTaskId: 3705936781605108,
         hideValueBar: true,
         scheduleRevisions: dsbScheduleFallbackRevisions,
       },
@@ -419,15 +432,15 @@ const projects: Project[] = [
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(5054096939351940),
-        valueText: "Requirements",
+        href: smartsheetRowUrl(3847047892716212),
+        valueText: "Layout",
         valueDateLabel:
           formatScheduleDateRange(
-            "2026-09-29T16:59:59",
+            "2026-08-21T08:00:00",
             "2026-09-29T16:59:59",
           ) ?? undefined,
-        valueHref: smartsheetRowUrl(5054096939351940),
-        focusTaskId: 5054096939351940,
+        valueHref: smartsheetRowUrl(3847047892716212),
+        focusTaskId: 3847047892716212,
         hideValueBar: true,
         scheduleRevisions: hvfbScheduleFallbackRevisions,
       },
