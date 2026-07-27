@@ -76,27 +76,39 @@ export async function writeDashboardConfig(
   return next;
 }
 
-export function useDashboardConfig(dashboardId: DashboardId): DashboardConfig {
-  const [config, setConfig] = useState<DashboardConfig>(() =>
-    defaultConfigForId(dashboardId),
-  );
+export function useDashboardConfig(
+  dashboardId: DashboardId,
+  /** Host-loaded card Configuration from SSR (required source of truth). */
+  hostInitial?: DashboardConfig,
+): DashboardConfig {
+  const [config, setConfig] = useState<DashboardConfig>(() => {
+    if (typeof window !== "undefined") {
+      return (
+        readCachedDashboardConfigs()[dashboardId] ??
+        hostInitial ??
+        defaultConfigForId(dashboardId)
+      );
+    }
+    return hostInitial ?? defaultConfigForId(dashboardId);
+  });
 
   useEffect(() => {
     let cancelled = false;
 
+    function configFromHostCache(): DashboardConfig {
+      return (
+        readCachedDashboardConfigs()[dashboardId] ??
+        defaultConfigForId(dashboardId)
+      );
+    }
+
     void hydrateSiteConfigFromHost().then(() => {
       if (cancelled) return;
-      setConfig(
-        readCachedDashboardConfigs()[dashboardId] ??
-          defaultConfigForId(dashboardId),
-      );
+      setConfig(configFromHostCache());
     });
 
     const unsubscribe = subscribeSiteConfig(() => {
-      setConfig(
-        readCachedDashboardConfigs()[dashboardId] ??
-          defaultConfigForId(dashboardId),
-      );
+      setConfig(configFromHostCache());
     });
 
     const onLegacy = (event: Event) => {

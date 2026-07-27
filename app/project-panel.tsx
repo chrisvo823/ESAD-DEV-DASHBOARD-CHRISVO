@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { ConfigWindow } from "./config-window";
 import { useDashboardConfig } from "./dashboard-config-store";
 import { useProgramConfig } from "./program-config-store";
+import { useHostProgramConfig } from "./site-config-bootstrap";
 import { ScheduleHoverLabel } from "./schedule-hover";
 import {
   toggleSelectedCardId,
@@ -167,8 +168,12 @@ export function ProjectPanel({
   /** `custom` cards sit below the top-4 grid and skip ring inset classes. */
   layout?: "fixed" | "custom";
 }) {
-  const config = useDashboardConfig(project.config.dashboardId);
-  const programConfig = useProgramConfig();
+  // Card + Dashboard Configuration are host-sourced (SSR host payload + client pull).
+  const config = useDashboardConfig(
+    project.config.dashboardId,
+    project.config,
+  );
+  const programConfig = useProgramConfig(useHostProgramConfig());
   const selectedCardId = useSelectedCardId();
   const selected = selectedCardId === config.dashboardId;
   const metrics = metricsWithLiveLinkState(

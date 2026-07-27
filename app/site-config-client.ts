@@ -24,6 +24,8 @@ type SiteConfigCache = SiteConfigPublic;
 
 let cache: SiteConfigCache | null = null;
 let hydratePromise: Promise<SiteConfigCache> | null = null;
+/** True after a successful `/api/site-config` pull this page session. */
+let pulledFromHost = false;
 
 function emitSiteConfigChange(next: SiteConfigCache) {
   if (typeof window === "undefined") return;
@@ -163,11 +165,33 @@ export function getCachedSiteConfig(): SiteConfigCache {
   return cache ?? defaultPublicConfig();
 }
 
+/**
+ * Seed the browser cache from host config loaded during SSR.
+ * No-ops on the server and when a client cache already exists.
+ */
+export function seedSiteConfigFromServer(initial: SiteConfigPublic): void {
+  if (typeof window === "undefined") return;
+  if (cache) return;
+  setCache(
+    {
+      programConfig: sanitizeProgramConfig(initial.programConfig),
+      dashboardConfigs: sanitizeDashboardConfigs(initial.dashboardConfigs),
+      customCards: sanitizeCustomCards(initial.customCards),
+      recoveryEmail:
+        typeof initial.recoveryEmail === "string" ? initial.recoveryEmail : "",
+      persisted: Boolean(initial.persisted),
+      updatedAt: initial.updatedAt ?? null,
+    },
+    false,
+  );
+}
+
 export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
   if (typeof window === "undefined") {
     return defaultPublicConfig();
   }
-  if (cache?.persisted) return cache;
+  // After a successful host pull, reuse cache until refreshSiteConfigFromHost.
+  if (pulledFromHost && cache) return cache;
   if (hydratePromise) return hydratePromise;
 
   hydratePromise = (async () => {
@@ -186,6 +210,7 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
         persisted: Boolean(host.persisted),
         updatedAt: host.updatedAt ?? null,
       });
+      pulledFromHost = true;
       return setCache(maybeMigrated);
     } catch {
       return setCache(defaultPublicConfig());
@@ -201,6 +226,7 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
 export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
   cache = null;
   hydratePromise = null;
+  pulledFromHost = false;
   return hydrateSiteConfigFromHost();
 }
 
