@@ -13,6 +13,7 @@ import {
   isAllowedCompanyEmail,
 } from "../lib/allowed-email";
 import { getFirebaseAuth, getFirebaseWebConfig } from "../lib/firebase-client";
+import { recordDashboardLogin } from "../lib/record-dashboard-login";
 
 type CompanyAuthGateProps = {
   children: ReactNode;
@@ -55,6 +56,7 @@ export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
       }
 
       setState({ status: "ready", user });
+      void recordDashboardLogin(user.email);
     });
 
     return () => unsub();
@@ -77,6 +79,8 @@ export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
           status: "blocked",
           email: result.user.email ?? "(no email)",
         });
+      } else {
+        void recordDashboardLogin(result.user.email);
       }
     } catch (err) {
       const message =
