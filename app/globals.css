@@ -2200,110 +2200,77 @@ body[data-theme="lucky-brass"] {
 
 .theme-picker-window,
 .admin-account-window,
-.admin-access-window { width: min(560px, 100%); }
+.admin-logins-window { width: min(560px, 100%); }
 
-.admin-access-body {
+.admin-logins-body {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   padding: 0 18px 18px;
 }
 
-.admin-access-section {
-  display: grid;
-  gap: 10px;
-}
-
-.admin-access-section h4 {
-  margin: 0;
-  font-family: var(--font-geist-mono), monospace;
-  font-size: .68rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #9fc4e4;
-}
-
-.admin-access-facts {
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.admin-access-facts > div {
-  display: grid;
-  grid-template-columns: minmax(120px, 38%) 1fr;
-  gap: 10px;
-  align-items: start;
-}
-
-.admin-access-facts dt {
+.admin-logins-summary {
   margin: 0;
   color: var(--muted);
-  font-size: .72rem;
-}
-
-.admin-access-facts dd {
-  margin: 0;
-  font-size: .82rem;
-  color: var(--text);
-  word-break: break-word;
-}
-
-.admin-access-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border: 1px solid currentColor;
-  font-family: var(--font-geist-mono), monospace;
-  font-size: .64rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.admin-access-pill--ok {
-  color: #7dcea0;
-}
-
-.admin-access-pill--warn {
-  color: #d7b56d;
-}
-
-.admin-access-pill--deny {
-  color: #e07a7a;
-}
-
-.admin-access-form {
-  display: grid;
-  gap: 12px;
-}
-
-.admin-access-result {
-  margin: 0;
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid #3b79ae;
-  background: rgba(8, 22, 36, .75);
   font-size: .78rem;
 }
 
-.admin-access-result span {
+.admin-logins-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: min(50vh, 360px);
+  overflow: auto;
+}
+
+.admin-logins-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid #3b79ae;
+  background: rgba(8, 22, 36, .75);
+}
+
+.admin-logins-item strong {
+  font-size: .82rem;
+  word-break: break-word;
+}
+
+.admin-logins-item time {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .68rem;
+  color: #9fc4e4;
+  white-space: nowrap;
+}
+
+.admin-logins-empty {
+  margin: 0;
+  padding: 14px 12px;
+  border: 1px dashed #3b79ae;
   color: var(--muted);
+  font-size: .78rem;
 }
 
-.admin-access-result--ok {
-  border-color: rgba(125, 206, 160, .55);
+.admin-logins-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.admin-access-result--deny {
-  border-color: rgba(224, 122, 122, .55);
+.admin-logins-error {
+  margin: 0;
+  color: #e07a7a;
+  font-size: .78rem;
 }
 
-[data-theme="light"] .admin-access-section h4 {
-  color: #355f86;
-}
-
-[data-theme="light"] .admin-access-result {
+[data-theme="light"] .admin-logins-item {
   background: rgba(255, 255, 255, .85);
+}
+
+[data-theme="light"] .admin-logins-item time {
+  color: #355f86;
 }
 
 .theme-picker-list {
