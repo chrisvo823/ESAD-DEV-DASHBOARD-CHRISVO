@@ -8,11 +8,13 @@ import {
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
+  hrefMatchesSmartsheetConfig,
   parseGoogleSheetIdFromLink,
   parseSmartsheetPermalink,
   resolveGoogleDriveSource,
   resolveSmartsheetSheetIdFromLink,
   resolveSmartsheetSource,
+  smartsheetHrefFromConfig,
 } from "../lib/source-links.ts";
 import {
   scheduleMetricsForSourceStatus,
@@ -80,6 +82,43 @@ test("parses Smartsheet permalinks and resolves the Avionics sheet id", () => {
   );
 });
 
+test("Configuration Smartsheet Link drives Current/Next Task hrefs", () => {
+  assert.equal(
+    smartsheetHrefFromConfig(AVIONICS_MASTER_SCHEDULE_PERMALINK),
+    AVIONICS_MASTER_SCHEDULE_PERMALINK,
+  );
+  assert.equal(
+    smartsheetHrefFromConfig(
+      `${AVIONICS_MASTER_SCHEDULE_PERMALINK}?rowId=99`,
+    ),
+    AVIONICS_MASTER_SCHEDULE_PERMALINK,
+  );
+  assert.equal(smartsheetHrefFromConfig(""), null);
+  assert.equal(
+    hrefMatchesSmartsheetConfig(
+      `${AVIONICS_MASTER_SCHEDULE_PERMALINK}?rowId=1`,
+      AVIONICS_MASTER_SCHEDULE_PERMALINK,
+    ),
+    true,
+  );
+  assert.equal(
+    hrefMatchesSmartsheetConfig(
+      "https://app.smartsheet.com/sheets/OtherSheetToken",
+      AVIONICS_MASTER_SCHEDULE_PERMALINK,
+    ),
+    false,
+  );
+
+  const linked = scheduleMetricsForSourceStatus(
+    "ok",
+    AVIONICS_MASTER_SCHEDULE_PERMALINK,
+  );
+  assert.equal(linked.current.valueText, "—");
+  assert.equal(linked.current.href, AVIONICS_MASTER_SCHEDULE_PERMALINK);
+  assert.equal(linked.current.valueHref, undefined);
+  assert.equal(linked.next.href, AVIONICS_MASTER_SCHEDULE_PERMALINK);
+});
+
 test("builds Empty and Error metric stubs", () => {
   const emptyTasks = taskMetricsForSourceStatus("empty");
   assert.equal(emptyTasks.open.valueText, METRIC_SOURCE_EMPTY);
@@ -89,4 +128,5 @@ test("builds Empty and Error metric stubs", () => {
   const errorSchedule = scheduleMetricsForSourceStatus("invalid");
   assert.equal(errorSchedule.current.valueText, METRIC_SOURCE_ERROR);
   assert.equal(errorSchedule.next.valueText, METRIC_SOURCE_ERROR);
+  assert.equal(errorSchedule.current.href, undefined);
 });

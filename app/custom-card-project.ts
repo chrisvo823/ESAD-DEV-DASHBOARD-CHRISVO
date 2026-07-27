@@ -5,8 +5,8 @@ import {
 } from "../lib/metric-source-state";
 import {
   resolveGoogleDriveSource,
-  resolveSmartsheetSheetIdFromLink,
   resolveSmartsheetSource,
+  smartsheetHrefFromConfig,
 } from "../lib/source-links";
 import type { ProjectPanelProject } from "./project-panel";
 
@@ -16,22 +16,22 @@ export function customCardToProject(
 ): ProjectPanelProject {
   const driveSource = resolveGoogleDriveSource(card.config.googleDriveLink);
   const smartsheetSource = resolveSmartsheetSource(card.config.smartsheetLink);
-  const smartsheetOk =
-    smartsheetSource.status === "ok" &&
-    resolveSmartsheetSheetIdFromLink(smartsheetSource.link) != null;
+  const smartsheetHref = smartsheetHrefFromConfig(card.config.smartsheetLink);
 
   // Custom cards do not server-fetch sheet/schedule rows yet.
-  // Blank → Empty; invalid or unresolved/unloaded → Error.
+  // Blank → Empty; invalid URL → Error; valid Smartsheet Link → linked "—".
   const taskStatus =
     driveSource.status === "ok" ? "invalid" : driveSource.status;
-  const scheduleStatus = smartsheetOk
-    ? "invalid"
-    : smartsheetSource.status === "ok"
-      ? "invalid"
-      : smartsheetSource.status;
+  const scheduleStatus = smartsheetSource.status;
 
-  const taskStubs = taskMetricsForSourceStatus(taskStatus);
-  const scheduleStubs = scheduleMetricsForSourceStatus(scheduleStatus);
+  const taskStubs = taskMetricsForSourceStatus(
+    taskStatus,
+    driveSource.status === "ok" ? driveSource.link : undefined,
+  );
+  const scheduleStubs = scheduleMetricsForSourceStatus(
+    scheduleStatus,
+    smartsheetHref ?? undefined,
+  );
 
   return {
     name: card.config.boardName,

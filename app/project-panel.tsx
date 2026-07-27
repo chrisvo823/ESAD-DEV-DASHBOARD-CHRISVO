@@ -21,9 +21,10 @@ import { overdueThresholdsFromProgramConfig } from "../lib/program-config";
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
+  hrefMatchesSmartsheetConfig,
   resolveGoogleDriveSource,
-  resolveSmartsheetSheetIdFromLink,
   resolveSmartsheetSource,
+  smartsheetHrefFromConfig,
 } from "../lib/source-links";
 
 type Board = { name: string; progress: number };
@@ -48,6 +49,20 @@ type Metric = {
   focusTaskId?: number;
 };
 
+function isSchedulePlaceholder(valueText: string | undefined): boolean {
+  return (
+    !valueText ||
+    valueText === "—" ||
+    valueText === METRIC_SOURCE_EMPTY ||
+    valueText === METRIC_SOURCE_ERROR
+  );
+}
+
+/**
+ * Apply Card Configuration links to metric hrefs.
+ * Google Drive Link → Open Tasks / Over Due
+ * Smartsheet Link → Current Task / Next Task
+ */
 function metricsWithLiveLinkState(
   metrics: Metric[],
   googleDriveLink: string,
@@ -55,19 +70,16 @@ function metricsWithLiveLinkState(
 ): Metric[] {
   const driveSource = resolveGoogleDriveSource(googleDriveLink);
   const smartsheetSource = resolveSmartsheetSource(smartsheetLink);
-  const smartsheetOk =
-    smartsheetSource.status === "ok" &&
-    resolveSmartsheetSheetIdFromLink(smartsheetSource.link) != null;
+  const smartsheetPermalink = smartsheetHrefFromConfig(smartsheetLink);
 
   const driveStubs =
     driveSource.status === "ok"
       ? null
       : taskMetricsForSourceStatus(driveSource.status);
-  const scheduleStubs = smartsheetOk
-    ? null
-    : scheduleMetricsForSourceStatus(
-        smartsheetSource.status === "ok" ? "invalid" : smartsheetSource.status,
-      );
+  const scheduleStubs =
+    smartsheetSource.status === "ok"
+      ? null
+      : scheduleMetricsForSourceStatus(smartsheetSource.status);
 
   return metrics.map((metric) => {
     if (driveStubs && metric.label === "Open Tasks") {
@@ -76,12 +88,37 @@ function metricsWithLiveLinkState(
     if (driveStubs && metric.label === "Over Due") {
       return { ...metric, ...driveStubs.overdue };
     }
+    if (driveSource.status === "ok" &&
+      (metric.label === "Open Tasks" || metric.label === "Over Due")) {
+      return { ...metric, href: driveSource.link };
+    }
+
     if (scheduleStubs && metric.label === "Current Task") {
       return { ...metric, ...scheduleStubs.current };
     }
     if (scheduleStubs && metric.label === "Next Task") {
       return { ...metric, ...scheduleStubs.next };
     }
+
+    if (
+      smartsheetPermalink &&
+      (metric.label === "Current Task" || metric.label === "Next Task")
+    ) {
+      const placeholder = isSchedulePlaceholder(metric.valueText);
+      const valueHref =
+        !placeholder &&
+        hrefMatchesSmartsheetConfig(metric.valueHref, smartsheetLink)
+          ? metric.valueHref
+          : !placeholder
+            ? smartsheetPermalink
+            : undefined;
+      return {
+        ...metric,
+        href: smartsheetPermalink,
+        valueHref,
+      };
+    }
+
     return metric;
   });
 }

@@ -126,8 +126,31 @@ export function resolveSmartsheetSource(
 }
 
 /**
+ * Configuration Smartsheet Link used for Current Task / Next Task label hrefs.
+ * Returns the normalized sheet permalink, or null when the link is blank/invalid.
+ */
+export function smartsheetHrefFromConfig(
+  link: string | null | undefined,
+): string | null {
+  return parseSmartsheetPermalink(link);
+}
+
+/**
+ * True when an existing metric href points at the same Smartsheet sheet as
+ * the Configuration Smartsheet Link (row deep-links are allowed).
+ */
+export function hrefMatchesSmartsheetConfig(
+  href: string | null | undefined,
+  smartsheetLink: string | null | undefined,
+): boolean {
+  const sheet = parseSmartsheetPermalink(smartsheetLink);
+  if (!sheet || isBlankLink(href)) return false;
+  return parseSmartsheetPermalink(href) === sheet;
+}
+
+/**
  * Resolve a Smartsheet Configuration link to the numeric sheet id we can fetch.
- * Unknown permalinks return null (treated as Error by metric wiring).
+ * Unknown permalinks return null (live schedule fetch unavailable; links still work).
  */
 export function resolveSmartsheetSheetIdFromLink(
   link: string | null | undefined,
