@@ -16,7 +16,7 @@ import {
   fetchAllProjectScheduleStats,
   findCurrentScheduleTask,
   findNextScheduleTask,
-  formatScheduleDate,
+  formatScheduleDateRange,
   formatSchedulePercentComplete,
   type DsbScheduleRevision,
   type DsbScheduleStats,
@@ -85,9 +85,22 @@ const dsbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         6883684287971204,
         "Block Diagram + Review",
         "2026-07-17T08:00:00",
-        // Offline fallback spans past the live handoff so Current Task keeps a
-        // real Smartsheet row link when SMARTSHEET_ACCESS_TOKEN is unset.
+        "2026-07-22T16:59:59",
+      ),
+      // Keep offline Current/Next aligned with the live Avionics Master Schedule
+      // sequence (Design Analyses → Schematic). Live Smartsheet replaces dates
+      // when SMARTSHEET_ACCESS_TOKEN is set.
+      scheduleTask(
+        8145927045121924,
+        "Design Analyses (SI/PI/Thermal/EMC)",
+        "2026-07-23T08:00:00",
         "2026-08-06T16:59:59",
+      ),
+      scheduleTask(
+        2594825670494084,
+        "Schematic",
+        "2026-08-07T08:00:00",
+        "2026-08-20T16:59:59",
       ),
     ],
   },
@@ -128,8 +141,19 @@ const hvfbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         7024421776326532,
         "Block Diagram + Review",
         "2026-07-17T08:00:00",
-        // Same offline span as DSB — live Smartsheet replaces this when tokenized.
+        "2026-07-22T16:59:59",
+      ),
+      scheduleTask(
+        8287038156232836,
+        "Design Analyses (SI/PI/Thermal/EMC)",
+        "2026-07-23T08:00:00",
         "2026-08-06T16:59:59",
+      ),
+      scheduleTask(
+        2735936781604996,
+        "Schematic",
+        "2026-08-07T08:00:00",
+        "2026-08-20T16:59:59",
       ),
     ],
   },
@@ -311,23 +335,29 @@ const projects: Project[] = [
         value: 0,
         label: "Current Task",
         href: smartsheetRowUrl(128284846915460),
-        valueText: "Block Diagram + Review",
+        valueText: "Design Analyses (SI/PI/Thermal/EMC)",
         valueDateLabel:
-          formatScheduleDate("2026-08-06T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(6883684287971204),
-        focusTaskId: 6883684287971204,
+          formatScheduleDateRange(
+            "2026-07-23T08:00:00",
+            "2026-08-06T16:59:59",
+          ) ?? undefined,
+        valueHref: smartsheetRowUrl(8145927045121924),
+        focusTaskId: 8145927045121924,
         hideValueBar: true,
         scheduleRevisions: dsbScheduleFallbackRevisions,
       },
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(4913359450996612),
-        valueText: "Requirements",
+        href: smartsheetRowUrl(2594825670494084),
+        valueText: "Schematic",
         valueDateLabel:
-          formatScheduleDate("2026-09-29T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(4913359450996612),
-        focusTaskId: 4913359450996612,
+          formatScheduleDateRange(
+            "2026-08-07T08:00:00",
+            "2026-08-20T16:59:59",
+          ) ?? undefined,
+        valueHref: smartsheetRowUrl(2594825670494084),
+        focusTaskId: 2594825670494084,
         hideValueBar: true,
         scheduleRevisions: dsbScheduleFallbackRevisions,
       },
@@ -372,23 +402,29 @@ const projects: Project[] = [
         value: 0,
         label: "Current Task",
         href: smartsheetRowUrl(269022335270788),
-        valueText: "Block Diagram + Review",
+        valueText: "Design Analyses (SI/PI/Thermal/EMC)",
         valueDateLabel:
-          formatScheduleDate("2026-08-06T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(7024421776326532),
-        focusTaskId: 7024421776326532,
+          formatScheduleDateRange(
+            "2026-07-23T08:00:00",
+            "2026-08-06T16:59:59",
+          ) ?? undefined,
+        valueHref: smartsheetRowUrl(8287038156232836),
+        focusTaskId: 8287038156232836,
         hideValueBar: true,
         scheduleRevisions: hvfbScheduleFallbackRevisions,
       },
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(5054096939351940),
-        valueText: "Requirements",
+        href: smartsheetRowUrl(2735936781604996),
+        valueText: "Schematic",
         valueDateLabel:
-          formatScheduleDate("2026-09-29T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(5054096939351940),
-        focusTaskId: 5054096939351940,
+          formatScheduleDateRange(
+            "2026-08-07T08:00:00",
+            "2026-08-20T16:59:59",
+          ) ?? undefined,
+        valueHref: smartsheetRowUrl(2735936781604996),
+        focusTaskId: 2735936781604996,
         hideValueBar: true,
         scheduleRevisions: hvfbScheduleFallbackRevisions,
       },
@@ -425,7 +461,10 @@ const projects: Project[] = [
         href: smartsheetRowUrl(3398599580516228),
         valueText: "Block Diagram Review",
         valueDateLabel:
-          formatScheduleDate("2026-08-10T16:59:59") ?? undefined,
+          formatScheduleDateRange(
+            "2026-07-24T08:00:00",
+            "2026-08-10T16:59:59",
+          ) ?? undefined,
         valueHref: smartsheetRowUrl(583849813409668),
         focusTaskId: 583849813409668,
         hideValueBar: true,
@@ -437,7 +476,10 @@ const projects: Project[] = [
         href: smartsheetRowUrl(3398599580516228),
         valueText: "Design and Validation using SDK Platform",
         valueDateLabel:
-          formatScheduleDate("2026-08-11T08:00:00") ?? undefined,
+          formatScheduleDateRange(
+            "2026-08-11T08:00:00",
+            "2026-08-14T16:59:59",
+          ) ?? undefined,
         valueHref: smartsheetRowUrl(3398599580516228),
         focusTaskId: 6401284739015556,
         hideValueBar: true,
@@ -483,7 +525,10 @@ const projects: Project[] = [
         href: smartsheetRowUrl(221931156930436),
         valueText: "Block Diagram Review",
         valueDateLabel:
-          formatScheduleDate("2026-08-10T16:59:59") ?? undefined,
+          formatScheduleDateRange(
+            "2026-07-24T08:00:00",
+            "2026-08-10T16:59:59",
+          ) ?? undefined,
         valueHref: smartsheetRowUrl(2473730970615684),
         focusTaskId: 2473730970615684,
         hideValueBar: true,
@@ -495,7 +540,10 @@ const projects: Project[] = [
         href: smartsheetRowUrl(221931156930436),
         valueText: "Design and Validation using SDK Platform",
         valueDateLabel:
-          formatScheduleDate("2026-08-11T08:00:00") ?? undefined,
+          formatScheduleDateRange(
+            "2026-08-11T08:00:00",
+            "2026-08-14T16:59:59",
+          ) ?? undefined,
         valueHref: smartsheetRowUrl(221931156930436),
         focusTaskId: 6401284739015557,
         hideValueBar: true,
@@ -611,7 +659,8 @@ function metricsWithScheduleStats(
         value: 0,
         href: smartsheetConfigHref,
         valueText,
-        valueDateLabel: formatScheduleDate(current?.finish) ?? undefined,
+        valueDateLabel:
+          formatScheduleDateRange(current?.start, current?.finish) ?? undefined,
         valueHref: isSchedulePlaceholder(valueText)
           ? undefined
           : (current?.permalink ?? smartsheetConfigHref),
@@ -625,18 +674,19 @@ function metricsWithScheduleStats(
     }
 
     if (metric.label === "Next Task") {
-      const valueText = schedule.nextTask?.name ?? "—";
+      const next = schedule.nextTask;
+      const valueText = next?.name ?? "—";
       return {
         ...metric,
         value: 0,
         href: smartsheetConfigHref,
         valueText,
         valueDateLabel:
-          formatScheduleDate(schedule.nextTask?.start) ?? undefined,
+          formatScheduleDateRange(next?.start, next?.finish) ?? undefined,
         valueHref: isSchedulePlaceholder(valueText)
           ? undefined
-          : (schedule.nextTask?.permalink ?? smartsheetConfigHref),
-        focusTaskId: schedule.nextTask?.id,
+          : (next?.permalink ?? smartsheetConfigHref),
+        focusTaskId: next?.id,
         hideValueBar: true,
         barPercent: undefined,
         barLabel: undefined,

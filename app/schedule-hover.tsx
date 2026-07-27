@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   findCurrentScheduleTaskId,
   findNextScheduleTaskId,
+  formatScheduleDate,
   type DsbScheduleRevision,
 } from "../lib/dsb-schedule";
 
@@ -21,14 +22,7 @@ type ScheduleHoverLabelProps = {
 };
 
 function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatScheduleDate(value) ?? "—";
 }
 
 function FocusArrow({ kind }: { kind: ScheduleFocus }) {

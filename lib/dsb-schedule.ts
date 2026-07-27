@@ -85,6 +85,29 @@ function cellById(
 }
 
 /**
+ * Prefer Smartsheet raw date `value` (ISO / epoch) over localized displayValue
+ * so Start/Finish match the sheet columns used for scheduling.
+ */
+function cellDateValue(row: SmartsheetRow, columnId: number): string | null {
+  const cell = cellById(row, columnId);
+  if (!cell) return null;
+
+  if (typeof cell.value === "number" && Number.isFinite(cell.value)) {
+    return new Date(cell.value).toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+
+  if (cell.value != null && String(cell.value).trim() !== "") {
+    return String(cell.value);
+  }
+
+  if (cell.displayValue != null && String(cell.displayValue).trim() !== "") {
+    return String(cell.displayValue);
+  }
+
+  return null;
+}
+
+/**
  * Smartsheet % Complete cells use displayValue like "72%" and raw value 0-1.
  * Blank cells return null (callers may treat that as 0% for display).
  */
@@ -126,41 +149,25 @@ export function formatSchedulePercentComplete(
   return `${label}%`;
 }
 
-/** Format Smartsheet Start/Finish date for card display (e.g. "Jul 2, 2026"). */
-export function formatScheduleDate(
-  value: string | null | undefined,
-): string | null {
-  if (!value || !String(value).trim()) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    const trimmed = String(value).trim();
-    return trimmed || null;
-  }
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-}
+const SCHEDULE_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
 
 /** @deprecated Use formatScheduleDate. */
 export function formatScheduleStartDate(
   value: string | null | undefined,
 ): string | null {
-  return formatScheduleDate(value);
-}
-
-function formatSyncDate(value: string | null): string | null {
   return formatScheduleDate(value);
 }
 
@@ -191,8 +198,8 @@ function toScheduleTask(
   return {
     id: row.id,
     name: cellValue(row, COLUMN.taskName) ?? "Untitled task",
-    start: cellValue(row, COLUMN.start),
-    finish: cellValue(row, COLUMN.finish),
+    start: cellDateValue(row, COLUMN.start),
+    finish: cellDateValue(row, COLUMN.finish),
     percentComplete: parsePercentCompleteCell(
       cellById(row, COLUMN.percentComplete),
     ),
@@ -253,8 +260,8 @@ export function buildScheduleStats(
       return {
         id: revisionRow.id,
         name: cellValue(revisionRow, COLUMN.taskName) ?? "Revision",
-        start: cellValue(revisionRow, COLUMN.start),
-        finish: cellValue(revisionRow, COLUMN.finish),
+        start: cellDateValue(revisionRow, COLUMN.start),
+        finish: cellDateValue(revisionRow, COLUMN.finish),
         assignee: cellValue(revisionRow, COLUMN.assignee),
         permalink: rowPermalink(
           sheetPermalink,
@@ -272,8 +279,8 @@ export function buildScheduleStats(
       {
         id: boardRow.id,
         name: "Schedule",
-        start: cellValue(boardRow, COLUMN.start),
-        finish: cellValue(boardRow, COLUMN.finish),
+        start: cellDateValue(boardRow, COLUMN.start),
+        finish: cellDateValue(boardRow, COLUMN.finish),
         assignee: cellValue(boardRow, COLUMN.assignee),
         permalink: rowPermalink(sheetPermalink, boardRow.id, boardRow.permalink),
         tasks: directChildren.map((taskRow) =>
@@ -283,8 +290,8 @@ export function buildScheduleStats(
     ];
   }
 
-  const boardStart = cellValue(boardRow, COLUMN.start);
-  const boardFinish = cellValue(boardRow, COLUMN.finish);
+  const boardStart = cellDateValue(boardRow, COLUMN.start);
+  const boardFinish = cellDateValue(boardRow, COLUMN.finish);
   const currentTask = findCurrentScheduleTask(revisions, now);
   const nextTask = findNextScheduleTask(revisions, now);
 
@@ -411,6 +418,55 @@ function parseSmartsheetDate(
     Number(match[6] ?? "0"),
     timeZone,
   );
+}
+
+/** Format Smartsheet Start/Finish for card display in schedule TZ (e.g. "Jul 2, 2026"). */
+export function formatScheduleDate(
+  value: string | null | undefined,
+): string | null {
+  if (!value || !String(value).trim()) return null;
+  const ms = parseSmartsheetDate(String(value));
+  if (!Number.isFinite(ms)) {
+    const trimmed = String(value).trim();
+    return trimmed || null;
+  }
+  const parts = getZonedParts(new Date(ms), DSB_SCHEDULE_TIME_ZONE);
+  return `${SCHEDULE_MONTHS[parts.month - 1]} ${parts.day}, ${parts.year}`;
+}
+
+/**
+ * Format Smartsheet Start + Finish for Current/Next Task rows.
+ * Same-year ranges collapse to "Jul 17 – Aug 6, 2026".
+ */
+export function formatScheduleDateRange(
+  start: string | null | undefined,
+  finish: string | null | undefined,
+): string | null {
+  const startLabel = formatScheduleDate(start);
+  const finishLabel = formatScheduleDate(finish);
+  if (startLabel && finishLabel) {
+    if (startLabel === finishLabel) return startLabel;
+    if (start && finish) {
+      const startMs = parseSmartsheetDate(String(start));
+      const finishMs = parseSmartsheetDate(String(finish));
+      if (Number.isFinite(startMs) && Number.isFinite(finishMs)) {
+        const startParts = getZonedParts(new Date(startMs), DSB_SCHEDULE_TIME_ZONE);
+        const finishParts = getZonedParts(
+          new Date(finishMs),
+          DSB_SCHEDULE_TIME_ZONE,
+        );
+        if (startParts.year === finishParts.year) {
+          return `${SCHEDULE_MONTHS[startParts.month - 1]} ${startParts.day} – ${SCHEDULE_MONTHS[finishParts.month - 1]} ${finishParts.day}, ${finishParts.year}`;
+        }
+      }
+    }
+    return `${startLabel} – ${finishLabel}`;
+  }
+  return finishLabel ?? startLabel;
+}
+
+function formatSyncDate(value: string | null): string | null {
+  return formatScheduleDate(value);
 }
 
 function taskTimeBounds(task: Pick<DsbScheduleTask, "start" | "finish">): {

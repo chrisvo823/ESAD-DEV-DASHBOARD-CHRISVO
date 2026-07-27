@@ -127,7 +127,9 @@ test("server-renders the MACH ESAD dashboard", async () => {
     html,
     /Next Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
   );
-  assert.match(html, /Block Diagram/);
+  assert.match(html, /Design Analyses \(SI\/PI\/Thermal\/EMC\)/);
+  assert.match(html, /Schematic/);
+  assert.match(html, /Jul 23 – Aug 6, 2026/);
   assert.doesNotMatch(html, />Schedule</);
   assert.doesNotMatch(
     html,
@@ -179,13 +181,13 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /valuePercentLabel/);
   assert.match(page, /valueDateLabel/);
   assert.match(page, /formatSchedulePercentComplete/);
-  assert.match(page, /formatScheduleDate/);
-  assert.match(page, /current\?\.finish/);
-  assert.match(page, /nextTask\?\.start/);
+  assert.match(page, /formatScheduleDateRange/);
+  assert.match(page, /current\?\.start,\s*current\?\.finish/);
+  assert.match(page, /next\?\.start,\s*next\?\.finish/);
   assert.match(page, /focusTaskId: current\?\.id/);
-  assert.match(page, /focusTaskId: schedule\.nextTask\?\.id/);
+  assert.match(page, /focusTaskId: next\?\.id/);
   assert.match(page, /current\?\.permalink/);
-  assert.match(page, /schedule\.nextTask\?\.permalink/);
+  assert.match(page, /next\?\.permalink/);
   assert.match(page, /smartsheetConfigHref/);
   assert.match(page, /smartsheetHrefFromConfig/);
   assert.match(page, /metricsWithScheduleStats/);

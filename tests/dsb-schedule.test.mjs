@@ -9,6 +9,7 @@ import {
   findCurrentScheduleTaskId,
   findNextScheduleTask,
   formatScheduleDate,
+  formatScheduleDateRange,
   formatSchedulePercentComplete,
   parsePercentCompleteCell,
 } from "../lib/dsb-schedule.ts";
@@ -137,8 +138,85 @@ test("parses Smartsheet % Complete display and fraction values", () => {
   assert.equal(formatSchedulePercentComplete(null), null);
   assert.equal(formatScheduleDate("2026-07-02T08:00:00"), "Jul 2, 2026");
   assert.equal(formatScheduleDate("2026-07-16T16:59:59"), "Jul 16, 2026");
+  assert.equal(formatScheduleDate("2026-07-17T15:00:00Z"), "Jul 17, 2026");
   assert.equal(formatScheduleDate(null), null);
   assert.equal(formatScheduleDate(""), null);
+  assert.equal(
+    formatScheduleDateRange("2026-07-23T08:00:00", "2026-08-06T16:59:59"),
+    "Jul 23 – Aug 6, 2026",
+  );
+  assert.equal(
+    formatScheduleDateRange("2026-09-29T16:59:59", "2026-09-29T16:59:59"),
+    "Sep 29, 2026",
+  );
+  assert.equal(formatScheduleDateRange(null, "2026-08-06T16:59:59"), "Aug 6, 2026");
+  assert.equal(formatScheduleDateRange("2026-07-23T08:00:00", null), "Jul 23, 2026");
+});
+
+test("prefers Smartsheet raw date values over localized displayValue", () => {
+  const sheet = {
+    permalink:
+      "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1",
+    rows: [
+      {
+        id: 128284846915460,
+        cells: [
+          { columnId: 5067326880960388, value: "Digital Safety Board (DSB)" },
+          { columnId: 7319126694645636, value: "2026-07-02T08:00:00" },
+          { columnId: 1689627160432516, value: "2026-11-27T16:59:59" },
+        ],
+      },
+      {
+        id: 4631884474285956,
+        parentId: 128284846915460,
+        cells: [
+          { columnId: 5067326880960388, value: "Rev A" },
+          { columnId: 7319126694645636, value: "2026-07-02T08:00:00" },
+          { columnId: 1689627160432516, value: "2026-09-29T16:59:59" },
+        ],
+      },
+      {
+        id: 8145927045121924,
+        parentId: 4631884474285956,
+        cells: [
+          {
+            columnId: 5067326880960388,
+            value: "Design Analyses (SI/PI/Thermal/EMC)",
+          },
+          {
+            columnId: 7319126694645636,
+            value: "2026-07-23T15:00:00Z",
+            displayValue: "07/22/26",
+          },
+          {
+            columnId: 1689627160432516,
+            value: "2026-08-06T23:59:59Z",
+            displayValue: "08/05/26",
+          },
+        ],
+      },
+      {
+        id: 2594825670494084,
+        parentId: 4631884474285956,
+        cells: [
+          { columnId: 5067326880960388, value: "Schematic" },
+          { columnId: 7319126694645636, value: "2026-08-07T15:00:00Z" },
+          { columnId: 1689627160432516, value: "2026-08-20T23:59:59Z" },
+        ],
+      },
+    ],
+  };
+
+  const stats = buildDsbScheduleStats(sheet, new Date("2026-07-27T20:00:00Z"));
+  assert.ok(stats);
+  assert.equal(stats.currentTask?.name, "Design Analyses (SI/PI/Thermal/EMC)");
+  assert.equal(stats.currentTask?.start, "2026-07-23T15:00:00Z");
+  assert.equal(stats.currentTask?.finish, "2026-08-06T23:59:59Z");
+  assert.equal(stats.nextTask?.name, "Schematic");
+  assert.equal(
+    formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
+    "Jul 23 – Aug 6, 2026",
+  );
 });
 
 test("does not select a future Smartsheet task as current", () => {
