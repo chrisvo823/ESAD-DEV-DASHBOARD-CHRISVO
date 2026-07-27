@@ -1,11 +1,13 @@
 import { CompanyAuthGate } from "./company-auth-gate";
 import { CustomCardsSection } from "./custom-cards-section";
+import { DashboardRefresh } from "./dashboard-refresh";
 import { HeroHeader } from "./hero-header";
 import { ProjectPanel, type ProjectPanelProject } from "./project-panel";
 import {
   DASHBOARD_CONFIGS,
   getAdminCredentials,
 } from "../lib/dashboard-config";
+import { loadSiteAdminConfig } from "../lib/site-config-store";
 import {
   ESAD_PROJECT_INTEGRATIONS,
   googleSheetEditUrl,
@@ -899,11 +901,20 @@ function applyLiveProjectStats(
 }
 
 export default async function Home() {
+  const siteConfig = await loadSiteAdminConfig();
   const googleDriveLinksByCode: Record<EsadProjectCode, string> = {
-    DSB: DASHBOARD_CONFIGS["1"].googleDriveLink,
-    HVFB: DASHBOARD_CONFIGS["2"].googleDriveLink,
-    PRI: DASHBOARD_CONFIGS["3"].googleDriveLink,
-    IND: DASHBOARD_CONFIGS["4"].googleDriveLink,
+    DSB:
+      siteConfig.dashboardConfigs["1"]?.googleDriveLink ??
+      DASHBOARD_CONFIGS["1"].googleDriveLink,
+    HVFB:
+      siteConfig.dashboardConfigs["2"]?.googleDriveLink ??
+      DASHBOARD_CONFIGS["2"].googleDriveLink,
+    PRI:
+      siteConfig.dashboardConfigs["3"]?.googleDriveLink ??
+      DASHBOARD_CONFIGS["3"].googleDriveLink,
+    IND:
+      siteConfig.dashboardConfigs["4"]?.googleDriveLink ??
+      DASHBOARD_CONFIGS["4"].googleDriveLink,
   };
   const [taskStatsByCode, scheduleStatsByCode] = await Promise.all([
     fetchAllProjectTaskStats(fetch, googleDriveLinksByCode),
@@ -919,6 +930,7 @@ export default async function Home() {
 
   return (
     <CompanyAuthGate>
+      <DashboardRefresh />
       <main className="dashboard-shell">
         <HeroHeader
           adminUsername={adminCredentials.username}

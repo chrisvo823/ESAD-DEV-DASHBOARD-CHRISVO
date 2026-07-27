@@ -240,7 +240,19 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /HeroHeader/);
   assert.match(page, /ProjectPanel/);
   assert.match(page, /CustomCardsSection/);
+  assert.match(page, /DashboardRefresh/);
+  assert.match(page, /loadSiteAdminConfig/);
   assert.match(page, /DASHBOARD_CONFIGS/);
+
+  const dashboardRefresh = await readFile(
+    new URL("../app/dashboard-refresh.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(dashboardRefresh, /DASHBOARD_REFRESH_INTERVAL_MS/);
+  assert.match(dashboardRefresh, /5 \* 60 \* 1000/);
+  assert.match(dashboardRefresh, /router\.refresh\(\)/);
+  assert.match(dashboardRefresh, /refreshSiteConfigFromHost/);
+  assert.match(dashboardRefresh, /visibilitychange/);
 
   const customCardsSection = await readFile(
     new URL("../app/custom-cards-section.tsx", import.meta.url),

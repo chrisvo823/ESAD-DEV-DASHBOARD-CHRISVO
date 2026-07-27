@@ -197,6 +197,13 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
   return hydratePromise;
 }
 
+/** Force re-fetch host Admin config (used by the 5-minute dashboard refresh). */
+export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
+  cache = null;
+  hydratePromise = null;
+  return hydrateSiteConfigFromHost();
+}
+
 export async function persistSiteConfigPatch(
   patch: SiteConfigPatch,
 ): Promise<SiteConfigCache> {
