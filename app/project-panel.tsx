@@ -42,8 +42,7 @@ type Metric = {
   valueText?: string;
   valueHref?: string;
   /**
-   * Smartsheet date shown immediately after the task name.
-   * Current Task uses Finish; Next Task uses Start.
+   * Smartsheet Start – Finish range shown immediately after the task name.
    */
   valueDateLabel?: string;
   /** Completion percent label shown to the right of Current Task name. */
