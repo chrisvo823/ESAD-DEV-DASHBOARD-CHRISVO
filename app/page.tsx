@@ -1,3 +1,4 @@
+import { CompanyAuthGate } from "./company-auth-gate";
 import { CustomCardsSection } from "./custom-cards-section";
 import { HeroHeader } from "./hero-header";
 import { ProjectPanel, type ProjectPanelProject } from "./project-panel";
@@ -738,20 +739,25 @@ export default async function Home() {
   const adminCredentials = getAdminCredentials();
 
   return (
-    <main className="dashboard-shell">
-      <HeroHeader
-        adminUsername={adminCredentials.username}
-        adminPassword={adminCredentials.password}
-      />
+    <CompanyAuthGate>
+      <main className="dashboard-shell">
+        <HeroHeader
+          adminUsername={adminCredentials.username}
+          adminPassword={adminCredentials.password}
+        />
 
-      <section className="systems-grid" aria-label="Engineering project portfolio">
-        {dashboardProjects.map((project, index) => (
-          <ProjectPanel key={project.name} project={project} index={index} />
-        ))}
-        <HealthCore status={programStatus} />
-      </section>
+        <section
+          className="systems-grid"
+          aria-label="Engineering project portfolio"
+        >
+          {dashboardProjects.map((project, index) => (
+            <ProjectPanel key={project.name} project={project} index={index} />
+          ))}
+          <HealthCore status={programStatus} />
+        </section>
 
-      <CustomCardsSection />
-    </main>
+        <CustomCardsSection />
+      </main>
+    </CompanyAuthGate>
   );
 }

@@ -269,6 +269,97 @@ body {
   border-radius: 2px;
 }
 
+.company-auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(56, 130, 190, .22), transparent 60%),
+    linear-gradient(180deg, #07131f 0%, #0b1c2d 55%, #081421 100%);
+  color: #d7ecff;
+}
+
+.company-auth-card {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+  padding: 28px 24px 24px;
+  border: 1px solid rgba(89, 150, 199, .45);
+  background: rgba(8, 24, 40, .92);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+}
+
+.company-auth-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.company-auth-card h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 4vw, 1.85rem);
+  letter-spacing: .04em;
+}
+
+.company-auth-card p {
+  margin: 0;
+  max-width: 34ch;
+  color: #a9c7e0;
+  line-height: 1.45;
+}
+
+.company-auth-google,
+.company-auth-signout {
+  border: 1px solid #3b79ae;
+  background: rgba(10, 28, 46, .92);
+  color: #d7ecff;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 12px 16px;
+}
+
+.company-auth-google:hover,
+.company-auth-signout:hover {
+  border-color: #7eb7e8;
+  color: #fff;
+}
+
+.company-auth-google:disabled,
+.company-auth-signout:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.company-auth-error {
+  color: #ffb4b4 !important;
+  font-size: .9rem;
+}
+
+.company-auth-error code {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .78em;
+}
+
+.company-auth-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 0;
+}
+
+.company-auth-user {
+  color: #9fc4e4;
+  font-size: .78rem;
+}
+
 .admin-login {
   position: relative;
   top: auto;
