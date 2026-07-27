@@ -778,23 +778,11 @@ body {
   border-color: #3ec7ff;
   filter: brightness(1.14) drop-shadow(0 12px 22px rgba(40, 160, 220, 0.28));
   transform: translateY(-8px) scale(1.045);
-  animation: selected-card-pulse 1.7s ease-in-out infinite;
 }
 
 .project-panel.is-selected:hover {
   border-color: #6ad6ff;
   filter: brightness(1.18) drop-shadow(0 14px 26px rgba(40, 160, 220, 0.34));
-}
-
-@keyframes selected-card-pulse {
-  0%,
-  100% {
-    transform: translateY(-8px) scale(1.045);
-  }
-
-  50% {
-    transform: translateY(-11px) scale(1.055);
-  }
 }
 
 /* Keep fixed top-4 content outside the center instrument's overlap zone. */
@@ -1751,7 +1739,6 @@ body {
 
   .project-panel.is-selected {
     transform: none;
-    animation: none;
   }
 }
 

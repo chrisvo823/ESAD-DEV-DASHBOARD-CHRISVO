@@ -84,8 +84,9 @@ const dsbScheduleFallbackRevisions: DsbScheduleRevision[] = [
       scheduleTask(
         6883684287971204,
         "Block Diagram + Review",
+        // Smartsheet: Start 07/17/26, Finish 07/23/26
         "2026-07-17T08:00:00",
-        "2026-07-22T16:59:59",
+        "2026-07-23T16:59:59",
       ),
       // Keep offline Current/Next aligned with the live Avionics Master Schedule
       // sequence (Design Analyses → Schematic). Live Smartsheet replaces dates
@@ -140,8 +141,9 @@ const hvfbScheduleFallbackRevisions: DsbScheduleRevision[] = [
       scheduleTask(
         7024421776326532,
         "Block Diagram + Review",
+        // Smartsheet: Start 07/17/26, Finish 07/23/26
         "2026-07-17T08:00:00",
-        "2026-07-22T16:59:59",
+        "2026-07-23T16:59:59",
       ),
       scheduleTask(
         8287038156232836,

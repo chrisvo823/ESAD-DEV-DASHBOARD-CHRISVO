@@ -142,6 +142,10 @@ test("parses Smartsheet % Complete display and fraction values", () => {
   assert.equal(formatScheduleDate(null), null);
   assert.equal(formatScheduleDate(""), null);
   assert.equal(
+    formatScheduleDateRange("2026-07-17T08:00:00", "2026-07-23T16:59:59"),
+    "Jul 17 – Jul 23, 2026",
+  );
+  assert.equal(
     formatScheduleDateRange("2026-07-23T08:00:00", "2026-08-06T16:59:59"),
     "Jul 23 – Aug 6, 2026",
   );
