@@ -10,7 +10,8 @@ export const DSB_SHEET_ID =
   "1RbnLe7FBrnT1njFWnsVyW74Iq2N5miTH9vFmRwagzps";
 export const DSB_SHEET_EDIT_URL = googleSheetEditUrl(DSB_SHEET_ID);
 export const DSB_SHEET_CSV_URL = googleSheetCsvUrl(DSB_SHEET_ID);
-export const DSB_JIRA_BROWSE_BASE_URL = "https://mach.atlassian.net/browse";
+export const DSB_JIRA_BROWSE_BASE_URL =
+  "https://mach-industries.atlassian.net/browse";
 
 export function jiraIssueUrl(key: string): string {
   const trimmed = key.trim();
