@@ -218,7 +218,7 @@ export function ProjectPanel({
       data-dashboard-id={config.dashboardId}
       data-card-layout={layout}
       data-selected={selected ? "true" : "false"}
-      aria-pressed={selected}
+      aria-label={`${config.boardNickname} project card${selected ? ", selected" : ""}`}
       tabIndex={0}
       onClick={handleSelectToggle}
       onKeyDown={(event) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 export const SELECTED_CARD_EVENT = "esad-selected-card-change";
 
@@ -52,18 +52,28 @@ export function toggleSelectedCardId(dashboardId: string): void {
   );
 }
 
-export function useSelectedCardId(): string | null {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+function subscribe(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+  window.addEventListener(SELECTED_CARD_EVENT, onStoreChange);
+  return () => window.removeEventListener(SELECTED_CARD_EVENT, onStoreChange);
+}
 
-  useEffect(() => {
-    setSelectedId(getSelectedCardId());
-    const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<SelectedCardDetail>).detail;
-      setSelectedId(detail?.dashboardId ?? null);
-    };
-    window.addEventListener(SELECTED_CARD_EVENT, onChange);
-    return () => window.removeEventListener(SELECTED_CARD_EVENT, onChange);
-  }, []);
+function getSnapshot() {
+  return selectedDashboardId;
+}
+
+function getServerSnapshot() {
+  return null;
+}
+
+export function useSelectedCardId(): string | null {
+  const selectedId = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   useEffect(() => {
     if (selectedId) {
