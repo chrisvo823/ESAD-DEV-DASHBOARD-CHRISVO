@@ -130,6 +130,11 @@ test("server-renders the MACH ESAD dashboard", async () => {
   assert.match(html, /Design Analyses \(SI\/PI\/Thermal\/EMC\)/);
   assert.match(html, /Schematic/);
   assert.match(html, /Jul 23 – Aug 6, 2026/);
+  // DSB Block Diagram + Review must keep Smartsheet Start/Finish (07/17–07/23).
+  assert.match(html, /Block Diagram \+ Review/);
+  assert.match(html, /2026-07-17T08:00:00/);
+  assert.match(html, /2026-07-23T16:59:59/);
+  assert.doesNotMatch(html, /2026-07-22T16:59:59/);
   assert.doesNotMatch(html, />Schedule</);
   assert.doesNotMatch(
     html,
@@ -184,6 +189,10 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /formatScheduleDateRange/);
   assert.match(page, /current\?\.start,\s*current\?\.finish/);
   assert.match(page, /next\?\.start,\s*next\?\.finish/);
+  assert.match(
+    page,
+    /"Block Diagram \+ Review",\s*(?:\/\/[^\n]*\n\s*)*"2026-07-17T08:00:00",\s*(?:\/\/[^\n]*\n\s*)*"2026-07-23T16:59:59"/,
+  );
   assert.match(page, /focusTaskId: current\?\.id/);
   assert.match(page, /focusTaskId: next\?\.id/);
   assert.match(page, /current\?\.permalink/);
