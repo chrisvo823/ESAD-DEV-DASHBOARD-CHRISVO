@@ -127,10 +127,11 @@ test("server-renders the MACH ESAD dashboard", async () => {
     html,
     /Next Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
   );
-  // Today (late Jul 2026): Schematic is Current; Requirements is Next.
+  // Today (late Jul 2026): Schematic is Current; Layout is Next (not Rev B Requirements).
   assert.match(html, /Schematic/);
   assert.match(html, /Jul 24 – Aug 20, 2026/);
-  assert.match(html, /Requirements/);
+  assert.match(html, /Layout/);
+  assert.match(html, /Aug 21 – Sep 29, 2026/);
   // DSB Block Diagram + Review must keep Smartsheet Start/Finish (07/17–07/23).
   assert.match(html, /Block Diagram \+ Review/);
   assert.match(html, /2026-07-17T08:00:00/);

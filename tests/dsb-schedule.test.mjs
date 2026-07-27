@@ -217,6 +217,15 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
         ],
       },
       {
+        id: 3705936781605108,
+        parentId: 4631884474285956,
+        cells: [
+          { columnId: 5067326880960388, value: "Layout" },
+          { columnId: 7319126694645636, value: "2026-08-21T15:00:00Z" },
+          { columnId: 1689627160432516, value: "2026-09-29T23:59:59Z" },
+        ],
+      },
+      {
         id: 4913359450996612,
         parentId: 4631884474285956,
         cells: [
@@ -234,14 +243,18 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
   assert.equal(stats.currentTask?.name, "Schematic");
   assert.equal(stats.currentTask?.start, "2026-07-24T15:00:00Z");
   assert.equal(stats.currentTask?.finish, "2026-08-20T23:59:59Z");
-  assert.equal(stats.nextTask?.name, "Requirements");
+  assert.equal(stats.nextTask?.name, "Layout");
   assert.equal(
     formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
     "Jul 24 – Aug 20, 2026",
   );
+  assert.equal(
+    formatScheduleDateRange(stats.nextTask?.start, stats.nextTask?.finish),
+    "Aug 21 – Sep 29, 2026",
+  );
 });
 
-test("DSB handoff: Design Analyses on Jul 23, Schematic current by Jul 27", () => {
+test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by Jul 27", () => {
   const revisions = [
     {
       id: 1,
@@ -272,6 +285,16 @@ test("DSB handoff: Design Analyses on Jul 23, Schematic current by Jul 27", () =
           permalink: "https://example.test/schematic",
         },
         {
+          id: 25,
+          name: "Layout",
+          start: "2026-08-21T08:00:00",
+          finish: "2026-09-29T16:59:59",
+          percentComplete: null,
+          status: null,
+          assignee: null,
+          permalink: "https://example.test/layout",
+        },
+        {
           id: 30,
           name: "Requirements",
           start: "2026-09-29T16:59:59",
@@ -295,12 +318,16 @@ test("DSB handoff: Design Analyses on Jul 23, Schematic current by Jul 27", () =
     10,
   );
 
-  // Jul 27 afternoon LA — Schematic is the in-window current task.
+  // Jul 27 afternoon LA — Schematic is current; Next is Layout (not Rev B Requirements).
   assert.equal(
     findCurrentScheduleTaskId(revisions, new Date("2026-07-27T20:00:00Z")),
     20,
   );
   assert.equal(
+    findNextScheduleTask(revisions, new Date("2026-07-27T20:00:00Z"))?.name,
+    "Layout",
+  );
+  assert.notEqual(
     findNextScheduleTask(revisions, new Date("2026-07-27T20:00:00Z"))?.name,
     "Requirements",
   );
