@@ -142,7 +142,7 @@ test("does not count due-today or done tasks as overdue", () => {
 test("builds Jira browse URLs from Column B keys", () => {
   assert.equal(
     jiraIssueUrl("EE-2226"),
-    "https://mach.atlassian.net/browse/EE-2226",
+    "https://mach-industries.atlassian.net/browse/EE-2226",
   );
 });
 

@@ -328,6 +328,14 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(projectPanel, /"Delayed"/);
   assert.match(projectPanel, /"At Risk"/);
   assert.match(hover, /jiraIssueUrl\(item\.key\)/);
+  assert.match(
+    await readFile(new URL("../lib/dsb-tasks.ts", import.meta.url), "utf8"),
+    /mach-industries\.atlassian\.net\/browse/,
+  );
+  assert.doesNotMatch(
+    await readFile(new URL("../lib/dsb-tasks.ts", import.meta.url), "utf8"),
+    /https:\/\/mach\.atlassian\.net\/browse/,
+  );
   assert.match(page, /name: "High Voltage Fireset Board"/);
   assert.match(page, /name: "CPLD - Primary"/);
   assert.match(page, /name: "CPLD - Independent"/);
