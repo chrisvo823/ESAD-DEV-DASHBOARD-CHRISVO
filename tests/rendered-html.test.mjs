@@ -117,6 +117,17 @@ test("server-renders the MACH ESAD dashboard", async () => {
   assert.match(html, /metric-task-date/);
   assert.match(html, /Current Task[\s\S]*?metric-task-date[\s\S]*?Next Task/);
   assert.match(html, /Current Task[\s\S]*?Next Task/);
+  // Without SMARTSHEET_ACCESS_TOKEN, schedule falls back to static revisions —
+  // never wipe Current/Next Task into an unlinked Error state.
+  assert.doesNotMatch(
+    html,
+    /Current Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
+  );
+  assert.doesNotMatch(
+    html,
+    /Next Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
+  );
+  assert.match(html, /Block Diagram/);
   assert.doesNotMatch(html, />Schedule</);
   assert.doesNotMatch(
     html,
@@ -171,7 +182,11 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /focusTaskId: current\?\.id/);
   assert.match(page, /focusTaskId: scheduleStats\.nextTask\?\.id/);
   assert.match(page, /valueHref: current\?\.permalink/);
-  assert.match(page, /valueHref:\s*\n?\s*scheduleStats\.nextTask\?\.permalink/);
+  assert.match(page, /valueHref:\s*\n?\s*scheduleStats\.nextTask\?\.permalink|valueHref: schedule\.nextTask\?\.permalink/);
+  assert.match(page, /metricsWithScheduleStats/);
+  assert.match(page, /fallbackScheduleFromMetrics/);
+  assert.match(page, /findCurrentScheduleTask/);
+  assert.match(page, /findNextScheduleTask/);
   assert.match(page, /hideValueBar: true/);
   assert.match(
     await readFile(new URL("../app/project-panel.tsx", import.meta.url), "utf8"),

@@ -14,6 +14,8 @@ import {
 } from "../lib/esad-projects";
 import {
   fetchAllProjectScheduleStats,
+  findCurrentScheduleTask,
+  findNextScheduleTask,
   formatScheduleDate,
   formatSchedulePercentComplete,
   type DsbScheduleRevision,
@@ -82,7 +84,9 @@ const dsbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         6883684287971204,
         "Block Diagram + Review",
         "2026-07-17T08:00:00",
-        "2026-07-23T16:59:59",
+        // Offline fallback spans past the live handoff so Current Task keeps a
+        // real Smartsheet row link when SMARTSHEET_ACCESS_TOKEN is unset.
+        "2026-08-06T16:59:59",
       ),
     ],
   },
@@ -123,7 +127,8 @@ const hvfbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         7024421776326532,
         "Block Diagram + Review",
         "2026-07-17T08:00:00",
-        "2026-07-23T16:59:59",
+        // Same offline span as DSB — live Smartsheet replaces this when tokenized.
+        "2026-08-06T16:59:59",
       ),
     ],
   },
@@ -244,23 +249,23 @@ const projects: Project[] = [
         value: 0,
         label: "Current Task",
         href: smartsheetRowUrl(128284846915460),
-        valueText: "Detail Architecture Work",
+        valueText: "Block Diagram + Review",
         valueDateLabel:
-          formatScheduleDate("2026-07-16T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(2380084660600708),
-        focusTaskId: 2380084660600708,
+          formatScheduleDate("2026-08-06T16:59:59") ?? undefined,
+        valueHref: smartsheetRowUrl(6883684287971204),
+        focusTaskId: 6883684287971204,
         hideValueBar: true,
         scheduleRevisions: dsbScheduleFallbackRevisions,
       },
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(6883684287971204),
-        valueText: "Block Diagram + Review",
+        href: smartsheetRowUrl(4913359450996612),
+        valueText: "Requirements",
         valueDateLabel:
-          formatScheduleDate("2026-07-17T08:00:00") ?? undefined,
-        valueHref: smartsheetRowUrl(6883684287971204),
-        focusTaskId: 6883684287971204,
+          formatScheduleDate("2026-09-29T16:59:59") ?? undefined,
+        valueHref: smartsheetRowUrl(4913359450996612),
+        focusTaskId: 4913359450996612,
         hideValueBar: true,
         scheduleRevisions: dsbScheduleFallbackRevisions,
       },
@@ -305,23 +310,23 @@ const projects: Project[] = [
         value: 0,
         label: "Current Task",
         href: smartsheetRowUrl(269022335270788),
-        valueText: "Detail Architecture Work",
+        valueText: "Block Diagram + Review",
         valueDateLabel:
-          formatScheduleDate("2026-07-16T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(2520822148956036),
-        focusTaskId: 2520822148956036,
+          formatScheduleDate("2026-08-06T16:59:59") ?? undefined,
+        valueHref: smartsheetRowUrl(7024421776326532),
+        focusTaskId: 7024421776326532,
         hideValueBar: true,
         scheduleRevisions: hvfbScheduleFallbackRevisions,
       },
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(7024421776326532),
-        valueText: "Block Diagram + Review",
+        href: smartsheetRowUrl(5054096939351940),
+        valueText: "Requirements",
         valueDateLabel:
-          formatScheduleDate("2026-07-17T08:00:00") ?? undefined,
-        valueHref: smartsheetRowUrl(7024421776326532),
-        focusTaskId: 7024421776326532,
+          formatScheduleDate("2026-09-29T16:59:59") ?? undefined,
+        valueHref: smartsheetRowUrl(5054096939351940),
+        focusTaskId: 5054096939351940,
         hideValueBar: true,
         scheduleRevisions: hvfbScheduleFallbackRevisions,
       },
@@ -356,23 +361,19 @@ const projects: Project[] = [
         value: 0,
         label: "Current Task",
         href: smartsheetRowUrl(3398599580516228),
-        valueText: "Requirements",
+        valueText: "Block Diagram Review",
         valueDateLabel:
-          formatScheduleDate("2026-07-23T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(7902199207886724),
-        focusTaskId: 7902199207886724,
+          formatScheduleDate("2026-08-10T16:59:59") ?? undefined,
+        valueHref: smartsheetRowUrl(583849813409668),
+        focusTaskId: 583849813409668,
         hideValueBar: true,
         scheduleRevisions: cpldPrimaryScheduleFallbackRevisions,
       },
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(583849813409668),
-        valueText: "Block Diagram Review",
-        valueDateLabel:
-          formatScheduleDate("2026-07-24T08:00:00") ?? undefined,
-        valueHref: smartsheetRowUrl(583849813409668),
-        focusTaskId: 583849813409668,
+        href: smartsheetRowUrl(3398599580516228),
+        valueText: "—",
         hideValueBar: true,
         scheduleRevisions: cpldPrimaryScheduleFallbackRevisions,
       },
@@ -414,23 +415,19 @@ const projects: Project[] = [
         value: 0,
         label: "Current Task",
         href: smartsheetRowUrl(221931156930436),
-        valueText: "Requirements",
+        valueText: "Block Diagram Review",
         valueDateLabel:
-          formatScheduleDate("2026-07-23T16:59:59") ?? undefined,
-        valueHref: smartsheetRowUrl(4725530784300932),
-        focusTaskId: 4725530784300932,
+          formatScheduleDate("2026-08-10T16:59:59") ?? undefined,
+        valueHref: smartsheetRowUrl(2473730970615684),
+        focusTaskId: 2473730970615684,
         hideValueBar: true,
         scheduleRevisions: cpldIndependentScheduleFallbackRevisions,
       },
       {
         value: 0,
         label: "Next Task",
-        href: smartsheetRowUrl(2473730970615684),
-        valueText: "Block Diagram Review",
-        valueDateLabel:
-          formatScheduleDate("2026-07-24T08:00:00") ?? undefined,
-        valueHref: smartsheetRowUrl(2473730970615684),
-        focusTaskId: 2473730970615684,
+        href: smartsheetRowUrl(221931156930436),
+        valueText: "—",
         hideValueBar: true,
         scheduleRevisions: cpldIndependentScheduleFallbackRevisions,
       },
@@ -511,6 +508,88 @@ function HealthCore({ status }: { status: ProgramTaskTotals }) {
 
 function isEsadProjectCode(code: string): code is EsadProjectCode {
   return code === "DSB" || code === "HVFB" || code === "PRI" || code === "IND";
+}
+
+type ScheduleMetricProject = Project["metrics"][number];
+
+/** Map live or fallback schedule stats onto Current Task / Next Task metrics. */
+function metricsWithScheduleStats(
+  metrics: ScheduleMetricProject[],
+  schedule: {
+    href: string;
+    currentTask: DsbScheduleStats["currentTask"];
+    nextTask: DsbScheduleStats["nextTask"];
+    revisions: DsbScheduleRevision[];
+  },
+): ScheduleMetricProject[] {
+  return metrics.map((metric) => {
+    if (metric.label === "Current Task") {
+      const current = schedule.currentTask;
+      // Blank Smartsheet % Complete cells read as 0% for in-progress work.
+      const percentLabel = current
+        ? formatSchedulePercentComplete(current.percentComplete ?? 0)
+        : undefined;
+      return {
+        ...metric,
+        value: 0,
+        href: schedule.href,
+        valueText: current?.name ?? "—",
+        valueDateLabel: formatScheduleDate(current?.finish) ?? undefined,
+        valueHref: current?.permalink ?? schedule.href,
+        valuePercentLabel: percentLabel ?? undefined,
+        focusTaskId: current?.id,
+        hideValueBar: true,
+        barPercent: undefined,
+        barLabel: undefined,
+        scheduleRevisions: schedule.revisions,
+      };
+    }
+
+    if (metric.label === "Next Task") {
+      return {
+        ...metric,
+        value: 0,
+        href: schedule.nextTask?.permalink ?? schedule.href,
+        valueText: schedule.nextTask?.name ?? "—",
+        valueDateLabel:
+          formatScheduleDate(schedule.nextTask?.start) ?? undefined,
+        valueHref: schedule.nextTask?.permalink ?? schedule.href,
+        focusTaskId: schedule.nextTask?.id,
+        hideValueBar: true,
+        barPercent: undefined,
+        barLabel: undefined,
+        scheduleRevisions: schedule.revisions,
+      };
+    }
+
+    return metric;
+  });
+}
+
+/**
+ * When Smartsheet cannot be fetched, derive Current/Next from the static
+ * fallback revisions already embedded on each card so row links stay intact.
+ */
+function fallbackScheduleFromMetrics(metrics: ScheduleMetricProject[]): {
+  href: string;
+  currentTask: DsbScheduleStats["currentTask"];
+  nextTask: DsbScheduleStats["nextTask"];
+  revisions: DsbScheduleRevision[];
+} {
+  const currentMetric = metrics.find((metric) => metric.label === "Current Task");
+  const nextMetric = metrics.find((metric) => metric.label === "Next Task");
+  const revisions = currentMetric?.scheduleRevisions ?? [];
+  const href =
+    currentMetric?.href ??
+    nextMetric?.href ??
+    DASHBOARD_CONFIGS["1"].smartsheetLink;
+
+  return {
+    href,
+    currentTask: findCurrentScheduleTask(revisions),
+    nextTask: findNextScheduleTask(revisions),
+    revisions,
+  };
 }
 
 function applyLiveProjectStats(
@@ -652,66 +731,17 @@ function applyLiveProjectStats(
     } else if (scheduleStats) {
       nextProject = {
         ...nextProject,
-        metrics: nextProject.metrics.map((metric) => {
-          if (metric.label === "Current Task") {
-            const current = scheduleStats.currentTask;
-            // Blank Smartsheet % Complete cells read as 0% for in-progress work.
-            const percentLabel = current
-              ? formatSchedulePercentComplete(current.percentComplete ?? 0)
-              : undefined;
-            return {
-              ...metric,
-              value: 0,
-              href: scheduleStats.href,
-              valueText: current?.name ?? "—",
-              valueDateLabel:
-                formatScheduleDate(current?.finish) ?? undefined,
-              valueHref: current?.permalink ?? scheduleStats.href,
-              valuePercentLabel: percentLabel ?? undefined,
-              focusTaskId: current?.id,
-              hideValueBar: true,
-              barPercent: undefined,
-              barLabel: undefined,
-              scheduleRevisions: scheduleStats.revisions,
-            };
-          }
-
-          if (metric.label === "Next Task") {
-            return {
-              ...metric,
-              value: 0,
-              href: scheduleStats.nextTask?.permalink ?? scheduleStats.href,
-              valueText: scheduleStats.nextTask?.name ?? "—",
-              valueDateLabel:
-                formatScheduleDate(scheduleStats.nextTask?.start) ??
-                undefined,
-              valueHref:
-                scheduleStats.nextTask?.permalink ?? scheduleStats.href,
-              focusTaskId: scheduleStats.nextTask?.id,
-              hideValueBar: true,
-              barPercent: undefined,
-              barLabel: undefined,
-              scheduleRevisions: scheduleStats.revisions,
-            };
-          }
-
-          return metric;
-        }),
+        metrics: metricsWithScheduleStats(nextProject.metrics, scheduleStats),
       };
     } else {
-      // Valid Smartsheet Link but schedule content could not be loaded.
-      const stubs = scheduleMetricsForSourceStatus("invalid");
+      // Valid Smartsheet Link but live schedule unavailable (e.g. no API token).
+      // Recompute Current/Next from static fallback revisions so row links remain.
       nextProject = {
         ...nextProject,
-        metrics: nextProject.metrics.map((metric) => {
-          if (metric.label === "Current Task") {
-            return { ...metric, ...stubs.current };
-          }
-          if (metric.label === "Next Task") {
-            return { ...metric, ...stubs.next };
-          }
-          return metric;
-        }),
+        metrics: metricsWithScheduleStats(
+          nextProject.metrics,
+          fallbackScheduleFromMetrics(nextProject.metrics),
+        ),
       };
     }
 
