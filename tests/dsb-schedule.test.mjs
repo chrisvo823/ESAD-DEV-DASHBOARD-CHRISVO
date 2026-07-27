@@ -194,8 +194,8 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
           },
           {
             columnId: 1689627160432516,
-            value: "2026-08-06T23:59:59Z",
-            displayValue: "08/05/26",
+            value: "2026-07-23T23:59:59Z",
+            displayValue: "07/22/26",
           },
         ],
       },
@@ -204,22 +204,105 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
         parentId: 4631884474285956,
         cells: [
           { columnId: 5067326880960388, value: "Schematic" },
-          { columnId: 7319126694645636, value: "2026-08-07T15:00:00Z" },
-          { columnId: 1689627160432516, value: "2026-08-20T23:59:59Z" },
+          {
+            columnId: 7319126694645636,
+            value: "2026-07-24T15:00:00Z",
+            displayValue: "07/23/26",
+          },
+          {
+            columnId: 1689627160432516,
+            value: "2026-08-20T23:59:59Z",
+            displayValue: "08/19/26",
+          },
+        ],
+      },
+      {
+        id: 4913359450996612,
+        parentId: 4631884474285956,
+        cells: [
+          { columnId: 5067326880960388, value: "Requirements" },
+          { columnId: 7319126694645636, value: "2026-09-29T16:59:59" },
+          { columnId: 1689627160432516, value: "2026-09-29T16:59:59" },
         ],
       },
     ],
   };
 
+  // Prefer raw ISO value (Jul 24 LA) over misleading displayValue.
   const stats = buildDsbScheduleStats(sheet, new Date("2026-07-27T20:00:00Z"));
   assert.ok(stats);
-  assert.equal(stats.currentTask?.name, "Design Analyses (SI/PI/Thermal/EMC)");
-  assert.equal(stats.currentTask?.start, "2026-07-23T15:00:00Z");
-  assert.equal(stats.currentTask?.finish, "2026-08-06T23:59:59Z");
-  assert.equal(stats.nextTask?.name, "Schematic");
+  assert.equal(stats.currentTask?.name, "Schematic");
+  assert.equal(stats.currentTask?.start, "2026-07-24T15:00:00Z");
+  assert.equal(stats.currentTask?.finish, "2026-08-20T23:59:59Z");
+  assert.equal(stats.nextTask?.name, "Requirements");
   assert.equal(
     formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
-    "Jul 23 – Aug 6, 2026",
+    "Jul 24 – Aug 20, 2026",
+  );
+});
+
+test("DSB handoff: Design Analyses on Jul 23, Schematic current by Jul 27", () => {
+  const revisions = [
+    {
+      id: 1,
+      name: "Rev A",
+      start: "2026-07-02T08:00:00",
+      finish: "2026-09-29T16:59:59",
+      assignee: null,
+      permalink: "https://example.test/rev-a",
+      tasks: [
+        {
+          id: 10,
+          name: "Design Analyses (SI/PI/Thermal/EMC)",
+          start: "2026-07-23T08:00:00",
+          finish: "2026-07-23T16:59:59",
+          percentComplete: null,
+          status: null,
+          assignee: null,
+          permalink: "https://example.test/design",
+        },
+        {
+          id: 20,
+          name: "Schematic",
+          start: "2026-07-24T08:00:00",
+          finish: "2026-08-20T16:59:59",
+          percentComplete: null,
+          status: null,
+          assignee: null,
+          permalink: "https://example.test/schematic",
+        },
+        {
+          id: 30,
+          name: "Requirements",
+          start: "2026-09-29T16:59:59",
+          finish: "2026-09-29T16:59:59",
+          percentComplete: null,
+          status: null,
+          assignee: null,
+          permalink: "https://example.test/requirements",
+        },
+      ],
+    },
+  ];
+
+  // Jul 23 17:05 America/Los_Angeles — Design Analyses covers today; Schematic has not started.
+  assert.equal(
+    findNextScheduleTask(revisions, new Date("2026-07-24T00:05:00Z"))?.name,
+    "Schematic",
+  );
+  assert.equal(
+    findCurrentScheduleTaskId(revisions, new Date("2026-07-24T00:05:00Z")),
+    10,
+  );
+
+  // Jul 27 afternoon LA — Schematic is the in-window current task.
+  assert.equal(
+    findCurrentScheduleTaskId(revisions, new Date("2026-07-27T20:00:00Z")),
+    20,
+  );
+  assert.equal(
+    findNextScheduleTask(revisions, new Date("2026-07-27T20:00:00Z"))?.name,
+    "Requirements",
   );
 });
 
