@@ -17,8 +17,10 @@ import {
 export const PROGRAM_CONFIG_STORAGE_KEY = "esad-program-config";
 export const PROGRAM_CONFIG_EVENT = "esad-program-config-change";
 
-export function readProgramConfig(): ProgramConfig {
-  if (typeof window === "undefined") return { ...DEFAULT_PROGRAM_CONFIG };
+export function readProgramConfig(
+  fallback: ProgramConfig = DEFAULT_PROGRAM_CONFIG,
+): ProgramConfig {
+  if (typeof window === "undefined") return { ...fallback };
   return readCachedProgramConfig();
 }
 
@@ -41,8 +43,16 @@ export async function writeProgramConfig(
   return next;
 }
 
-export function useProgramConfig(): ProgramConfig {
-  const [config, setConfig] = useState<ProgramConfig>(DEFAULT_PROGRAM_CONFIG);
+export function useProgramConfig(
+  /** Host-loaded Dashboard Configuration from SSR (required source of truth). */
+  hostInitial: ProgramConfig = DEFAULT_PROGRAM_CONFIG,
+): ProgramConfig {
+  const [config, setConfig] = useState<ProgramConfig>(() => {
+    if (typeof window !== "undefined") {
+      return readCachedProgramConfig();
+    }
+    return hostInitial;
+  });
 
   useEffect(() => {
     let cancelled = false;

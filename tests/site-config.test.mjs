@@ -11,6 +11,7 @@ process.chdir(tempRoot);
 const {
   applySiteConfigPatch,
   createDefaultSiteAdminConfig,
+  resolveHostDashboardConfig,
   sanitizeSiteAdminConfig,
   toPublicSiteConfig,
 } = await import("../lib/site-config.ts");
@@ -148,4 +149,24 @@ test("applySiteConfigPatch updates nested admin fields", () => {
   });
   assert.equal(next.adminCredentials.recoveryEmail, "lead@mach.example");
   assert.ok(next.updatedAt);
+});
+
+test("resolveHostDashboardConfig prefers host card configuration", () => {
+  const fallback = createDefaultSiteAdminConfig().dashboardConfigs["1"]!;
+  const host = {
+    ...fallback,
+    responsibleEngineer: "Host Engineer",
+    boardNickname: "HOST",
+  };
+  const resolved = resolveHostDashboardConfig(
+    "1",
+    { "1": host },
+    fallback,
+  );
+  assert.equal(resolved.responsibleEngineer, "Host Engineer");
+  assert.equal(resolved.boardNickname, "HOST");
+  assert.equal(
+    resolveHostDashboardConfig("1", {}, fallback).boardNickname,
+    fallback.boardNickname,
+  );
 });

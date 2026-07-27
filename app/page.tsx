@@ -3,10 +3,16 @@ import { CustomCardsSection } from "./custom-cards-section";
 import { DashboardRefresh } from "./dashboard-refresh";
 import { HeroHeader } from "./hero-header";
 import { ProjectPanel, type ProjectPanelProject } from "./project-panel";
+import { SiteConfigBootstrap } from "./site-config-bootstrap";
 import {
   DASHBOARD_CONFIGS,
   getAdminCredentials,
+  type DashboardConfig,
 } from "../lib/dashboard-config";
+import {
+  resolveHostDashboardConfig,
+  toPublicSiteConfig,
+} from "../lib/site-config";
 import { loadSiteAdminConfig } from "../lib/site-config-store";
 import {
   ESAD_PROJECT_INTEGRATIONS,
@@ -912,8 +918,29 @@ function applyLiveProjectStats(
   });
 }
 
+/** Overlay host-persisted card Configuration onto the static project slots. */
+function withHostCardConfigs(
+  projectList: Project[],
+  hostConfigs: Record<string, DashboardConfig>,
+): Project[] {
+  return projectList.map((project) => ({
+    ...project,
+    config: resolveHostDashboardConfig(
+      project.config.dashboardId,
+      hostConfigs,
+      project.config,
+    ),
+  }));
+}
+
 export default async function Home() {
+  // Card + Dashboard Configuration must come from the host store.
   const siteConfig = await loadSiteAdminConfig();
+  const publicSiteConfig = toPublicSiteConfig(siteConfig);
+  const hostProjects = withHostCardConfigs(
+    projects,
+    siteConfig.dashboardConfigs,
+  );
   const googleDriveLinksByCode: Record<EsadProjectCode, string> = {
     DSB:
       siteConfig.dashboardConfigs["1"]?.googleDriveLink ??
@@ -933,7 +960,7 @@ export default async function Home() {
     fetchAllProjectScheduleStats(),
   ]);
   const dashboardProjects = applyLiveProjectStats(
-    projects,
+    hostProjects,
     taskStatsByCode,
     scheduleStatsByCode,
   );
@@ -942,25 +969,28 @@ export default async function Home() {
 
   return (
     <CompanyAuthGate>
-      <DashboardRefresh />
-      <main className="dashboard-shell">
-        <HeroHeader
-          adminUsername={adminCredentials.username}
-          adminPassword={adminCredentials.password}
-        />
+      <SiteConfigBootstrap initial={publicSiteConfig}>
+        <DashboardRefresh />
+        <main className="dashboard-shell">
+          <HeroHeader
+            adminUsername={adminCredentials.username}
+            adminPassword={adminCredentials.password}
+            initialProgramConfig={siteConfig.programConfig}
+          />
 
-        <section
-          className="systems-grid"
-          aria-label="Engineering project portfolio"
-        >
-          {dashboardProjects.map((project, index) => (
-            <ProjectPanel key={project.name} project={project} index={index} />
-          ))}
-          <HealthCore status={programStatus} />
-        </section>
+          <section
+            className="systems-grid"
+            aria-label="Engineering project portfolio"
+          >
+            {dashboardProjects.map((project, index) => (
+              <ProjectPanel key={project.name} project={project} index={index} />
+            ))}
+            <HealthCore status={programStatus} />
+          </section>
 
-        <CustomCardsSection />
-      </main>
+          <CustomCardsSection />
+        </main>
+      </SiteConfigBootstrap>
     </CompanyAuthGate>
   );
 }

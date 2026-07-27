@@ -245,6 +245,17 @@ export function toPublicSiteConfig(config: SiteAdminConfig): SiteConfigPublic {
   };
 }
 
+/** Prefer host-persisted card config; fall back to the compiled default slot. */
+export function resolveHostDashboardConfig(
+  dashboardId: DashboardId,
+  hostConfigs: Record<string, DashboardConfig>,
+  fallback: DashboardConfig,
+): DashboardConfig {
+  const host = hostConfigs[dashboardId];
+  if (!host) return { ...fallback, dashboardId };
+  return { ...host, dashboardId };
+}
+
 export function applySiteConfigPatch(
   current: SiteAdminConfig,
   patch: SiteConfigPatch,

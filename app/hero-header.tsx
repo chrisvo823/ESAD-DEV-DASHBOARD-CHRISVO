@@ -1,33 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
 import { AdminAccountPanel } from "./admin-account-panel";
 import { AdminLogin } from "./admin-login";
 import { AdminLoginsPanel } from "./admin-logins-panel";
 import { useAdminSessionPassword } from "./admin-auth";
 import { ProgramConfigWindow } from "./program-config-window";
 import { ThemePicker } from "./theme-picker";
+import type { ProgramConfig } from "../lib/program-config";
 import { useProgramConfig } from "./program-config-store";
-import { hydrateSiteConfigFromHost } from "./site-config-client";
 import { useThemeState } from "./theme-store";
 
 type HeroHeaderProps = {
   adminUsername: string;
   adminPassword: string;
+  /** Host-loaded Dashboard Configuration (title, lead, LED thresholds). */
+  initialProgramConfig: ProgramConfig;
 };
 
 export function HeroHeader({
   adminUsername,
   adminPassword,
+  initialProgramConfig,
 }: HeroHeaderProps) {
-  const programConfig = useProgramConfig();
+  const programConfig = useProgramConfig(initialProgramConfig);
   const sessionPassword = useAdminSessionPassword();
   // Keep theme subscription mounted so document theme applies for all users.
   useThemeState();
-
-  useEffect(() => {
-    void hydrateSiteConfigFromHost();
-  }, []);
 
   return (
     <>

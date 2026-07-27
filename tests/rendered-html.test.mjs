@@ -316,6 +316,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigRoute, /updateSiteAdminConfig/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
+  assert.match(siteConfigClient, /seedSiteConfigFromServer/);
   assert.match(siteConfigClient, /\/api\/site-config/);
   assert.match(programConfigStore, /persistSiteConfigPatch/);
   assert.match(programConfigStore, /programConfig:\s*next/);
@@ -332,7 +333,25 @@ test("keeps dashboard metadata and project data in source", async () => {
 
   assert.match(themeStore, /localStorage\.setItem\(THEME_STORAGE_KEY/);
   assert.match(themeStore, /esad-dashboard-theme/);
-  assert.match(heroHeader, /hydrateSiteConfigFromHost/);
+  assert.match(heroHeader, /initialProgramConfig/);
+  assert.match(heroHeader, /useProgramConfig\(initialProgramConfig\)/);
+
+  const [siteConfigBootstrap, pageSourceForHost] = await Promise.all([
+    readFile(
+      new URL("../app/site-config-bootstrap.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(siteConfigBootstrap, /seedSiteConfigFromServer/);
+  assert.match(siteConfigBootstrap, /refreshSiteConfigFromHost/);
+  assert.match(pageSourceForHost, /SiteConfigBootstrap/);
+  assert.match(pageSourceForHost, /withHostCardConfigs/);
+  assert.match(pageSourceForHost, /loadSiteAdminConfig/);
+  assert.match(
+    pageSourceForHost,
+    /initialProgramConfig=\{siteConfig\.programConfig\}/,
+  );
 
   const themesSource = await readFile(
     new URL("../lib/themes.ts", import.meta.url),
@@ -380,6 +399,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(projectPanel, /panel-status-block/);
   assert.match(projectPanel, /statusFromOverdueCount/);
   assert.match(projectPanel, /useProgramConfig/);
+  assert.match(projectPanel, /useHostProgramConfig/);
+  assert.match(projectPanel, /useDashboardConfig\(/);
   assert.match(projectPanel, /overdueThresholdsFromProgramConfig/);
   assert.match(projectPanel, /metricsWithLiveLinkState/);
   assert.match(projectPanel, /METRIC_SOURCE_EMPTY/);
