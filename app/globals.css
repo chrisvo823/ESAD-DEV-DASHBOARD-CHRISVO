@@ -789,11 +789,11 @@ body {
 @keyframes selected-card-pulse {
   0%,
   100% {
-    filter: brightness(1.14) drop-shadow(0 12px 22px rgba(40, 160, 220, 0.28));
+    transform: translateY(-8px) scale(1.045);
   }
 
   50% {
-    filter: brightness(1.2) drop-shadow(0 16px 28px rgba(40, 160, 220, 0.4));
+    transform: translateY(-11px) scale(1.055);
   }
 }
 
