@@ -205,6 +205,27 @@ const flatCpldFixture = {
         { columnId: 1689627160432516, value: "2026-08-10T16:59:59" },
       ],
     },
+    {
+      id: 6401284739015556,
+      parentId: 3398599580516228,
+      cells: [
+        {
+          columnId: 5067326880960388,
+          value: "Design and Validation using SDK Platform",
+        },
+        { columnId: 7319126694645636, value: "2026-08-11T08:00:00" },
+        { columnId: 1689627160432516, value: "2026-08-14T16:59:59" },
+      ],
+    },
+    {
+      id: 7512395840126668,
+      parentId: 3398599580516228,
+      cells: [
+        { columnId: 5067326880960388, value: "Verification on ESAD hardware" },
+        { columnId: 7319126694645636, value: "2026-08-15T08:00:00" },
+        { columnId: 1689627160432516, value: "2026-09-25T16:59:59" },
+      ],
+    },
   ],
 };
 
@@ -221,6 +242,20 @@ test("builds a flat schedule for CPLD boards without Rev A/B", () => {
   assert.equal(stats.currentTask?.name, "Requirements");
   assert.equal(stats.nextTask?.name, "Block Diagram Review");
   assert.match(stats.href, /rowId=3398599580516228/);
+});
+
+test("CPLD Next Task follows Block Diagram Review on the schedule", () => {
+  const stats = buildScheduleStats(
+    flatCpldFixture,
+    "CPLD - Primary",
+    new Date("2026-07-27T20:00:00Z"),
+  );
+  assert.ok(stats);
+  assert.equal(stats.currentTask?.name, "Block Diagram Review");
+  assert.equal(
+    stats.nextTask?.name,
+    "Design and Validation using SDK Platform",
+  );
 });
 
 test("fetches live DSB schedule from Smartsheet when token is configured", async () => {
