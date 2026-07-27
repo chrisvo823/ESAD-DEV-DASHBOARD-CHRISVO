@@ -6,9 +6,9 @@ import {
   useAdminAuthenticated,
 } from "./admin-auth";
 import {
-  readAdminCredentials,
   resetAdminPassword,
   useAdminCredentials,
+  verifyAdminCredentials,
 } from "./admin-credentials-store";
 
 type AdminLoginProps = {
@@ -39,20 +39,24 @@ export function AdminLogin({ username, password }: AdminLoginProps) {
     setConfirmPassword("");
   }
 
-  function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const activePassword = readAdminCredentials(password).password;
-    if (user.trim() === username && pass === activePassword) {
-      setAdminAuthenticated(true);
-      resetFormState();
-      setOpen(false);
-      setMode("login");
+    setError(null);
+    const result = await verifyAdminCredentials({
+      username: user,
+      password: pass,
+    });
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    setError("Invalid credentials");
+    setAdminAuthenticated(true, pass);
+    resetFormState();
+    setOpen(false);
+    setMode("login");
   }
 
-  function handleReset(event: FormEvent<HTMLFormElement>) {
+  async function handleReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setMessage(null);
@@ -60,7 +64,7 @@ export function AdminLogin({ username, password }: AdminLoginProps) {
       setError("New password and confirmation do not match.");
       return;
     }
-    const result = resetAdminPassword({
+    const result = await resetAdminPassword({
       fallbackPassword: password,
       email,
       nextPassword,
@@ -121,6 +125,7 @@ export function AdminLogin({ username, password }: AdminLoginProps) {
                   <input
                     name="username"
                     autoComplete="username"
+                    placeholder={username}
                     value={user}
                     onChange={(event) => setUser(event.target.value)}
                   />

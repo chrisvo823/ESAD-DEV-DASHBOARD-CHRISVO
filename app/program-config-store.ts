@@ -6,46 +6,20 @@ import {
   withDefaultProgramLedThresholds,
   type ProgramConfig,
 } from "../lib/program-config";
+import {
+  hydrateSiteConfigFromHost,
+  persistSiteConfigPatch,
+  readCachedProgramConfig,
+  subscribeSiteConfig,
+} from "./site-config-client";
 
+/** @deprecated Admin config is host-persisted; key kept for migration only. */
 export const PROGRAM_CONFIG_STORAGE_KEY = "esad-program-config";
 export const PROGRAM_CONFIG_EVENT = "esad-program-config-change";
 
-function mergeStored(raw: unknown): ProgramConfig {
-  if (!raw || typeof raw !== "object") {
-    return { ...DEFAULT_PROGRAM_CONFIG };
-  }
-  const stored = raw as Partial<ProgramConfig> & {
-    ledGreenLessThan?: number;
-    ledYellowGreaterThan?: number;
-    ledRedGreaterThan?: number;
-  };
-  return withDefaultProgramLedThresholds({
-    dashboardName:
-      typeof stored.dashboardName === "string" && stored.dashboardName.trim()
-        ? stored.dashboardName
-        : DEFAULT_PROGRAM_CONFIG.dashboardName,
-    programLead:
-      typeof stored.programLead === "string" && stored.programLead.trim()
-        ? stored.programLead
-        : DEFAULT_PROGRAM_CONFIG.programLead,
-    ledGreenAtMost: stored.ledGreenAtMost,
-    ledYellowAtLeast: stored.ledYellowAtLeast,
-    ledRedAtLeast: stored.ledRedAtLeast,
-    ledGreenLessThan: stored.ledGreenLessThan,
-    ledYellowGreaterThan: stored.ledYellowGreaterThan,
-    ledRedGreaterThan: stored.ledRedGreaterThan,
-  });
-}
-
 export function readProgramConfig(): ProgramConfig {
   if (typeof window === "undefined") return { ...DEFAULT_PROGRAM_CONFIG };
-  try {
-    const raw = window.localStorage.getItem(PROGRAM_CONFIG_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_PROGRAM_CONFIG };
-    return mergeStored(JSON.parse(raw));
-  } catch {
-    return { ...DEFAULT_PROGRAM_CONFIG };
-  }
+  return readCachedProgramConfig();
 }
 
 export function writeProgramConfig(config: ProgramConfig): ProgramConfig {
@@ -57,14 +31,13 @@ export function writeProgramConfig(config: ProgramConfig): ProgramConfig {
     ledRedAtLeast: config.ledRedAtLeast,
   });
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(
-      PROGRAM_CONFIG_STORAGE_KEY,
-      JSON.stringify(next),
-    );
     window.dispatchEvent(
       new CustomEvent(PROGRAM_CONFIG_EVENT, { detail: { config: next } }),
     );
   }
+  void persistSiteConfigPatch({ programConfig: next }).catch(() => {
+    // Host save failures are surfaced by re-hydration in persist helper.
+  });
   return next;
 }
 
@@ -72,27 +45,24 @@ export function useProgramConfig(): ProgramConfig {
   const [config, setConfig] = useState<ProgramConfig>(DEFAULT_PROGRAM_CONFIG);
 
   useEffect(() => {
-    setConfig(readProgramConfig());
+    let cancelled = false;
+    void hydrateSiteConfigFromHost().then(() => {
+      if (!cancelled) setConfig(readCachedProgramConfig());
+    });
 
-    const onChange = (event: Event) => {
+    const unsubscribe = subscribeSiteConfig(() => {
+      setConfig(readCachedProgramConfig());
+    });
+    const onLegacy = (event: Event) => {
       const detail = (event as CustomEvent<{ config: ProgramConfig }>).detail;
-      if (detail?.config) {
-        setConfig(detail.config);
-        return;
-      }
-      setConfig(readProgramConfig());
+      if (detail?.config) setConfig(detail.config);
     };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === PROGRAM_CONFIG_STORAGE_KEY) {
-        setConfig(readProgramConfig());
-      }
-    };
+    window.addEventListener(PROGRAM_CONFIG_EVENT, onLegacy);
 
-    window.addEventListener(PROGRAM_CONFIG_EVENT, onChange);
-    window.addEventListener("storage", onStorage);
     return () => {
-      window.removeEventListener(PROGRAM_CONFIG_EVENT, onChange);
-      window.removeEventListener("storage", onStorage);
+      cancelled = true;
+      unsubscribe();
+      window.removeEventListener(PROGRAM_CONFIG_EVENT, onLegacy);
     };
   }, []);
 

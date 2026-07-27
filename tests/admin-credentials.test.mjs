@@ -1,95 +1,58 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  changeAdminPassword,
-  readAdminCredentials,
-  resetAdminPassword,
-  writeAdminCredentials,
-} from "../app/admin-credentials-store.ts";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
-const FALLBACK = "esad";
+const tempRoot = await mkdtemp(path.join(os.tmpdir(), "esad-admin-creds-"));
+const previousCwd = process.cwd();
+process.chdir(tempRoot);
 
-function withLocalStorage(run) {
-  const store = new Map();
-  const localStorage = {
-    getItem(key) {
-      return store.has(key) ? store.get(key) : null;
-    },
-    setItem(key, value) {
-      store.set(key, String(value));
-    },
-    removeItem(key) {
-      store.delete(key);
-    },
-  };
-  const previousWindow = globalThis.window;
-  globalThis.window = {
-    localStorage,
-    dispatchEvent() {
-      return true;
-    },
-  };
-  try {
-    run(store);
-  } finally {
-    if (previousWindow === undefined) {
-      delete globalThis.window;
-    } else {
-      globalThis.window = previousWindow;
-    }
-  }
-}
+const {
+  changeHostAdminPassword,
+  resetHostAdminPassword,
+  verifyAdminLogin,
+} = await import("../lib/site-config-store.ts");
 
-test("change password requires current password and persists new value", () => {
-  withLocalStorage(() => {
-    writeAdminCredentials(
-      { password: FALLBACK, recoveryEmail: "" },
-      FALLBACK,
-    );
-    const failed = changeAdminPassword({
-      fallbackPassword: FALLBACK,
-      currentPassword: "wrong",
-      nextPassword: "nextpass",
-    });
-    assert.equal(failed.ok, false);
-
-    const ok = changeAdminPassword({
-      fallbackPassword: FALLBACK,
-      currentPassword: FALLBACK,
-      nextPassword: "nextpass",
-    });
-    assert.equal(ok.ok, true);
-    assert.equal(readAdminCredentials(FALLBACK).password, "nextpass");
-  });
+test.after(async () => {
+  process.chdir(previousCwd);
+  await rm(tempRoot, { recursive: true, force: true });
 });
 
-test("reset password requires email and saves recovery email", () => {
-  withLocalStorage(() => {
-    const first = resetAdminPassword({
-      fallbackPassword: FALLBACK,
-      email: "ops@mach.example",
-      nextPassword: "reset1",
-    });
-    assert.equal(first.ok, true);
-    assert.equal(readAdminCredentials(FALLBACK).password, "reset1");
-    assert.equal(
-      readAdminCredentials(FALLBACK).recoveryEmail,
-      "ops@mach.example",
-    );
-
-    const mismatch = resetAdminPassword({
-      fallbackPassword: FALLBACK,
-      email: "other@mach.example",
-      nextPassword: "reset2",
-    });
-    assert.equal(mismatch.ok, false);
-
-    const match = resetAdminPassword({
-      fallbackPassword: FALLBACK,
-      email: "ops@mach.example",
-      nextPassword: "reset2",
-    });
-    assert.equal(match.ok, true);
-    assert.equal(readAdminCredentials(FALLBACK).password, "reset2");
+test("change password requires current password and persists new value on host", async () => {
+  const failed = await changeHostAdminPassword({
+    currentPassword: "wrong",
+    nextPassword: "nextpass",
   });
+  assert.equal(failed.ok, false);
+
+  const ok = await changeHostAdminPassword({
+    currentPassword: "esad",
+    nextPassword: "nextpass",
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(await verifyAdminLogin("admin", "nextpass"), true);
+  assert.equal(await verifyAdminLogin("admin", "esad"), false);
+});
+
+test("reset password requires email and saves recovery email on host", async () => {
+  const first = await resetHostAdminPassword({
+    email: "ops@mach.example",
+    nextPassword: "reset1",
+  });
+  assert.equal(first.ok, true);
+  assert.equal(await verifyAdminLogin("admin", "reset1"), true);
+
+  const mismatch = await resetHostAdminPassword({
+    email: "other@mach.example",
+    nextPassword: "reset2",
+  });
+  assert.equal(mismatch.ok, false);
+
+  const match = await resetHostAdminPassword({
+    email: "ops@mach.example",
+    nextPassword: "reset2",
+  });
+  assert.equal(match.ok, true);
+  assert.equal(await verifyAdminLogin("admin", "reset2"), true);
 });
