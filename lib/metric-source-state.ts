@@ -80,8 +80,13 @@ export function taskMetricsForSourceStatus(
   return { open: { ...stub }, overdue: { ...stub } };
 }
 
+/**
+ * Build Current / Next Task stubs from Smartsheet Link status.
+ * When `status` is ok, `href` should be the Configuration Smartsheet Link.
+ */
 export function scheduleMetricsForSourceStatus(
   status: MetricSourceStatus,
+  href?: string,
 ): { current: ScheduleMetricPatch; next: ScheduleMetricPatch } {
   const label =
     status === "ok"
@@ -89,13 +94,15 @@ export function scheduleMetricsForSourceStatus(
       : status === "empty"
         ? METRIC_SOURCE_EMPTY
         : METRIC_SOURCE_ERROR;
+  const link = status === "ok" ? href : undefined;
   const stub: ScheduleMetricPatch = {
     value: 0,
     valueText: label,
     hideValueBar: true,
     barPercent: undefined,
     barLabel: undefined,
-    href: undefined,
+    // Label opens the Configuration Smartsheet Link; placeholder values are not linked.
+    href: link,
     valueHref: undefined,
     valueDateLabel: undefined,
     valuePercentLabel: undefined,

@@ -37,6 +37,7 @@ import {
   resolveGoogleDriveSource,
   resolveSmartsheetSheetIdFromLink,
   resolveSmartsheetSource,
+  smartsheetHrefFromConfig,
 } from "../lib/source-links";
 
 type Project = ProjectPanelProject;
@@ -512,6 +513,10 @@ function isEsadProjectCode(code: string): code is EsadProjectCode {
 
 type ScheduleMetricProject = Project["metrics"][number];
 
+function isSchedulePlaceholder(valueText: string | undefined): boolean {
+  return !valueText || valueText === "—";
+}
+
 /** Map live or fallback schedule stats onto Current Task / Next Task metrics. */
 function metricsWithScheduleStats(
   metrics: ScheduleMetricProject[],
@@ -521,6 +526,8 @@ function metricsWithScheduleStats(
     nextTask: DsbScheduleStats["nextTask"];
     revisions: DsbScheduleRevision[];
   },
+  /** Configuration Smartsheet Link — used for Current/Next Task label hrefs. */
+  smartsheetConfigHref: string,
 ): ScheduleMetricProject[] {
   return metrics.map((metric) => {
     if (metric.label === "Current Task") {
@@ -529,13 +536,16 @@ function metricsWithScheduleStats(
       const percentLabel = current
         ? formatSchedulePercentComplete(current.percentComplete ?? 0)
         : undefined;
+      const valueText = current?.name ?? "—";
       return {
         ...metric,
         value: 0,
-        href: schedule.href,
-        valueText: current?.name ?? "—",
+        href: smartsheetConfigHref,
+        valueText,
         valueDateLabel: formatScheduleDate(current?.finish) ?? undefined,
-        valueHref: current?.permalink ?? schedule.href,
+        valueHref: isSchedulePlaceholder(valueText)
+          ? undefined
+          : (current?.permalink ?? smartsheetConfigHref),
         valuePercentLabel: percentLabel ?? undefined,
         focusTaskId: current?.id,
         hideValueBar: true,
@@ -546,14 +556,17 @@ function metricsWithScheduleStats(
     }
 
     if (metric.label === "Next Task") {
+      const valueText = schedule.nextTask?.name ?? "—";
       return {
         ...metric,
         value: 0,
-        href: schedule.nextTask?.permalink ?? schedule.href,
-        valueText: schedule.nextTask?.name ?? "—",
+        href: smartsheetConfigHref,
+        valueText,
         valueDateLabel:
           formatScheduleDate(schedule.nextTask?.start) ?? undefined,
-        valueHref: schedule.nextTask?.permalink ?? schedule.href,
+        valueHref: isSchedulePlaceholder(valueText)
+          ? undefined
+          : (schedule.nextTask?.permalink ?? smartsheetConfigHref),
         focusTaskId: schedule.nextTask?.id,
         hideValueBar: true,
         barPercent: undefined,
@@ -577,15 +590,10 @@ function fallbackScheduleFromMetrics(metrics: ScheduleMetricProject[]): {
   revisions: DsbScheduleRevision[];
 } {
   const currentMetric = metrics.find((metric) => metric.label === "Current Task");
-  const nextMetric = metrics.find((metric) => metric.label === "Next Task");
   const revisions = currentMetric?.scheduleRevisions ?? [];
-  const href =
-    currentMetric?.href ??
-    nextMetric?.href ??
-    DASHBOARD_CONFIGS["1"].smartsheetLink;
 
   return {
-    href,
+    href: currentMetric?.href ?? DASHBOARD_CONFIGS["1"].smartsheetLink,
     currentTask: findCurrentScheduleTask(revisions),
     nextTask: findNextScheduleTask(revisions),
     revisions,
@@ -603,6 +611,9 @@ function applyLiveProjectStats(
     const scheduleStats = code ? (scheduleStatsByCode[code] ?? null) : null;
     const driveSource = resolveGoogleDriveSource(project.config.googleDriveLink);
     const smartsheetSource = resolveSmartsheetSource(
+      project.config.smartsheetLink,
+    );
+    const smartsheetConfigHref = smartsheetHrefFromConfig(
       project.config.smartsheetLink,
     );
     const smartsheetResolvable =
@@ -711,11 +722,9 @@ function applyLiveProjectStats(
       };
     }
 
-    // Current Task / Next Task follow Smartsheet Link.
-    if (smartsheetSource.status !== "ok" || !smartsheetResolvable) {
-      const status =
-        smartsheetSource.status === "ok" ? "invalid" : smartsheetSource.status;
-      const stubs = scheduleMetricsForSourceStatus(status);
+    // Current Task / Next Task follow Configuration Smartsheet Link.
+    if (smartsheetSource.status !== "ok" || !smartsheetConfigHref) {
+      const stubs = scheduleMetricsForSourceStatus(smartsheetSource.status);
       nextProject = {
         ...nextProject,
         metrics: nextProject.metrics.map((metric) => {
@@ -728,20 +737,39 @@ function applyLiveProjectStats(
           return metric;
         }),
       };
-    } else if (scheduleStats) {
+    } else if (smartsheetResolvable && scheduleStats) {
       nextProject = {
         ...nextProject,
-        metrics: metricsWithScheduleStats(nextProject.metrics, scheduleStats),
+        metrics: metricsWithScheduleStats(
+          nextProject.metrics,
+          scheduleStats,
+          smartsheetConfigHref,
+        ),
       };
-    } else {
-      // Valid Smartsheet Link but live schedule unavailable (e.g. no API token).
-      // Recompute Current/Next from static fallback revisions so row links remain.
+    } else if (smartsheetResolvable) {
+      // Known sheet but live schedule unavailable (e.g. no API token).
       nextProject = {
         ...nextProject,
         metrics: metricsWithScheduleStats(
           nextProject.metrics,
           fallbackScheduleFromMetrics(nextProject.metrics),
+          smartsheetConfigHref,
         ),
+      };
+    } else {
+      // Valid Configuration Smartsheet Link we cannot fetch yet — still link labels.
+      const stubs = scheduleMetricsForSourceStatus("ok", smartsheetConfigHref);
+      nextProject = {
+        ...nextProject,
+        metrics: nextProject.metrics.map((metric) => {
+          if (metric.label === "Current Task") {
+            return { ...metric, ...stubs.current };
+          }
+          if (metric.label === "Next Task") {
+            return { ...metric, ...stubs.next };
+          }
+          return metric;
+        }),
       };
     }
 

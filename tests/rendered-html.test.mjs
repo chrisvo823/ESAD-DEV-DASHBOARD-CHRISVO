@@ -171,8 +171,11 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /statusFromOverdueCount/);
   assert.match(page, /label: "Current Task"/);
   assert.match(page, /label: "Next Task"/);
-  assert.match(page, /valueText: current\?\.name/);
-  assert.match(page, /valueText: schedule\.nextTask\?\.name/);
+  assert.match(page, /valueText: current\?\.name|const valueText = current\?\.name/);
+  assert.match(
+    page,
+    /valueText: schedule\.nextTask\?\.name|const valueText = schedule\.nextTask\?\.name/,
+  );
   assert.match(page, /valuePercentLabel/);
   assert.match(page, /valueDateLabel/);
   assert.match(page, /formatSchedulePercentComplete/);
@@ -181,13 +184,24 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /nextTask\?\.start/);
   assert.match(page, /focusTaskId: current\?\.id/);
   assert.match(page, /focusTaskId: schedule\.nextTask\?\.id/);
-  assert.match(page, /valueHref: current\?\.permalink/);
-  assert.match(page, /valueHref: schedule\.nextTask\?\.permalink/);
+  assert.match(page, /current\?\.permalink/);
+  assert.match(page, /schedule\.nextTask\?\.permalink/);
+  assert.match(page, /smartsheetConfigHref/);
+  assert.match(page, /smartsheetHrefFromConfig/);
   assert.match(page, /metricsWithScheduleStats/);
   assert.match(page, /fallbackScheduleFromMetrics/);
   assert.match(page, /findCurrentScheduleTask/);
   assert.match(page, /findNextScheduleTask/);
+  assert.match(page, /isSchedulePlaceholder/);
   assert.match(page, /hideValueBar: true/);
+  assert.match(
+    await readFile(new URL("../app/project-panel.tsx", import.meta.url), "utf8"),
+    /smartsheetHrefFromConfig/,
+  );
+  assert.match(
+    await readFile(new URL("../app/project-panel.tsx", import.meta.url), "utf8"),
+    /hrefMatchesSmartsheetConfig/,
+  );
   assert.match(
     await readFile(new URL("../app/project-panel.tsx", import.meta.url), "utf8"),
     /metric-task-percent/,
@@ -342,6 +356,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(sourceLinks, /METRIC_SOURCE_ERROR = "Error"/);
   assert.match(sourceLinks, /resolveGoogleDriveSource/);
   assert.match(sourceLinks, /resolveSmartsheetSource/);
+  assert.match(sourceLinks, /smartsheetHrefFromConfig/);
+  assert.match(sourceLinks, /hrefMatchesSmartsheetConfig/);
 
   const programConfigSource = await readFile(
     new URL("../lib/program-config.ts", import.meta.url),
