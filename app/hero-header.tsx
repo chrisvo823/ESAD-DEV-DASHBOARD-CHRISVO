@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminAccessPanel } from "./admin-access-panel";
 import { AdminAccountPanel } from "./admin-account-panel";
 import { AdminLogin } from "./admin-login";
 import { ProgramConfigWindow } from "./program-config-window";
@@ -25,6 +26,7 @@ export function HeroHeader({
       <div className="admin-toolbar">
         <ThemePicker />
         <ProgramConfigWindow config={programConfig} />
+        <AdminAccessPanel />
         <AdminAccountPanel fallbackPassword={adminPassword} />
         <AdminLogin username={adminUsername} password={adminPassword} />
       </div>

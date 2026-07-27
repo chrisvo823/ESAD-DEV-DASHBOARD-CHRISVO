@@ -248,6 +248,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(heroHeader, /AdminLogin/);
   assert.match(heroHeader, /ProgramConfigWindow/);
   assert.match(heroHeader, /ThemePicker/);
+  assert.match(heroHeader, /AdminAccessPanel/);
   assert.match(heroHeader, /AdminAccountPanel/);
   assert.match(heroHeader, /admin-toolbar/);
   assert.match(heroHeader, /programConfig\.dashboardName/);
