@@ -2199,7 +2199,112 @@ body[data-theme="lucky-brass"] {
 .admin-login-link:hover { color: #fff; }
 
 .theme-picker-window,
-.admin-account-window { width: min(560px, 100%); }
+.admin-account-window,
+.admin-access-window { width: min(560px, 100%); }
+
+.admin-access-body {
+  display: grid;
+  gap: 18px;
+  padding: 0 18px 18px;
+}
+
+.admin-access-section {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-access-section h4 {
+  margin: 0;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #9fc4e4;
+}
+
+.admin-access-facts {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.admin-access-facts > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 38%) 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.admin-access-facts dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+.admin-access-facts dd {
+  margin: 0;
+  font-size: .82rem;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.admin-access-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .64rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.admin-access-pill--ok {
+  color: #7dcea0;
+}
+
+.admin-access-pill--warn {
+  color: #d7b56d;
+}
+
+.admin-access-pill--deny {
+  color: #e07a7a;
+}
+
+.admin-access-form {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-access-result {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #3b79ae;
+  background: rgba(8, 22, 36, .75);
+  font-size: .78rem;
+}
+
+.admin-access-result span {
+  color: var(--muted);
+}
+
+.admin-access-result--ok {
+  border-color: rgba(125, 206, 160, .55);
+}
+
+.admin-access-result--deny {
+  border-color: rgba(224, 122, 122, .55);
+}
+
+[data-theme="light"] .admin-access-section h4 {
+  color: #355f86;
+}
+
+[data-theme="light"] .admin-access-result {
+  background: rgba(255, 255, 255, .85);
+}
 
 .theme-picker-list {
   list-style: none;
