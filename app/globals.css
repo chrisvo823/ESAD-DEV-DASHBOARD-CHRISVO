@@ -355,6 +355,14 @@ body {
   padding: 10px 18px 0;
 }
 
+.company-auth-bar--preview {
+  justify-content: flex-start;
+}
+
+.company-auth-bar--preview .company-auth-user {
+  color: #d7b56d;
+}
+
 .company-auth-user {
   color: #9fc4e4;
   font-size: .78rem;
