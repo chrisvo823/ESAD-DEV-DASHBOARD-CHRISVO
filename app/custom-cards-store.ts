@@ -64,22 +64,22 @@ export function removeCustomCard(id: string): CustomCardRecord[] {
   return next;
 }
 
-export function syncCustomCardConfig(config: DashboardConfig): void {
+export async function syncCustomCardConfig(
+  config: DashboardConfig,
+): Promise<void> {
   if (!isCustomCardId(config.dashboardId)) return;
   const cards = readCustomCards();
   const index = cards.findIndex((card) => card.id === config.dashboardId);
   if (index < 0) {
-    writeDashboardConfig(config);
+    await writeDashboardConfig(config);
     return;
   }
   const next = [...cards];
   next[index] = { id: config.dashboardId, config: { ...config } };
   emitCards(next);
-  void persistSiteConfigPatch({
+  await persistSiteConfigPatch({
     customCards: next,
     dashboardConfig: config,
-  }).catch(() => {
-    // Host save failures are surfaced by re-hydration in persist helper.
   });
 }
 

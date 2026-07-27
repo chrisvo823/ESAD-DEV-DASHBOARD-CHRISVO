@@ -104,6 +104,8 @@ export function AdminLoginsPanel({ adminPassword }: AdminLoginsPanelProps) {
     }
   }
 
+  const users = summary?.users ?? [];
+
   return (
     <>
       <button
@@ -131,7 +133,7 @@ export function AdminLoginsPanel({ adminPassword }: AdminLoginsPanelProps) {
                 <header className="config-window-header">
                   <div>
                     <p className="config-window-kicker">Admin logins</p>
-                    <h3 id={titleId}>Dashboard sign-ins · last 24 hours</h3>
+                    <h3 id={titleId}>Users signed in · last 24 hours</h3>
                   </div>
                   <div className="config-window-actions">
                     <button
@@ -145,33 +147,41 @@ export function AdminLoginsPanel({ adminPassword }: AdminLoginsPanelProps) {
                 </header>
 
                 <div className="admin-logins-body">
+                  <p className="config-window-help">
+                    Host-tracked running list of unique Google sign-ins. Users
+                    remain listed for 24 hours from their latest sign-in, then
+                    drop off automatically.
+                  </p>
                   <p className="admin-logins-summary">
                     {loading && !summary
                       ? "Loading sign-in activity…"
                       : summary
-                        ? `${summary.count} sign-in${summary.count === 1 ? "" : "s"} · ${summary.uniqueEmails} unique user${summary.uniqueEmails === 1 ? "" : "s"}`
+                        ? `${summary.uniqueEmails} user${summary.uniqueEmails === 1 ? "" : "s"} · ${summary.count} sign-in${summary.count === 1 ? "" : "s"} in the last ${summary.windowHours} hours`
                         : "No sign-in activity loaded."}
                   </p>
 
                   {error ? <p className="admin-logins-error">{error}</p> : null}
 
-                  {!loading && summary && summary.events.length === 0 ? (
+                  {!loading && summary && users.length === 0 ? (
                     <p className="admin-logins-empty">
                       No Google sign-ins recorded in the last 24 hours.
                     </p>
                   ) : null}
 
-                  {summary && summary.events.length > 0 ? (
+                  {users.length > 0 ? (
                     <ul className="admin-logins-list">
-                      {summary.events.map((event) => (
-                        <li
-                          className="admin-logins-item"
-                          key={`${event.email}-${event.at}`}
-                        >
-                          <strong>{event.email}</strong>
-                          <time dateTime={event.at}>
-                            {formatLoginActivityTime(event.at)}
-                          </time>
+                      {users.map((user) => (
+                        <li className="admin-logins-item" key={user.email}>
+                          <strong>{user.email}</strong>
+                          <span className="admin-logins-meta">
+                            <time dateTime={user.lastSeenAt}>
+                              Last seen {formatLoginActivityTime(user.lastSeenAt)}
+                            </time>
+                            <span>
+                              {user.signInCount} sign-in
+                              {user.signInCount === 1 ? "" : "s"}
+                            </span>
+                          </span>
                         </li>
                       ))}
                     </ul>

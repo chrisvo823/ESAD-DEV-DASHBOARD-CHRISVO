@@ -2275,10 +2275,18 @@ body[data-theme="lucky-brass"] {
   word-break: break-word;
 }
 
-.admin-logins-item time {
+.admin-logins-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: flex-end;
+  text-align: right;
   font-family: var(--font-geist-mono), monospace;
   font-size: .68rem;
   color: #9fc4e4;
+}
+
+.admin-logins-item time {
   white-space: nowrap;
 }
 
@@ -2306,7 +2314,7 @@ body[data-theme="lucky-brass"] {
   background: rgba(255, 255, 255, .85);
 }
 
-[data-theme="light"] .admin-logins-item time {
+[data-theme="light"] .admin-logins-meta {
   color: #355f86;
 }
 

@@ -45,20 +45,31 @@ async function writePersistedEvents(events: LoginActivityEvent[]): Promise<void>
   }
 }
 
-async function loadEvents(): Promise<LoginActivityEvent[]> {
-  const memory = memoryStore();
-  if (memory.length > 0) {
-    return filterLoginActivity(memory);
+function dedupeLoginEvents(events: LoginActivityEvent[]): LoginActivityEvent[] {
+  const byKey = new Map<string, LoginActivityEvent>();
+  for (const event of events) {
+    byKey.set(`${event.email}|${event.at}`, event);
   }
-  const persisted = filterLoginActivity(await readPersistedEvents());
-  memory.splice(0, memory.length, ...persisted);
-  return persisted;
+  return [...byKey.values()];
+}
+
+async function loadEvents(now: Date = new Date()): Promise<LoginActivityEvent[]> {
+  const memory = memoryStore();
+  const persisted = await readPersistedEvents();
+  // Merge host file + in-memory events (deduped) so the running 24h list
+  // survives reloads without double-counting the same sign-in.
+  const merged = filterLoginActivity(
+    dedupeLoginEvents([...memory, ...persisted]),
+    now,
+  );
+  memory.splice(0, memory.length, ...merged);
+  return merged;
 }
 
 export async function listLoginActivity(
   now: Date = new Date(),
 ): Promise<LoginActivityEvent[]> {
-  const events = await loadEvents();
+  const events = await loadEvents(now);
   return filterLoginActivity(events, now);
 }
 
@@ -72,7 +83,7 @@ export async function recordLoginActivity(
   });
   if (!event) return null;
 
-  const existing = await loadEvents();
+  const existing = await loadEvents(at);
   // Dedupe the same email within a 5-minute window to avoid refresh spam.
   const recentSame = existing.find((entry) => {
     if (entry.email !== event.email) return false;
@@ -80,7 +91,7 @@ export async function recordLoginActivity(
   });
   if (recentSame) return recentSame;
 
-  const next = filterLoginActivity([event, ...existing]).slice(
+  const next = filterLoginActivity([event, ...existing], at).slice(
     0,
     LOGIN_ACTIVITY_MAX_EVENTS,
   );

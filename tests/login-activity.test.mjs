@@ -6,6 +6,7 @@ import {
   normalizeLoginEmail,
   parseLoginActivityEvent,
   summarizeLoginActivity,
+  uniqueLoginUsers,
 } from "../lib/login-activity.ts";
 
 test("normalizes allowed company emails only", () => {
@@ -31,19 +32,52 @@ test("filters login events to the last 24 hours", () => {
   );
 });
 
-test("summarizes unique emails and counts", () => {
+test("summarizes unique emails and running user list", () => {
   const now = new Date("2026-07-27T20:00:00Z");
   const summary = summarizeLoginActivity(
     [
       { email: "a@machindustries.com", at: "2026-07-27T19:00:00Z" },
       { email: "a@machindustries.com", at: "2026-07-27T18:00:00Z" },
       { email: "b@machindustries.com", at: "2026-07-27T12:00:00Z" },
+      { email: "stale@machindustries.com", at: "2026-07-26T18:00:00Z" },
     ],
     now,
   );
   assert.equal(summary.count, 3);
   assert.equal(summary.uniqueEmails, 2);
   assert.equal(summary.windowHours, 24);
+  assert.deepEqual(
+    summary.users.map((user) => ({
+      email: user.email,
+      signInCount: user.signInCount,
+      lastSeenAt: user.lastSeenAt,
+    })),
+    [
+      {
+        email: "a@machindustries.com",
+        signInCount: 2,
+        lastSeenAt: "2026-07-27T19:00:00Z",
+      },
+      {
+        email: "b@machindustries.com",
+        signInCount: 1,
+        lastSeenAt: "2026-07-27T12:00:00Z",
+      },
+    ],
+  );
+});
+
+test("uniqueLoginUsers collapses duplicates by newest last-seen", () => {
+  const users = uniqueLoginUsers([
+    { email: "b@machindustries.com", at: "2026-07-27T10:00:00Z" },
+    { email: "a@machindustries.com", at: "2026-07-27T12:00:00Z" },
+    { email: "a@machindustries.com", at: "2026-07-27T11:00:00Z" },
+  ]);
+  assert.deepEqual(
+    users.map((user) => user.email),
+    ["a@machindustries.com", "b@machindustries.com"],
+  );
+  assert.equal(users[0]?.signInCount, 2);
 });
 
 test("parses and rejects invalid login events", () => {

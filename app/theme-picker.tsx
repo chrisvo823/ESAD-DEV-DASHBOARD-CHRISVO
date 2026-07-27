@@ -70,8 +70,9 @@ export function ThemePicker() {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Themes change look and feel only. Layout and card format stay
-                  the same.
+                  Themes are stored in this browser only. Layout and card format
+                  stay the same; Dashboard and card Configuration save on the
+                  host.
                 </p>
                 <ul className="theme-picker-list">
                   {THEME_OPTIONS.map((option) => {

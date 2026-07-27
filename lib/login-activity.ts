@@ -6,12 +6,46 @@ export type LoginActivityEvent = {
   at: string; // ISO timestamp
 };
 
+/** Unique signed-in user within the rolling 24h window. */
+export type LoginActivityUser = {
+  email: string;
+  lastSeenAt: string;
+  signInCount: number;
+};
+
 export type LoginActivitySummary = {
   windowHours: number;
   count: number;
   uniqueEmails: number;
+  /** Running unique-user list for the last 24 hours (newest last-seen first). */
+  users: LoginActivityUser[];
   events: LoginActivityEvent[];
 };
+
+/** Collapse events into a running unique-user list (newest last-seen first). */
+export function uniqueLoginUsers(
+  events: LoginActivityEvent[],
+): LoginActivityUser[] {
+  const byEmail = new Map<string, LoginActivityUser>();
+  for (const event of events) {
+    const existing = byEmail.get(event.email);
+    if (!existing) {
+      byEmail.set(event.email, {
+        email: event.email,
+        lastSeenAt: event.at,
+        signInCount: 1,
+      });
+      continue;
+    }
+    existing.signInCount += 1;
+    if (Date.parse(event.at) > Date.parse(existing.lastSeenAt)) {
+      existing.lastSeenAt = event.at;
+    }
+  }
+  return [...byEmail.values()].sort(
+    (a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt),
+  );
+}
 
 function allowedEmailDomain(): string {
   return (
@@ -63,11 +97,12 @@ export function summarizeLoginActivity(
   now: Date = new Date(),
 ): LoginActivitySummary {
   const recent = filterLoginActivity(events, now);
-  const uniqueEmails = new Set(recent.map((event) => event.email)).size;
+  const users = uniqueLoginUsers(recent);
   return {
     windowHours: 24,
     count: recent.length,
-    uniqueEmails,
+    uniqueEmails: users.length,
+    users,
     events: recent,
   };
 }
