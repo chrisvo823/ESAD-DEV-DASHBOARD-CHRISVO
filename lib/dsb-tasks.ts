@@ -2,7 +2,8 @@ import {
   ESAD_PROJECT_INTEGRATIONS,
   googleSheetCsvUrl,
   googleSheetEditUrl,
-} from "./esad-projects";
+} from "./esad-projects.ts";
+import { parseGoogleSheetIdFromLink } from "./source-links.ts";
 
 export const DSB_SHEET_ID =
   ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId ??
@@ -38,14 +39,15 @@ export type DsbTaskItem = {
 export type DsbOverdueItem = DsbTaskItem;
 
 export type DsbTaskStats = {
+  /** Open (non-done) tasks that have a Due date set. */
   openTasks: number;
   doneTasks: number;
   totalTasks: number;
   /** Incomplete tasks whose Due date is before today. */
   overdueTasks: number;
-  /** Open tasks that have a Due date set. */
+  /** Same as openTasks — open tasks that have a Due date set. */
   openTasksWithDueDate: number;
-  /** Open rows with Key / Summary / Assignee for hover details. */
+  /** Open dated rows with Key / Summary / Assignee for hover details. */
   openItems: DsbTaskItem[];
   /** Overdue rows with Key / Summary / Assignee for hover details. */
   overdueItems: DsbTaskItem[];
@@ -60,33 +62,35 @@ export type DsbIndicatorStatus = "On Track" | "Delayed" | "At Risk";
 
 /** Per-card overdue thresholds that drive LED + status text. */
 export type OverdueLedThresholds = {
-  /** On Track when overdue count is &lt; this value. */
-  greenLessThan: number;
-  /** Delayed when overdue count is &gt; this value (and not red). */
-  yellowGreaterThan: number;
-  /** At Risk when overdue count is &gt; this value. */
-  redGreaterThan: number;
+  /**
+   * Documented green cutoff (Over Due at or below this is On Track).
+   * Status uses yellow/red cutoffs; counts below yellow stay On Track.
+   */
+  greenAtMost: number;
+  /** Delayed / Yellow when overdue count is ≥ this value (and not red). */
+  yellowAtLeast: number;
+  /** At Risk / Red when overdue count is ≥ this value. */
+  redAtLeast: number;
 };
 
 export const DEFAULT_OVERDUE_LED_THRESHOLDS: OverdueLedThresholds = {
-  greenLessThan: 1,
-  yellowGreaterThan: 2,
-  redGreaterThan: 5,
+  greenAtMost: 1,
+  yellowAtLeast: 3,
+  redAtLeast: 5,
 };
 
 /**
  * Indicator lights from overdue count + configurable thresholds.
- * Precedence: Red (&gt; red) → Yellow (&gt; yellow) → Green (&lt; green) → Delayed.
+ * Precedence: Red (≥ red) → Yellow (≥ yellow) → Green (below yellow).
  */
 export function statusFromOverdueCount(
   overdueTasks: number,
   thresholds: OverdueLedThresholds = DEFAULT_OVERDUE_LED_THRESHOLDS,
 ): DsbIndicatorStatus {
   const overdue = Math.max(0, Number.isFinite(overdueTasks) ? overdueTasks : 0);
-  if (overdue > thresholds.redGreaterThan) return "At Risk";
-  if (overdue > thresholds.yellowGreaterThan) return "Delayed";
-  if (overdue < thresholds.greenLessThan) return "On Track";
-  return "Delayed";
+  if (overdue >= thresholds.redAtLeast) return "At Risk";
+  if (overdue >= thresholds.yellowAtLeast) return "Delayed";
+  return "On Track";
 }
 
 /** Aggregated Program Status totals across every board card. */
@@ -369,6 +373,11 @@ export function countOpenTasksFromCsv(
       continue;
     }
 
+    // Open Tasks counts only open rows that have a Due date.
+    if (dueDateIndex < 0) continue;
+    const dueDate = parseSheetDate(row[dueDateIndex] ?? "");
+    if (!dueDate) continue;
+
     const summaryFromColumnC = (row[SUMMARY_COLUMN_C_INDEX] ?? "").trim();
     const item: DsbTaskItem = {
       key: (keyIndex >= 0 ? row[keyIndex] : "").trim() || "Unknown",
@@ -376,20 +385,12 @@ export function countOpenTasksFromCsv(
         summaryFromColumnC ||
         (summaryIndex >= 0 ? row[summaryIndex] : "").trim(),
       assignee: (assigneeIndex >= 0 ? row[assigneeIndex] : "").trim(),
+      dueDate: formatSyncDate(dueDate),
     };
     openItems.push(item);
-
-    if (dueDateIndex >= 0) {
-      const dueDate = parseSheetDate(row[dueDateIndex] ?? "");
-      if (dueDate) {
-        openTasksWithDueDate += 1;
-        if (startOfLocalDay(dueDate) < today) {
-          overdueItems.push({
-            ...item,
-            dueDate: formatSyncDate(dueDate),
-          });
-        }
-      }
+    openTasksWithDueDate += 1;
+    if (startOfLocalDay(dueDate) < today) {
+      overdueItems.push(item);
     }
   }
 
@@ -451,17 +452,29 @@ export async function fetchDsbTaskStats(
   return fetchProjectTaskStats(DSB_SHEET_ID, fetchImpl);
 }
 
-/** Fetch Google Sheet task stats for every configured ESAD board. */
+/**
+ * Fetch Google Sheet task stats for every ESAD board.
+ * When `googleDriveLinksByCode` is provided, sheet ids are parsed from those
+ * Card Configuration Google Drive Links (blank/invalid links are skipped).
+ */
 export async function fetchAllProjectTaskStats(
   fetchImpl: typeof fetch = fetch,
+  googleDriveLinksByCode?: Partial<
+    Record<"DSB" | "HVFB" | "PRI" | "IND", string>
+  >,
 ): Promise<Partial<Record<"DSB" | "HVFB" | "PRI" | "IND", DsbTaskStats>>> {
   const entries = await Promise.all(
     (Object.values(ESAD_PROJECT_INTEGRATIONS) as Array<{
       code: "DSB" | "HVFB" | "PRI" | "IND";
       googleSheetId: string | null;
     }>).map(async (project) => {
-      if (!project.googleSheetId) return [project.code, null] as const;
-      const stats = await fetchProjectTaskStats(project.googleSheetId, fetchImpl);
+      const configuredLink = googleDriveLinksByCode?.[project.code];
+      const sheetId =
+        configuredLink !== undefined
+          ? parseGoogleSheetIdFromLink(configuredLink)
+          : project.googleSheetId;
+      if (!sheetId) return [project.code, null] as const;
+      const stats = await fetchProjectTaskStats(sheetId, fetchImpl);
       return [project.code, stats] as const;
     }),
   );

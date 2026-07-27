@@ -1,67 +1,75 @@
 import {
   DEFAULT_OVERDUE_LED_THRESHOLDS,
   type OverdueLedThresholds,
-} from "./dsb-tasks";
+} from "./dsb-tasks.ts";
 
 /** Top-level dashboard title / program lead shown in the hero header. */
 export type ProgramConfig = {
   dashboardName: string;
   programLead: string;
-  /** On Track when Over Due count is &lt; this value. */
-  ledGreenLessThan: number;
-  /** Delayed when Over Due count is &gt; this value (and not red). */
-  ledYellowGreaterThan: number;
-  /** At Risk when Over Due count is &gt; this value. */
-  ledRedGreaterThan: number;
+  /** Documented green cutoff shown in Dashboard Configuration. */
+  ledGreenAtMost: number;
+  /** Delayed / Yellow when Over Due count is ≥ this value (and not red). */
+  ledYellowAtLeast: number;
+  /** At Risk / Red when Over Due count is ≥ this value. */
+  ledRedAtLeast: number;
 };
 
 export const DEFAULT_PROGRAM_CONFIG: ProgramConfig = {
   dashboardName: "MACH ESAD Development Dashboard",
   programLead: "Engineering Program Office",
-  ledGreenLessThan: DEFAULT_OVERDUE_LED_THRESHOLDS.greenLessThan,
-  ledYellowGreaterThan: DEFAULT_OVERDUE_LED_THRESHOLDS.yellowGreaterThan,
-  ledRedGreaterThan: DEFAULT_OVERDUE_LED_THRESHOLDS.redGreaterThan,
+  ledGreenAtMost: DEFAULT_OVERDUE_LED_THRESHOLDS.greenAtMost,
+  ledYellowAtLeast: DEFAULT_OVERDUE_LED_THRESHOLDS.yellowAtLeast,
+  ledRedAtLeast: DEFAULT_OVERDUE_LED_THRESHOLDS.redAtLeast,
 };
 
 export function overdueThresholdsFromProgramConfig(
   config: Pick<
     ProgramConfig,
-    "ledGreenLessThan" | "ledYellowGreaterThan" | "ledRedGreaterThan"
+    "ledGreenAtMost" | "ledYellowAtLeast" | "ledRedAtLeast"
   >,
 ): OverdueLedThresholds {
   return {
-    greenLessThan: config.ledGreenLessThan,
-    yellowGreaterThan: config.ledYellowGreaterThan,
-    redGreaterThan: config.ledRedGreaterThan,
+    greenAtMost: config.ledGreenAtMost,
+    yellowAtLeast: config.ledYellowAtLeast,
+    redAtLeast: config.ledRedAtLeast,
   };
 }
 
+function readFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 export function withDefaultProgramLedThresholds<
-  T extends Partial<ProgramConfig>,
+  T extends Partial<ProgramConfig> & {
+    /** @deprecated legacy key */
+    ledGreenLessThan?: number;
+    /** @deprecated legacy key */
+    ledYellowGreaterThan?: number;
+    /** @deprecated legacy key */
+    ledRedGreaterThan?: number;
+  },
 >(
   config: T,
 ): T & {
-  ledGreenLessThan: number;
-  ledYellowGreaterThan: number;
-  ledRedGreaterThan: number;
+  ledGreenAtMost: number;
+  ledYellowAtLeast: number;
+  ledRedAtLeast: number;
 } {
   return {
     ...config,
-    ledGreenLessThan:
-      typeof config.ledGreenLessThan === "number" &&
-      Number.isFinite(config.ledGreenLessThan)
-        ? config.ledGreenLessThan
-        : DEFAULT_OVERDUE_LED_THRESHOLDS.greenLessThan,
-    ledYellowGreaterThan:
-      typeof config.ledYellowGreaterThan === "number" &&
-      Number.isFinite(config.ledYellowGreaterThan)
-        ? config.ledYellowGreaterThan
-        : DEFAULT_OVERDUE_LED_THRESHOLDS.yellowGreaterThan,
-    ledRedGreaterThan:
-      typeof config.ledRedGreaterThan === "number" &&
-      Number.isFinite(config.ledRedGreaterThan)
-        ? config.ledRedGreaterThan
-        : DEFAULT_OVERDUE_LED_THRESHOLDS.redGreaterThan,
+    ledGreenAtMost:
+      readFiniteNumber(config.ledGreenAtMost) ??
+      readFiniteNumber(config.ledGreenLessThan) ??
+      DEFAULT_OVERDUE_LED_THRESHOLDS.greenAtMost,
+    ledYellowAtLeast:
+      readFiniteNumber(config.ledYellowAtLeast) ??
+      readFiniteNumber(config.ledYellowGreaterThan) ??
+      DEFAULT_OVERDUE_LED_THRESHOLDS.yellowAtLeast,
+    ledRedAtLeast:
+      readFiniteNumber(config.ledRedAtLeast) ??
+      readFiniteNumber(config.ledRedGreaterThan) ??
+      DEFAULT_OVERDUE_LED_THRESHOLDS.redAtLeast,
   };
 }
 
@@ -76,23 +84,10 @@ export const PROGRAM_CONFIG_FIELD_LABELS = [
 export type ProgramConfigFieldLabel =
   (typeof PROGRAM_CONFIG_FIELD_LABELS)[number];
 
-const LED_FIELD_OPS = {
-  Green: "<",
-  Yellow: ">",
-  Red: ">",
-} as const;
-
-type LedFieldLabel = keyof typeof LED_FIELD_OPS;
-
-function isLedFieldLabel(label: ProgramConfigFieldLabel): label is LedFieldLabel {
+function isLedFieldLabel(
+  label: ProgramConfigFieldLabel,
+): label is "Green" | "Yellow" | "Red" {
   return label === "Green" || label === "Yellow" || label === "Red";
-}
-
-export function formatLedThresholdValue(
-  op: "<" | ">",
-  value: number,
-): string {
-  return `${op} ${value}`;
 }
 
 /** Section header shown above editable LED threshold fields. */
@@ -111,9 +106,9 @@ export function formatProgramIdentityText(config: ProgramConfig): string {
 export function formatProgramLedThresholdText(config: ProgramConfig): string {
   return [
     CARD_LED_THRESHOLD_SECTION,
-    `Green: "${formatLedThresholdValue("<", config.ledGreenLessThan)}"`,
-    `Yellow: "${formatLedThresholdValue(">", config.ledYellowGreaterThan)}"`,
-    `Red: "${formatLedThresholdValue(">", config.ledRedGreaterThan)}"`,
+    `Green: "${config.ledGreenAtMost}"`,
+    `Yellow: "${config.ledYellowAtLeast}"`,
+    `Red: "${config.ledRedAtLeast}"`,
   ].join("\n");
 }
 
@@ -152,14 +147,16 @@ function findFieldLine(
   return null;
 }
 
-function parseLedThresholdRaw(
-  raw: string,
-  expectedOp: "<" | ">",
-): number | null {
-  const match = raw.trim().match(/^(<|>)\s*(\d+)$/);
-  if (!match) return null;
-  if (match[1] !== expectedOp) return null;
-  return Number(match[2]);
+/**
+ * Parse an LED threshold count from a quoted value.
+ * Accepts plain counts ("1") and legacy operator forms ("&lt; 1", "&gt; 2").
+ */
+export function parseLedThresholdCount(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  const legacy = trimmed.match(/^(<|>)\s*(\d+)$/);
+  if (legacy) return Number(legacy[2]);
+  return null;
 }
 
 /** Validate Dashboard Configuration quote syntax. */
@@ -179,10 +176,9 @@ export function validateProgramConfigSyntax(text: string): string[] {
     );
     if (quoted) {
       if (isLedFieldLabel(label)) {
-        const expectedOp = LED_FIELD_OPS[label];
-        if (parseLedThresholdRaw(quoted[1] ?? "", expectedOp) == null) {
+        if (parseLedThresholdCount(quoted[1] ?? "") == null) {
           errors.push(
-            `Syntax error on line ${lineNumber}: ${label} must use ${label}: "${expectedOp} N"`,
+            `Syntax error on line ${lineNumber}: ${label} must use ${label}: "N"`,
           );
         }
       }
@@ -255,9 +251,9 @@ export function parseProgramConfigText(
     };
   }
 
-  const ledGreenLessThan = parseLedThresholdRaw(greenRaw, "<");
-  const ledYellowGreaterThan = parseLedThresholdRaw(yellowRaw, ">");
-  const ledRedGreaterThan = parseLedThresholdRaw(redRaw, ">");
+  const ledGreenAtMost = parseLedThresholdCount(greenRaw);
+  const ledYellowAtLeast = parseLedThresholdCount(yellowRaw);
+  const ledRedAtLeast = parseLedThresholdCount(redRaw);
 
   const valueErrors: string[] = [];
   if (!dashboardName.trim()) {
@@ -267,13 +263,11 @@ export function parseProgramConfigText(
     valueErrors.push("Program Lead cannot be empty.");
   }
   if (
-    ledGreenLessThan == null ||
-    ledYellowGreaterThan == null ||
-    ledRedGreaterThan == null
+    ledGreenAtMost == null ||
+    ledYellowAtLeast == null ||
+    ledRedAtLeast == null
   ) {
-    valueErrors.push(
-      'LED thresholds must use Green: "< N", Yellow: "> N", Red: "> N".',
-    );
+    valueErrors.push('LED thresholds must use Green: "N", Yellow: "N", Red: "N".');
   }
   if (valueErrors.length > 0) {
     return {
@@ -286,9 +280,9 @@ export function parseProgramConfigText(
     config: {
       dashboardName: dashboardName.trim(),
       programLead: programLead.trim(),
-      ledGreenLessThan: ledGreenLessThan!,
-      ledYellowGreaterThan: ledYellowGreaterThan!,
-      ledRedGreaterThan: ledRedGreaterThan!,
+      ledGreenAtMost: ledGreenAtMost!,
+      ledYellowAtLeast: ledYellowAtLeast!,
+      ledRedAtLeast: ledRedAtLeast!,
     },
   };
 }

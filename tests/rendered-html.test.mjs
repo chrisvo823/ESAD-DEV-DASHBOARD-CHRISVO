@@ -129,11 +129,17 @@ test("server-renders the MACH ESAD dashboard", async () => {
   assert.match(html, /Over Due/);
   assert.match(
     html,
-    /aria-label="\d+ of \d+ tasks done"[^>]*>[\s\S]*?class="metric-fill metric-fill--0"[^>]*style="width:\d+(?:\.\d+)?%"/,
+    /aria-label="(?:No open tasks with due dates|\d+ open tasks with due dates)"[^>]*>[\s\S]*?class="metric-fill metric-fill--0 metric-fill--program-open"[^>]*style="width:\d+(?:\.\d+)?%"/,
   );
   assert.match(
     html,
-    /aria-label="(?:No open tasks with due dates|\d+ of \d+ dated open tasks overdue)"/,
+    /aria-label="(?:No open tasks with due dates|\d+ of \d+ open tasks overdue)"[^>]*>[\s\S]*?class="metric-fill metric-fill--1 metric-fill--program-overdue"/,
+  );
+  // Open Tasks bar is full-scale; Over Due is overdue/open (≤ 100%).
+  assert.match(html, /metric-fill--program-open"[^>]*style="width:100%"/);
+  assert.match(
+    html,
+    /metric-fill--program-overdue"[^>]*style="width:\d+(?:\.\d+)?%"/,
   );
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton|Codex/i);
 });
@@ -188,6 +194,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /fetchAllProjectScheduleStats/);
   assert.match(page, /ESAD_PROJECT_INTEGRATIONS/);
   assert.match(page, /sheetEditUrlFor/);
+  assert.match(page, /googleDriveLinksByCode/);
+  assert.match(page, /resolveGoogleDriveSource/);
+  assert.match(page, /resolveSmartsheetSource/);
   assert.match(page, /HeroHeader/);
   assert.match(page, /ProjectPanel/);
   assert.match(page, /CustomCardsSection/);
@@ -277,6 +286,15 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(projectPanel, /statusFromOverdueCount/);
   assert.match(projectPanel, /useProgramConfig/);
   assert.match(projectPanel, /overdueThresholdsFromProgramConfig/);
+  assert.match(projectPanel, /metricsWithLiveLinkState/);
+  assert.match(projectPanel, /METRIC_SOURCE_EMPTY/);
+  assert.match(projectPanel, /METRIC_SOURCE_ERROR/);
+  assert.match(projectPanel, /programStatusMetricFillClass/);
+  assert.match(projectPanel, /metric-fill--program-open/);
+  assert.match(projectPanel, /metric-fill--program-overdue/);
+  assert.match(projectPanel, /openTasksValue/);
+  assert.match(page, /overdueBarPercent/);
+  assert.match(page, /openBarPercent/);
   assert.match(projectPanel, /"On Track"/);
   assert.match(projectPanel, /"Delayed"/);
   assert.match(projectPanel, /"At Risk"/);
@@ -294,17 +312,29 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configSource, /Bruno Abousleiman/);
   assert.match(configSource, /Google Drive Link/);
   assert.match(configSource, /googleDriveLink/);
+  assert.match(configSource, /googleSheetEditUrl/);
   assert.doesNotMatch(configSource, /JIRA Epic Link/);
   assert.doesNotMatch(configSource, /jiraEpicLink/);
   assert.doesNotMatch(configSource, /ledGreenLessThan/);
   assert.match(configSource, /DEFAULT_ADMIN_USERNAME = "admin"/);
   assert.match(configSource, /DEFAULT_ADMIN_PASSWORD = "esad"/);
 
+  const sourceLinks = await readFile(
+    new URL("../lib/source-links.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(sourceLinks, /METRIC_SOURCE_EMPTY = "Empty"/);
+  assert.match(sourceLinks, /METRIC_SOURCE_ERROR = "Error"/);
+  assert.match(sourceLinks, /resolveGoogleDriveSource/);
+  assert.match(sourceLinks, /resolveSmartsheetSource/);
+
   const programConfigSource = await readFile(
     new URL("../lib/program-config.ts", import.meta.url),
     "utf8",
   );
-  assert.match(programConfigSource, /ledGreenLessThan/);
+  assert.match(programConfigSource, /ledGreenAtMost/);
+  assert.match(programConfigSource, /ledYellowAtLeast/);
+  assert.match(programConfigSource, /ledRedAtLeast/);
   assert.match(programConfigSource, /Card LED Threshold Configuration/);
   assert.match(programConfigSource, /Green: "/);
   assert.match(programConfigSource, /Yellow: "/);

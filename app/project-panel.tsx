@@ -13,7 +13,18 @@ import {
   type DsbIndicatorStatus,
   type DsbTaskItem,
 } from "../lib/dsb-tasks";
+import {
+  scheduleMetricsForSourceStatus,
+  taskMetricsForSourceStatus,
+} from "../lib/metric-source-state";
 import { overdueThresholdsFromProgramConfig } from "../lib/program-config";
+import {
+  METRIC_SOURCE_EMPTY,
+  METRIC_SOURCE_ERROR,
+  resolveGoogleDriveSource,
+  resolveSmartsheetSheetIdFromLink,
+  resolveSmartsheetSource,
+} from "../lib/source-links";
 
 type Board = { name: string; progress: number };
 type Metric = {
@@ -37,6 +48,44 @@ type Metric = {
   focusTaskId?: number;
 };
 
+function metricsWithLiveLinkState(
+  metrics: Metric[],
+  googleDriveLink: string,
+  smartsheetLink: string,
+): Metric[] {
+  const driveSource = resolveGoogleDriveSource(googleDriveLink);
+  const smartsheetSource = resolveSmartsheetSource(smartsheetLink);
+  const smartsheetOk =
+    smartsheetSource.status === "ok" &&
+    resolveSmartsheetSheetIdFromLink(smartsheetSource.link) != null;
+
+  const driveStubs =
+    driveSource.status === "ok"
+      ? null
+      : taskMetricsForSourceStatus(driveSource.status);
+  const scheduleStubs = smartsheetOk
+    ? null
+    : scheduleMetricsForSourceStatus(
+        smartsheetSource.status === "ok" ? "invalid" : smartsheetSource.status,
+      );
+
+  return metrics.map((metric) => {
+    if (driveStubs && metric.label === "Open Tasks") {
+      return { ...metric, ...driveStubs.open };
+    }
+    if (driveStubs && metric.label === "Over Due") {
+      return { ...metric, ...driveStubs.overdue };
+    }
+    if (scheduleStubs && metric.label === "Current Task") {
+      return { ...metric, ...scheduleStubs.current };
+    }
+    if (scheduleStubs && metric.label === "Next Task") {
+      return { ...metric, ...scheduleStubs.next };
+    }
+    return metric;
+  });
+}
+
 export type ProjectPanelProject = {
   name: string;
   /** Fixed board code, or custom board nickname. */
@@ -51,6 +100,13 @@ export type ProjectPanelProject = {
 };
 
 const metricIcons = ["◷", "▤", "▥", "▸"];
+
+/** Open Tasks / Over Due bars use the same colors as Program Status legend. */
+function programStatusMetricFillClass(label: string): string | null {
+  if (label === "Open Tasks") return "metric-fill--program-open";
+  if (label === "Over Due") return "metric-fill--program-overdue";
+  return null;
+}
 
 function overdueCountFromMetrics(metrics: Metric[]): number {
   const overdueMetric = metrics.find((metric) => metric.label === "Over Due");
@@ -72,7 +128,12 @@ export function ProjectPanel({
 }) {
   const config = useDashboardConfig(project.config.dashboardId);
   const programConfig = useProgramConfig();
-  const overdueTasks = overdueCountFromMetrics(project.metrics);
+  const metrics = metricsWithLiveLinkState(
+    project.metrics,
+    config.googleDriveLink,
+    config.smartsheetLink,
+  );
+  const overdueTasks = overdueCountFromMetrics(metrics);
   const status = statusFromOverdueCount(
     overdueTasks,
     overdueThresholdsFromProgramConfig(programConfig),
@@ -138,15 +199,41 @@ export function ProjectPanel({
       <div className="tech-divider" />
 
       <dl className="panel-metrics">
-        {project.metrics.map((metric, metricIndex) => {
-          const scale = metricIndex === 0 ? 80 : 10;
-          const width =
-            metric.barPercent != null
-              ? Math.max(0, Math.min(100, metric.barPercent))
-              : metric.value === 0
-                ? 2
-                : Math.max(10, Math.min(100, (metric.value / scale) * 100));
+        {metrics.map((metric, metricIndex) => {
+          const openTasksValue =
+            metrics.find((entry) => entry.label === "Open Tasks")?.value ?? 0;
           const showValueBar = !metric.hideValueBar;
+          // Open Tasks / Over Due share one scale (open count) so a smaller
+          // value never draws a longer bar than a larger value.
+          const width = (() => {
+            if (
+              metric.label === "Open Tasks" ||
+              metric.label === "Over Due"
+            ) {
+              if (metric.value === 0) return 0;
+              const scale = Math.max(openTasksValue, metric.value, 1);
+              return Math.max(
+                2,
+                Math.min(100, (metric.value / scale) * 100),
+              );
+            }
+            if (metric.barPercent != null) {
+              return Math.max(0, Math.min(100, metric.barPercent));
+            }
+            const scale = metricIndex === 0 ? 80 : 10;
+            return metric.value === 0
+              ? 2
+              : Math.max(10, Math.min(100, (metric.value / scale) * 100));
+          })();
+          const isSourceFlag =
+            metric.valueText === METRIC_SOURCE_EMPTY ||
+            metric.valueText === METRIC_SOURCE_ERROR;
+          const sourceFlagClass =
+            metric.valueText === METRIC_SOURCE_ERROR
+              ? " metric-source-flag metric-source-flag--error"
+              : metric.valueText === METRIC_SOURCE_EMPTY
+                ? " metric-source-flag metric-source-flag--empty"
+                : "";
 
           return (
             <div
@@ -158,16 +245,18 @@ export function ProjectPanel({
               </span>
               <div className="metric-copy">
                 <dt>
-                  {metric.label === "Open Tasks" && metric.detailItems ? (
+                  {metric.label === "Open Tasks" &&
+                  metric.detailItems &&
+                  !isSourceFlag ? (
                     <TaskHoverLabel
                       label={metric.label}
                       href={metric.href}
                       items={metric.detailItems}
                       title="Open tasks"
-                      emptyText="No open tasks"
+                      emptyText="No open tasks with due dates"
                       tone="open"
                     />
-                  ) : metric.label === "Over Due" ? (
+                  ) : metric.label === "Over Due" && !isSourceFlag ? (
                     <TaskHoverLabel
                       label={metric.label}
                       href={metric.href}
@@ -178,7 +267,8 @@ export function ProjectPanel({
                     />
                   ) : (metric.label === "Current Task" ||
                       metric.label === "Next Task") &&
-                    metric.scheduleRevisions ? (
+                    metric.scheduleRevisions &&
+                    !isSourceFlag ? (
                     <ScheduleHoverLabel
                       label={metric.label}
                       href={metric.href}
@@ -201,7 +291,11 @@ export function ProjectPanel({
                     metric.label
                   )}
                 </dt>
-                {showValueBar ? <dd>{metric.value}</dd> : null}
+                {showValueBar ? (
+                  <dd className={sourceFlagClass.trim() || undefined}>
+                    {metric.valueText ?? metric.value}
+                  </dd>
+                ) : null}
               </div>
               {showValueBar ? (
                 <div
@@ -210,12 +304,18 @@ export function ProjectPanel({
                   aria-hidden={metric.barLabel ? undefined : true}
                 >
                   <span
-                    className={`metric-fill metric-fill--${metricIndex}`}
+                    className={[
+                      "metric-fill",
+                      `metric-fill--${metricIndex}`,
+                      programStatusMetricFillClass(metric.label),
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                     style={{ width: `${width}%` }}
                   />
                 </div>
               ) : metric.valueText ? (
-                <dd className="metric-task-name">
+                <dd className={`metric-task-name${sourceFlagClass}`}>
                   {metric.valueHref || metric.href ? (
                     <a
                       className="metric-task-name-link"

@@ -1,5 +1,9 @@
-import { AVIONICS_MASTER_SCHEDULE_PERMALINK } from "./esad-projects";
-import type { EsadProjectCode } from "./esad-projects";
+import {
+  AVIONICS_MASTER_SCHEDULE_PERMALINK,
+  ESAD_PROJECT_INTEGRATIONS,
+  googleSheetEditUrl,
+} from "./esad-projects.ts";
+import type { EsadProjectCode } from "./esad-projects.ts";
 
 /** Fixed dashboard slots: 1 top-left, 2 top-right, 3 bottom-left, 4 bottom-right. */
 export type FixedDashboardId = "1" | "2" | "3" | "4";
@@ -55,7 +59,9 @@ export const DASHBOARD_CONFIGS: Record<FixedDashboardId, DashboardConfig> = {
     responsibleEngineer: "Bruno Abousleiman",
     boardName: "Digital Safety Board",
     boardNickname: "DSB",
-    googleDriveLink: "",
+    googleDriveLink: googleSheetEditUrl(
+      ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId,
+    ),
     smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
   },
   "2": {
@@ -63,7 +69,9 @@ export const DASHBOARD_CONFIGS: Record<FixedDashboardId, DashboardConfig> = {
     responsibleEngineer: "Bruno Abousleiman",
     boardName: "High Voltage Fireset Board",
     boardNickname: "HVFB",
-    googleDriveLink: "",
+    googleDriveLink: googleSheetEditUrl(
+      ESAD_PROJECT_INTEGRATIONS.HVFB.googleSheetId,
+    ),
     smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
   },
   "3": {
@@ -71,7 +79,9 @@ export const DASHBOARD_CONFIGS: Record<FixedDashboardId, DashboardConfig> = {
     responsibleEngineer: "Shane Olson",
     boardName: "CPLD - Primary",
     boardNickname: "PRI",
-    googleDriveLink: "",
+    googleDriveLink: googleSheetEditUrl(
+      ESAD_PROJECT_INTEGRATIONS.PRI.googleSheetId,
+    ),
     smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
   },
   "4": {
@@ -79,12 +89,14 @@ export const DASHBOARD_CONFIGS: Record<FixedDashboardId, DashboardConfig> = {
     responsibleEngineer: "Gary Mejia Martinez",
     boardName: "CPLD - Independent",
     boardNickname: "IND",
-    googleDriveLink: "",
+    googleDriveLink: googleSheetEditUrl(
+      ESAD_PROJECT_INTEGRATIONS.IND.googleSheetId,
+    ),
     smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
   },
 };
 
-export const DASHBOARD_ID_BY_CODE: Record<EsadProjectCode, FixedDashboardId> = {
+export const DASHBOARD_ID_BY_CODE: Record<EsadProjectCode, DashboardId> = {
   DSB: "1",
   HVFB: "2",
   PRI: "3",

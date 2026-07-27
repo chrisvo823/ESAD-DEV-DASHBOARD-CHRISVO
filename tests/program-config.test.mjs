@@ -25,9 +25,9 @@ test("formats Dashboard Configuration text with Card LED Threshold section", () 
     formatProgramLedThresholdText(DEFAULT_PROGRAM_CONFIG),
     [
       "Card LED Threshold Configuration:",
-      'Green: "< 1"',
-      'Yellow: "> 2"',
-      'Red: "> 5"',
+      'Green: "1"',
+      'Yellow: "3"',
+      'Red: "5"',
     ].join("\n"),
   );
   assert.equal(
@@ -37,16 +37,16 @@ test("formats Dashboard Configuration text with Card LED Threshold section", () 
       'Program Lead: "Engineering Program Office"',
       "",
       "Card LED Threshold Configuration:",
-      'Green: "< 1"',
-      'Yellow: "> 2"',
-      'Red: "> 5"',
+      'Green: "1"',
+      'Yellow: "3"',
+      'Red: "5"',
     ].join("\n"),
   );
   assert.equal(CARD_LED_THRESHOLD_SECTION, "Card LED Threshold Configuration:");
   assert.deepEqual(overdueThresholdsFromProgramConfig(DEFAULT_PROGRAM_CONFIG), {
-    greenLessThan: 1,
-    yellowGreaterThan: 2,
-    redGreaterThan: 5,
+    greenAtMost: 1,
+    yellowAtLeast: 3,
+    redAtLeast: 5,
   });
 });
 
@@ -57,9 +57,9 @@ test("combines identity and LED editors for parsing", () => {
   );
   const parsed = parseProgramConfigText(combined);
   assert.ok("config" in parsed);
-  assert.equal(parsed.config.ledGreenLessThan, 1);
-  assert.equal(parsed.config.ledYellowGreaterThan, 2);
-  assert.equal(parsed.config.ledRedGreaterThan, 5);
+  assert.equal(parsed.config.ledGreenAtMost, 1);
+  assert.equal(parsed.config.ledYellowAtLeast, 3);
+  assert.equal(parsed.config.ledRedAtLeast, 5);
 });
 
 test("parses Dashboard Configuration text including LED thresholds", () => {
@@ -68,20 +68,39 @@ test("parses Dashboard Configuration text including LED thresholds", () => {
     'Program Lead: "Long Nguyen"',
     "",
     "Card LED Threshold Configuration:",
-    'Green: "< 2"',
-    'Yellow: "> 4"',
-    'Red: "> 9"',
+    'Green: "2"',
+    'Yellow: "4"',
+    'Red: "9"',
   ].join("\n");
   const parsed = parseProgramConfigText(text);
   assert.ok("config" in parsed);
   assert.equal(parsed.config.dashboardName, "ESAD Avionics Dashboard");
   assert.equal(parsed.config.programLead, "Long Nguyen");
-  assert.equal(parsed.config.ledGreenLessThan, 2);
-  assert.equal(parsed.config.ledYellowGreaterThan, 4);
-  assert.equal(parsed.config.ledRedGreaterThan, 9);
+  assert.equal(parsed.config.ledGreenAtMost, 2);
+  assert.equal(parsed.config.ledYellowAtLeast, 4);
+  assert.equal(parsed.config.ledRedAtLeast, 9);
 });
 
 test("quoted LED thresholds drive card status LED color", () => {
+  const text = [
+    'Dashboard Name: "MACH ESAD Development Dashboard"',
+    'Program Lead: "Engineering Program Office"',
+    "Card LED Threshold Configuration:",
+    'Green: "1"',
+    'Yellow: "2"',
+    'Red: "5"',
+  ].join("\n");
+  const parsed = parseProgramConfigText(text);
+  assert.ok("config" in parsed);
+  const thresholds = overdueThresholdsFromProgramConfig(parsed.config);
+  assert.equal(statusFromOverdueCount(0, thresholds), "On Track");
+  assert.equal(statusFromOverdueCount(1, thresholds), "On Track");
+  assert.equal(statusFromOverdueCount(2, thresholds), "Delayed");
+  assert.equal(statusFromOverdueCount(4, thresholds), "Delayed");
+  assert.equal(statusFromOverdueCount(5, thresholds), "At Risk");
+});
+
+test("accepts legacy operator LED threshold syntax when parsing", () => {
   const text = [
     'Dashboard Name: "MACH ESAD Development Dashboard"',
     'Program Lead: "Engineering Program Office"',
@@ -92,10 +111,9 @@ test("quoted LED thresholds drive card status LED color", () => {
   ].join("\n");
   const parsed = parseProgramConfigText(text);
   assert.ok("config" in parsed);
-  const thresholds = overdueThresholdsFromProgramConfig(parsed.config);
-  assert.equal(statusFromOverdueCount(0, thresholds), "On Track");
-  assert.equal(statusFromOverdueCount(3, thresholds), "Delayed");
-  assert.equal(statusFromOverdueCount(6, thresholds), "At Risk");
+  assert.equal(parsed.config.ledGreenAtMost, 1);
+  assert.equal(parsed.config.ledYellowAtLeast, 2);
+  assert.equal(parsed.config.ledRedAtLeast, 5);
 });
 
 test("flags syntax errors when Dashboard Configuration values are unquoted", () => {
@@ -103,9 +121,9 @@ test("flags syntax errors when Dashboard Configuration values are unquoted", () 
     "Dashboard Name: MACH ESAD Development Dashboard",
     'Program Lead: "Engineering Program Office"',
     "Card LED Threshold Configuration:",
-    'Green: "< 1"',
-    'Yellow: "> 2"',
-    'Red: "> 5"',
+    'Green: "1"',
+    'Yellow: "2"',
+    'Red: "5"',
   ].join("\n");
   const errors = validateProgramConfigSyntax(text);
   assert.equal(errors.length, 1);
@@ -117,12 +135,12 @@ test("flags invalid LED threshold syntax in Dashboard Configuration", () => {
     'Dashboard Name: "MACH ESAD Development Dashboard"',
     'Program Lead: "Engineering Program Office"',
     "Card LED Threshold Configuration:",
-    'Green: "1"',
-    'Yellow: "> 2"',
-    'Red: "> 5"',
+    'Green: "one"',
+    'Yellow: "2"',
+    'Red: "5"',
   ].join("\n");
   const errors = validateProgramConfigSyntax(text);
-  assert.ok(errors.some((error) => /Green must use Green: "< N"/i.test(error)));
+  assert.ok(errors.some((error) => /Green must use Green: "N"/i.test(error)));
 });
 
 test("flags missing closing quote for Program Lead", () => {
@@ -130,9 +148,9 @@ test("flags missing closing quote for Program Lead", () => {
     'Dashboard Name: "MACH ESAD Development Dashboard"',
     'Program Lead: "Engineering Program Office',
     "Card LED Threshold Configuration:",
-    'Green: "< 1"',
-    'Yellow: "> 2"',
-    'Red: "> 5"',
+    'Green: "1"',
+    'Yellow: "2"',
+    'Red: "5"',
   ].join("\n");
   const errors = validateProgramConfigSyntax(text);
   assert.ok(errors.some((error) => /missing a closing "/i.test(error)));

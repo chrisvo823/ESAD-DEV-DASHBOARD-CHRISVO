@@ -48,9 +48,8 @@ function mergeEntry(
     googleDriveLink:
       typeof entry.googleDriveLink === "string"
         ? entry.googleDriveLink
-        : typeof (entry as unknown as { jiraEpicLink?: unknown }).jiraEpicLink ===
-            "string"
-          ? (entry as unknown as { jiraEpicLink: string }).jiraEpicLink
+        : typeof (entry as { jiraEpicLink?: unknown }).jiraEpicLink === "string"
+          ? ((entry as { jiraEpicLink: string }).jiraEpicLink)
           : fallback.googleDriveLink,
     smartsheetLink:
       typeof entry.smartsheetLink === "string"

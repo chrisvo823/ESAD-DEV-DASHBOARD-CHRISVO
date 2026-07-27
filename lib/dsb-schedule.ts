@@ -1,10 +1,14 @@
 import {
   ESAD_PROJECT_INTEGRATIONS,
   type EsadProjectCode,
-} from "./esad-projects";
-import { getSmartsheetSheet } from "./smartsheet";
+} from "./esad-projects.ts";
+import {
+  AVIONICS_MASTER_SCHEDULE_SHEET_ID,
+  resolveSmartsheetSheetIdFromLink,
+} from "./source-links.ts";
+import { getSmartsheetSheet } from "./smartsheet.ts";
 
-export const AVIONICS_MASTER_SCHEDULE_SHEET_ID = 2069122061913988;
+export { AVIONICS_MASTER_SCHEDULE_SHEET_ID, resolveSmartsheetSheetIdFromLink };
 export const DSB_SCHEDULE_TASK_NAME =
   ESAD_PROJECT_INTEGRATIONS.DSB.smartsheetTaskName;
 
@@ -507,19 +511,26 @@ export function findNextScheduleTaskId(
   return findNextScheduleTask(revisions, now)?.id ?? null;
 }
 
-async function fetchAvionicsMasterScheduleSheet(
+async function fetchScheduleSheetById(
+  sheetId: number,
   token?: string,
 ): Promise<{ permalink?: string; rows?: SmartsheetRow[] } | null> {
   try {
     const columnIds = Object.values(COLUMN).join(",");
     const sheet = await getSmartsheetSheet(
-      `${AVIONICS_MASTER_SCHEDULE_SHEET_ID}?columnIds=${columnIds}`,
+      `${sheetId}?columnIds=${columnIds}`,
       token,
     );
     return sheet as { permalink?: string; rows?: SmartsheetRow[] };
   } catch {
     return null;
   }
+}
+
+async function fetchAvionicsMasterScheduleSheet(
+  token?: string,
+): Promise<{ permalink?: string; rows?: SmartsheetRow[] } | null> {
+  return fetchScheduleSheetById(AVIONICS_MASTER_SCHEDULE_SHEET_ID, token);
 }
 
 export async function fetchScheduleStats(

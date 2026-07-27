@@ -1,4 +1,4 @@
-import type { DashboardConfig, DashboardId } from "./dashboard-config";
+import type { DashboardConfig, DashboardId } from "./dashboard-config.ts";
 
 /** Persisted admin-created card (appended below the fixed top 4). */
 export type CustomCardRecord = {

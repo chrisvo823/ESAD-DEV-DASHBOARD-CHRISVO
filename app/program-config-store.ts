@@ -14,7 +14,11 @@ function mergeStored(raw: unknown): ProgramConfig {
   if (!raw || typeof raw !== "object") {
     return { ...DEFAULT_PROGRAM_CONFIG };
   }
-  const stored = raw as Partial<ProgramConfig>;
+  const stored = raw as Partial<ProgramConfig> & {
+    ledGreenLessThan?: number;
+    ledYellowGreaterThan?: number;
+    ledRedGreaterThan?: number;
+  };
   return withDefaultProgramLedThresholds({
     dashboardName:
       typeof stored.dashboardName === "string" && stored.dashboardName.trim()
@@ -24,21 +28,12 @@ function mergeStored(raw: unknown): ProgramConfig {
       typeof stored.programLead === "string" && stored.programLead.trim()
         ? stored.programLead
         : DEFAULT_PROGRAM_CONFIG.programLead,
-    ledGreenLessThan:
-      typeof stored.ledGreenLessThan === "number" &&
-      Number.isFinite(stored.ledGreenLessThan)
-        ? stored.ledGreenLessThan
-        : DEFAULT_PROGRAM_CONFIG.ledGreenLessThan,
-    ledYellowGreaterThan:
-      typeof stored.ledYellowGreaterThan === "number" &&
-      Number.isFinite(stored.ledYellowGreaterThan)
-        ? stored.ledYellowGreaterThan
-        : DEFAULT_PROGRAM_CONFIG.ledYellowGreaterThan,
-    ledRedGreaterThan:
-      typeof stored.ledRedGreaterThan === "number" &&
-      Number.isFinite(stored.ledRedGreaterThan)
-        ? stored.ledRedGreaterThan
-        : DEFAULT_PROGRAM_CONFIG.ledRedGreaterThan,
+    ledGreenAtMost: stored.ledGreenAtMost,
+    ledYellowAtLeast: stored.ledYellowAtLeast,
+    ledRedAtLeast: stored.ledRedAtLeast,
+    ledGreenLessThan: stored.ledGreenLessThan,
+    ledYellowGreaterThan: stored.ledYellowGreaterThan,
+    ledRedGreaterThan: stored.ledRedGreaterThan,
   });
 }
 
@@ -57,9 +52,9 @@ export function writeProgramConfig(config: ProgramConfig): ProgramConfig {
   const next = withDefaultProgramLedThresholds({
     dashboardName: config.dashboardName.trim(),
     programLead: config.programLead.trim(),
-    ledGreenLessThan: config.ledGreenLessThan,
-    ledYellowGreaterThan: config.ledYellowGreaterThan,
-    ledRedGreaterThan: config.ledRedGreaterThan,
+    ledGreenAtMost: config.ledGreenAtMost,
+    ledYellowAtLeast: config.ledYellowAtLeast,
+    ledRedAtLeast: config.ledRedAtLeast,
   });
   if (typeof window !== "undefined") {
     window.localStorage.setItem(

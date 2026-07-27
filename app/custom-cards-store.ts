@@ -46,9 +46,9 @@ function sanitizeRecord(raw: unknown): CustomCardRecord | null {
       googleDriveLink:
         typeof config.googleDriveLink === "string"
           ? config.googleDriveLink
-          : typeof (config as unknown as { jiraEpicLink?: unknown })
-                .jiraEpicLink === "string"
-            ? (config as unknown as { jiraEpicLink: string }).jiraEpicLink
+          : typeof (config as { jiraEpicLink?: unknown }).jiraEpicLink ===
+              "string"
+            ? (config as { jiraEpicLink: string }).jiraEpicLink
             : "",
       smartsheetLink:
         typeof config.smartsheetLink === "string" ? config.smartsheetLink : "",

@@ -1,4 +1,3 @@
-import { CompanyAuthGate } from "./company-auth-gate";
 import { CustomCardsSection } from "./custom-cards-section";
 import { HeroHeader } from "./hero-header";
 import { ProjectPanel, type ProjectPanelProject } from "./project-panel";
@@ -27,6 +26,15 @@ import {
   type DsbTaskStats,
   type ProgramTaskTotals,
 } from "../lib/dsb-tasks";
+import {
+  scheduleMetricsForSourceStatus,
+  taskMetricsForSourceStatus,
+} from "../lib/metric-source-state";
+import {
+  resolveGoogleDriveSource,
+  resolveSmartsheetSheetIdFromLink,
+  resolveSmartsheetSource,
+} from "../lib/source-links";
 
 type Project = ProjectPanelProject;
 
@@ -191,8 +199,8 @@ const projects: Project[] = [
     name: "Digital Safety Board",
     code: "DSB",
     config: DASHBOARD_CONFIGS["1"],
-    // Fallback overdue count is 1 → Delayed with default LED thresholds.
-    status: "Delayed",
+    // Fallback overdue count is 1 → On Track with default LED thresholds.
+    status: "On Track",
     boards: [
       { name: "Main Carrier Board Rev B", progress: 70 },
       { name: "Main Carrier Board Rev C", progress: 50 },
@@ -206,9 +214,8 @@ const projects: Project[] = [
         value: 25,
         label: "Open Tasks",
         href: sheetEditUrlFor("DSB"),
-        // Fallback when the sheet cannot be fetched: 1 Done / 26 total.
-        barPercent: 3.8,
-        barLabel: "1 of 26 tasks done",
+        barPercent: 100,
+        barLabel: "25 open tasks with due dates",
         detailItems: [
           {
             key: "EE-2221",
@@ -221,9 +228,8 @@ const projects: Project[] = [
         value: 1,
         label: "Over Due",
         href: sheetEditUrlFor("DSB"),
-        // Fallback when the sheet cannot be fetched.
-        barPercent: 20,
-        barLabel: "1 of 5 dated open tasks overdue",
+        barPercent: 4,
+        barLabel: "1 of 25 open tasks overdue",
         detailItems: [
           {
             key: "EE-2226",
@@ -267,8 +273,8 @@ const projects: Project[] = [
     name: "High Voltage Fireset Board",
     code: "HVFB",
     config: DASHBOARD_CONFIGS["2"],
-    // Fallback overdue count is 5 → Delayed with default LED thresholds.
-    status: "Delayed",
+    // Fallback overdue count is 5 → At Risk with default LED thresholds.
+    status: "At Risk",
     boards: [
       { name: "IO Board Rev A", progress: 100 },
       { name: "GSE Board Rev A", progress: 92 },
@@ -376,8 +382,8 @@ const projects: Project[] = [
     name: "CPLD - Independent",
     code: "IND",
     config: DASHBOARD_CONFIGS["4"],
-    // Fallback overdue count is 1 → Delayed with default LED thresholds.
-    status: "Delayed",
+    // Fallback overdue count is 1 → On Track with default LED thresholds.
+    status: "On Track",
     boards: [
       { name: "Carrier Board Rev A", progress: 50 },
       { name: "Autofill Board Rev A", progress: 73 },
@@ -502,24 +508,46 @@ function HealthCore({ status }: { status: ProgramTaskTotals }) {
   );
 }
 
-function isEsadProjectCode(code: string): code is EsadProjectCode {
-  return code === "DSB" || code === "HVFB" || code === "PRI" || code === "IND";
-}
-
 function applyLiveProjectStats(
   projectList: Project[],
   taskStatsByCode: Partial<Record<EsadProjectCode, DsbTaskStats>>,
   scheduleStatsByCode: Partial<Record<EsadProjectCode, DsbScheduleStats>>,
 ): Project[] {
   return projectList.map((project) => {
-    const code = isEsadProjectCode(project.code) ? project.code : null;
-    const stats = code ? (taskStatsByCode[code] ?? null) : null;
-    const scheduleStats = code ? (scheduleStatsByCode[code] ?? null) : null;
-    const sheetHref = code ? sheetEditUrlFor(code) : "";
+    const stats = taskStatsByCode[project.code] ?? null;
+    const scheduleStats = scheduleStatsByCode[project.code] ?? null;
+    const driveSource = resolveGoogleDriveSource(project.config.googleDriveLink);
+    const smartsheetSource = resolveSmartsheetSource(
+      project.config.smartsheetLink,
+    );
+    const smartsheetResolvable =
+      smartsheetSource.status === "ok" &&
+      resolveSmartsheetSheetIdFromLink(smartsheetSource.link) != null;
 
     let nextProject = { ...project, metrics: [...project.metrics] };
 
-    if (stats) {
+    // Open Tasks / Over Due follow Google Drive Link.
+    if (driveSource.status !== "ok") {
+      const stubs = taskMetricsForSourceStatus(driveSource.status);
+      nextProject = {
+        ...nextProject,
+        status: statusFromOverdueCount(0),
+        taskProgressPercent: 0,
+        taskProgressCaption:
+          driveSource.status === "empty"
+            ? "Google Drive Link empty"
+            : "Google Drive Link error",
+        metrics: nextProject.metrics.map((metric) => {
+          if (metric.label === "Open Tasks") {
+            return { ...metric, ...stubs.open };
+          }
+          if (metric.label === "Over Due") {
+            return { ...metric, ...stubs.overdue };
+          }
+          return metric;
+        }),
+      };
+    } else if (stats) {
       const doneOverOpenPercent =
         stats.openTasks + stats.doneTasks === 0
           ? 0
@@ -535,26 +563,42 @@ function applyLiveProjectStats(
         taskProgressCaption: `${doneOverOpenPercent}% done · ${stats.doneTasks} done / ${stats.openTasks} open`,
         metrics: nextProject.metrics.map((metric) => {
           if (metric.label === "Open Tasks") {
+            // Bar length is relative to open count (full when open > 0).
+            const openBarPercent = stats.openTasks === 0 ? 0 : 100;
             return {
               ...metric,
               value: stats.openTasks,
-              href: sheetHref,
-              barPercent: stats.completionPercent,
-              barLabel: `${stats.doneTasks} of ${stats.totalTasks} tasks done`,
+              href: driveSource.link,
+              valueText: undefined,
+              hideValueBar: false,
+              barPercent: openBarPercent,
+              barLabel:
+                stats.openTasks === 0
+                  ? "No open tasks with due dates"
+                  : `${stats.openTasks} open tasks with due dates`,
               detailItems: stats.openItems,
             };
           }
 
           if (metric.label === "Over Due") {
+            // Bar length is overdue / open so it never exceeds the Open Tasks bar.
+            const overdueBarPercent =
+              stats.openTasks === 0
+                ? 0
+                : Math.round(
+                    (stats.overdueTasks / stats.openTasks) * 1000,
+                  ) / 10;
             return {
               ...metric,
               value: stats.overdueTasks,
-              href: sheetHref,
-              barPercent: stats.overduePercent,
+              href: driveSource.link,
+              valueText: undefined,
+              hideValueBar: false,
+              barPercent: overdueBarPercent,
               barLabel:
-                stats.openTasksWithDueDate === 0
+                stats.openTasks === 0
                   ? "No open tasks with due dates"
-                  : `${stats.overdueTasks} of ${stats.openTasksWithDueDate} dated open tasks overdue`,
+                  : `${stats.overdueTasks} of ${stats.openTasks} open tasks overdue`,
               detailItems: stats.overdueItems,
             };
           }
@@ -563,20 +607,43 @@ function applyLiveProjectStats(
         }),
       };
     } else {
-      // Keep Open Tasks / Over Due links pointed at the board's Google Sheet
-      // (or Drive folder when the sheet id is not configured yet).
+      // Valid Google Drive Link but sheet content could not be loaded.
+      const stubs = taskMetricsForSourceStatus("invalid");
       nextProject = {
         ...nextProject,
+        status: statusFromOverdueCount(0),
+        taskProgressPercent: 0,
+        taskProgressCaption: "Google Drive Link error",
         metrics: nextProject.metrics.map((metric) => {
-          if (metric.label === "Open Tasks" || metric.label === "Over Due") {
-            return { ...metric, href: sheetHref };
+          if (metric.label === "Open Tasks") {
+            return { ...metric, ...stubs.open };
+          }
+          if (metric.label === "Over Due") {
+            return { ...metric, ...stubs.overdue };
           }
           return metric;
         }),
       };
     }
 
-    if (scheduleStats) {
+    // Current Task / Next Task follow Smartsheet Link.
+    if (smartsheetSource.status !== "ok" || !smartsheetResolvable) {
+      const status =
+        smartsheetSource.status === "ok" ? "invalid" : smartsheetSource.status;
+      const stubs = scheduleMetricsForSourceStatus(status);
+      nextProject = {
+        ...nextProject,
+        metrics: nextProject.metrics.map((metric) => {
+          if (metric.label === "Current Task") {
+            return { ...metric, ...stubs.current };
+          }
+          if (metric.label === "Next Task") {
+            return { ...metric, ...stubs.next };
+          }
+          return metric;
+        }),
+      };
+    } else if (scheduleStats) {
       nextProject = {
         ...nextProject,
         metrics: nextProject.metrics.map((metric) => {
@@ -625,6 +692,21 @@ function applyLiveProjectStats(
           return metric;
         }),
       };
+    } else {
+      // Valid Smartsheet Link but schedule content could not be loaded.
+      const stubs = scheduleMetricsForSourceStatus("invalid");
+      nextProject = {
+        ...nextProject,
+        metrics: nextProject.metrics.map((metric) => {
+          if (metric.label === "Current Task") {
+            return { ...metric, ...stubs.current };
+          }
+          if (metric.label === "Next Task") {
+            return { ...metric, ...stubs.next };
+          }
+          return metric;
+        }),
+      };
     }
 
     return nextProject;
@@ -632,8 +714,14 @@ function applyLiveProjectStats(
 }
 
 export default async function Home() {
+  const googleDriveLinksByCode: Record<EsadProjectCode, string> = {
+    DSB: DASHBOARD_CONFIGS["1"].googleDriveLink,
+    HVFB: DASHBOARD_CONFIGS["2"].googleDriveLink,
+    PRI: DASHBOARD_CONFIGS["3"].googleDriveLink,
+    IND: DASHBOARD_CONFIGS["4"].googleDriveLink,
+  };
   const [taskStatsByCode, scheduleStatsByCode] = await Promise.all([
-    fetchAllProjectTaskStats(),
+    fetchAllProjectTaskStats(fetch, googleDriveLinksByCode),
     fetchAllProjectScheduleStats(),
   ]);
   const dashboardProjects = applyLiveProjectStats(
@@ -645,25 +733,20 @@ export default async function Home() {
   const adminCredentials = getAdminCredentials();
 
   return (
-    <CompanyAuthGate>
-      <main className="dashboard-shell">
-        <HeroHeader
-          adminUsername={adminCredentials.username}
-          adminPassword={adminCredentials.password}
-        />
+    <main className="dashboard-shell">
+      <HeroHeader
+        adminUsername={adminCredentials.username}
+        adminPassword={adminCredentials.password}
+      />
 
-        <section
-          className="systems-grid"
-          aria-label="Engineering project portfolio"
-        >
-          {dashboardProjects.map((project, index) => (
-            <ProjectPanel key={project.name} project={project} index={index} />
-          ))}
-          <HealthCore status={programStatus} />
-        </section>
+      <section className="systems-grid" aria-label="Engineering project portfolio">
+        {dashboardProjects.map((project, index) => (
+          <ProjectPanel key={project.name} project={project} index={index} />
+        ))}
+        <HealthCore status={programStatus} />
+      </section>
 
-        <CustomCardsSection />
-      </main>
-    </CompanyAuthGate>
+      <CustomCardsSection />
+    </main>
   );
 }

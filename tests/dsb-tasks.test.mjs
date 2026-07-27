@@ -18,41 +18,44 @@ Task,EE-5,Future work,TO DO,7/23/2026 12:00:00,8/10/2026
 Task,EE-6,No due date,TO DO,7/23/2026 12:30:00,
 `;
 
-test("counts non-done DSB sheet rows as open tasks", () => {
+test("counts open tasks with due dates only", () => {
   const stats = countOpenTasksFromCsv(sampleCsv, new Date(2026, 6, 23));
   assert.equal(stats.totalTasks, 6);
-  assert.equal(stats.openTasks, 5);
+  // EE-6 has no due date → excluded from Open Tasks.
+  assert.equal(stats.openTasks, 4);
+  assert.equal(stats.openTasksWithDueDate, 4);
   assert.equal(stats.doneTasks, 1);
   assert.equal(stats.completionPercent, 16.7);
   assert.equal(stats.syncedAt, "Jul 23, 2026");
   assert.deepEqual(
     stats.openItems.map((item) => item.key),
-    ["EE-1", "EE-2", "EE-3", "EE-5", "EE-6"],
+    ["EE-1", "EE-2", "EE-3", "EE-5"],
   );
 });
 
 test("maps overdue counts to indicator light status", () => {
-  // Defaults: Green < 1, Yellow > 2, Red > 5
+  // Defaults: Green below Yellow, Yellow ≥ 3, Red ≥ 5
   assert.equal(statusFromOverdueCount(0), "On Track");
-  assert.equal(statusFromOverdueCount(1), "Delayed");
-  assert.equal(statusFromOverdueCount(2), "Delayed");
+  assert.equal(statusFromOverdueCount(1), "On Track");
+  assert.equal(statusFromOverdueCount(2), "On Track");
   assert.equal(statusFromOverdueCount(3), "Delayed");
-  assert.equal(statusFromOverdueCount(5), "Delayed");
-  assert.equal(statusFromOverdueCount(6), "At Risk");
+  assert.equal(statusFromOverdueCount(4), "Delayed");
+  assert.equal(statusFromOverdueCount(5), "At Risk");
   assert.equal(statusFromOverdueCount(12), "At Risk");
 });
 
 test("maps overdue counts with custom LED thresholds", () => {
   const thresholds = {
-    greenLessThan: 2,
-    yellowGreaterThan: 4,
-    redGreaterThan: 8,
+    greenAtMost: 2,
+    yellowAtLeast: 4,
+    redAtLeast: 8,
   };
   assert.equal(statusFromOverdueCount(0, thresholds), "On Track");
-  assert.equal(statusFromOverdueCount(1, thresholds), "On Track");
-  assert.equal(statusFromOverdueCount(2, thresholds), "Delayed");
-  assert.equal(statusFromOverdueCount(5, thresholds), "Delayed");
-  assert.equal(statusFromOverdueCount(9, thresholds), "At Risk");
+  assert.equal(statusFromOverdueCount(2, thresholds), "On Track");
+  assert.equal(statusFromOverdueCount(3, thresholds), "On Track");
+  assert.equal(statusFromOverdueCount(4, thresholds), "Delayed");
+  assert.equal(statusFromOverdueCount(7, thresholds), "Delayed");
+  assert.equal(statusFromOverdueCount(8, thresholds), "At Risk");
 });
 
 test("aggregates Completed / Open / Overdue across all cards for Program Status", () => {
@@ -149,7 +152,9 @@ test("fetchDsbTaskStats reads open and overdue tasks from the live sheet", async
   assert.ok(stats.totalTasks > 0);
   assert.ok(stats.openTasks >= 0);
   assert.ok(stats.doneTasks >= 0);
-  assert.equal(stats.openTasks + stats.doneTasks, stats.totalTasks);
+  // Open Tasks excludes undated opens, so open + done may be < total.
+  assert.ok(stats.openTasks + stats.doneTasks <= stats.totalTasks);
+  assert.equal(stats.openTasks, stats.openTasksWithDueDate);
   assert.equal(stats.openItems.length, stats.openTasks);
   assert.equal(stats.overdueItems.length, stats.overdueTasks);
   assert.ok(stats.overdueTasks >= 0);

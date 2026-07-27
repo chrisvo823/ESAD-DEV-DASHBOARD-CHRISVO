@@ -152,9 +152,11 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Each value must be inside quotes. Quoted Green / Yellow / Red
-                  thresholds set which status LED lights on every card from its
-                  Over Due task count.
+                  Each value must be inside quotes. Card status LED thresholds
+                  use Over Due counts: Green: &quot;1&quot; lights green when
+                  overdue is below Yellow, Yellow: &quot;3&quot; lights yellow when
+                  overdue is 3 or more, Red: &quot;5&quot; lights red when overdue
+                  is 5 or more.
                 </p>
                 <label
                   className="config-window-section-label"

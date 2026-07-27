@@ -23,9 +23,7 @@ function envSheetId(code: EsadProjectCode): string | null {
   const fromProcess = process.env[key]?.trim();
   if (fromProcess) return fromProcess;
 
-  const fromGlobal = (globalThis as unknown as Record<string, string | undefined>)[
-    key
-  ];
+  const fromGlobal = (globalThis as Record<string, string | undefined>)[key];
   return fromGlobal?.trim() || null;
 }
 

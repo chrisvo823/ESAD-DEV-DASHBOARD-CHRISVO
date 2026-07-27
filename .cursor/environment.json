@@ -1,0 +1,9 @@
+{
+  "install": "npm install",
+  "terminals": [
+    {
+      "name": "Dashboard dev server",
+      "command": "npm run dev"
+    }
+  ]
+}

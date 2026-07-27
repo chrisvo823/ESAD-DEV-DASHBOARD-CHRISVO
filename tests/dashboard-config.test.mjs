@@ -10,6 +10,11 @@ import {
   parseDashboardConfigText,
   validateDashboardConfigSyntax,
 } from "../lib/dashboard-config.ts";
+import {
+  AVIONICS_MASTER_SCHEDULE_PERMALINK,
+  ESAD_PROJECT_INTEGRATIONS,
+  googleSheetEditUrl,
+} from "../lib/esad-projects.ts";
 
 test("maps dashboard slots to board nicknames", () => {
   assert.equal(DASHBOARD_CONFIGS["1"].boardNickname, "DSB");
@@ -24,14 +29,17 @@ test("maps dashboard slots to board nicknames", () => {
 
 test("formats DSB configuration text with Google Drive Link", () => {
   const text = formatDashboardConfigText(DASHBOARD_CONFIGS["1"]);
+  const dsbSheetLink = googleSheetEditUrl(
+    ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId,
+  );
   assert.equal(
     text,
     [
       'Responsible Engineer: "Bruno Abousleiman"',
       'Board Name: "Digital Safety Board"',
       'Board Nickname: "DSB"',
-      'Google Drive Link: ""',
-      'Smartsheet Link: "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1"',
+      `Google Drive Link: "${dsbSheetLink}"`,
+      `Smartsheet Link: "${AVIONICS_MASTER_SCHEDULE_PERMALINK}"`,
     ].join("\n"),
   );
   assert.doesNotMatch(text, /Dash Board ID/);
@@ -39,6 +47,7 @@ test("formats DSB configuration text with Google Drive Link", () => {
   assert.doesNotMatch(text, /^Green:/m);
   assert.doesNotMatch(text, /^Yellow:/m);
   assert.doesNotMatch(text, /^Red:/m);
+  assert.match(DASHBOARD_CONFIGS["1"].googleDriveLink, /spreadsheets\/d\//);
 });
 
 test("parses editable configuration text back into card fields", () => {
