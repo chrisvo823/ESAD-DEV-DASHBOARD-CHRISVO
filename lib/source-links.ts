@@ -5,7 +5,7 @@
  * Smartsheet Link → Current Task / Next Task
  */
 
-import { AVIONICS_MASTER_SCHEDULE_PERMALINK } from "./esad-projects.ts";
+import { AVIONICS_MASTER_SCHEDULE_PERMALINK } from "./esad-projects";
 
 /** Numeric Smartsheet id for the Avionics Master Schedule permalink. */
 export const AVIONICS_MASTER_SCHEDULE_SHEET_ID = 2069122061913988;

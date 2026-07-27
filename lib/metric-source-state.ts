@@ -1,12 +1,12 @@
-import type { DsbTaskItem } from "./dsb-tasks.ts";
-import type { DsbScheduleRevision } from "./dsb-schedule.ts";
+import type { DsbTaskItem } from "./dsb-tasks";
+import type { DsbScheduleRevision } from "./dsb-schedule";
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
   resolveGoogleDriveSource,
   resolveSmartsheetSource,
   type MetricSourceStatus,
-} from "./source-links.ts";
+} from "./source-links";
 
 export type TaskMetricPatch = {
   value: number;

@@ -2,8 +2,8 @@ import {
   ESAD_PROJECT_INTEGRATIONS,
   googleSheetCsvUrl,
   googleSheetEditUrl,
-} from "./esad-projects.ts";
-import { parseGoogleSheetIdFromLink } from "./source-links.ts";
+} from "./esad-projects";
+import { parseGoogleSheetIdFromLink } from "./source-links";
 
 export const DSB_SHEET_ID =
   ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId ??
