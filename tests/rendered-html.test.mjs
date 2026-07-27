@@ -280,6 +280,42 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.doesNotMatch(themePicker, /if \(!authenticated\) return null/);
   assert.match(themePicker, /no admin login required/i);
 
+  // Admin configuration is host-persisted; only Themes stay in localStorage.
+  const [
+    siteConfigClient,
+    themeStore,
+    siteConfigRoute,
+    programConfigStore,
+    dashboardConfigStore,
+  ] = await Promise.all([
+    readFile(new URL("../app/site-config-client.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/theme-store.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/site-config/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/program-config-store.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../app/dashboard-config-store.ts", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.match(siteConfigRoute, /getPublicSiteConfig/);
+  assert.match(siteConfigRoute, /updateSiteAdminConfig/);
+  assert.match(siteConfigClient, /persistSiteConfigPatch/);
+  assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
+  assert.match(siteConfigClient, /\/api\/site-config/);
+  assert.match(programConfigStore, /persistSiteConfigPatch/);
+  assert.match(dashboardConfigStore, /persistSiteConfigPatch/);
+  assert.doesNotMatch(
+    programConfigStore,
+    /localStorage\.setItem\(\s*PROGRAM_CONFIG_STORAGE_KEY/,
+  );
+  assert.doesNotMatch(
+    dashboardConfigStore,
+    /localStorage\.setItem\(\s*DASHBOARD_CONFIG_STORAGE_KEY/,
+  );
+  assert.match(themeStore, /localStorage\.setItem\(THEME_STORAGE_KEY/);
+  assert.match(themeStore, /esad-dashboard-theme/);
+  assert.match(heroHeader, /hydrateSiteConfigFromHost/);
+
   const themesSource = await readFile(
     new URL("../lib/themes.ts", import.meta.url),
     "utf8",

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getAdminCredentials } from "../../../lib/dashboard-config";
 import {
   summarizeLoginActivity,
 } from "../../../lib/login-activity";
@@ -7,18 +6,23 @@ import {
   listLoginActivity,
   recordLoginActivity,
 } from "../../../lib/login-activity-store";
+import {
+  getHostAdminPassword,
+  isAuthorizedSiteAdmin,
+} from "../../../lib/site-config-store";
 
 export const dynamic = "force-dynamic";
 
-function isAuthorizedAdmin(request: Request): boolean {
-  const provided = request.headers.get("x-esad-admin-password")?.trim() ?? "";
-  if (!provided) return false;
-  const { password } = getAdminCredentials();
-  return provided === password;
+async function isAuthorizedAdmin(request: Request): Promise<boolean> {
+  const hostPassword = await getHostAdminPassword();
+  return isAuthorizedSiteAdmin(
+    request.headers.get("x-esad-admin-password"),
+    hostPassword,
+  );
 }
 
 export async function GET(request: Request) {
-  if (!isAuthorizedAdmin(request)) {
+  if (!(await isAuthorizedAdmin(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

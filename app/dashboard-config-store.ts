@@ -3,14 +3,20 @@
 import { useEffect, useState } from "react";
 import {
   DASHBOARD_CONFIGS,
-  FIXED_DASHBOARD_IDS,
   isFixedDashboardId,
   type DashboardConfig,
   type DashboardId,
   type FixedDashboardId,
 } from "../lib/dashboard-config";
-import { isCustomCardId } from "../lib/custom-cards";
+import {
+  getCachedSiteConfig,
+  hydrateSiteConfigFromHost,
+  persistSiteConfigPatch,
+  readCachedDashboardConfigs,
+  subscribeSiteConfig,
+} from "./site-config-client";
 
+/** @deprecated Admin config is host-persisted; key kept for migration only. */
 export const DASHBOARD_CONFIG_STORAGE_KEY = "esad-dashboard-configs";
 export const DASHBOARD_CONFIG_EVENT = "esad-dashboard-config-change";
 
@@ -25,40 +31,6 @@ function cloneDefaults(): ConfigMap {
   };
 }
 
-function mergeEntry(
-  id: DashboardId,
-  entry: Partial<DashboardConfig> | undefined,
-  fallback: DashboardConfig,
-): DashboardConfig {
-  if (!entry || typeof entry !== "object") {
-    return { ...fallback, dashboardId: id };
-  }
-  return {
-    dashboardId: id,
-    responsibleEngineer:
-      typeof entry.responsibleEngineer === "string"
-        ? entry.responsibleEngineer
-        : fallback.responsibleEngineer,
-    boardName:
-      typeof entry.boardName === "string" ? entry.boardName : fallback.boardName,
-    boardNickname:
-      typeof entry.boardNickname === "string"
-        ? entry.boardNickname
-        : fallback.boardNickname,
-    googleDriveLink:
-      typeof entry.googleDriveLink === "string"
-        ? entry.googleDriveLink
-        : typeof (entry as unknown as { jiraEpicLink?: unknown }).jiraEpicLink ===
-            "string"
-          ? (entry as unknown as { jiraEpicLink: string }).jiraEpicLink
-          : fallback.googleDriveLink,
-    smartsheetLink:
-      typeof entry.smartsheetLink === "string"
-        ? entry.smartsheetLink
-        : fallback.smartsheetLink,
-  };
-}
-
 function emptyCustomFallback(id: DashboardId): DashboardConfig {
   return {
     dashboardId: id,
@@ -70,57 +42,40 @@ function emptyCustomFallback(id: DashboardId): DashboardConfig {
   };
 }
 
-function mergeStored(raw: unknown): ConfigMap {
-  const defaults = cloneDefaults();
-  if (!raw || typeof raw !== "object") return defaults;
-
-  const stored = raw as Partial<Record<string, Partial<DashboardConfig>>>;
-  for (const id of FIXED_DASHBOARD_IDS) {
-    defaults[id] = mergeEntry(id, stored[id], defaults[id]!);
-  }
-
-  for (const [id, entry] of Object.entries(stored)) {
-    if (isFixedDashboardId(id)) continue;
-    if (!isCustomCardId(id)) continue;
-    defaults[id] = mergeEntry(id, entry, emptyCustomFallback(id));
-  }
-
-  return defaults;
-}
-
-export function readDashboardConfigs(): ConfigMap {
-  if (typeof window === "undefined") return cloneDefaults();
-  try {
-    const raw = window.localStorage.getItem(DASHBOARD_CONFIG_STORAGE_KEY);
-    if (!raw) return cloneDefaults();
-    return mergeStored(JSON.parse(raw));
-  } catch {
-    return cloneDefaults();
-  }
-}
-
-export function writeDashboardConfig(config: DashboardConfig): ConfigMap {
-  const next = readDashboardConfigs();
-  next[config.dashboardId] = { ...config, dashboardId: config.dashboardId };
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(
-      DASHBOARD_CONFIG_STORAGE_KEY,
-      JSON.stringify(next),
-    );
-    window.dispatchEvent(
-      new CustomEvent(DASHBOARD_CONFIG_EVENT, {
-        detail: { config: next[config.dashboardId] },
-      }),
-    );
-  }
-  return next;
-}
-
 function defaultConfigForId(dashboardId: DashboardId): DashboardConfig {
   if (isFixedDashboardId(dashboardId)) {
     return { ...DASHBOARD_CONFIGS[dashboardId as FixedDashboardId] };
   }
-  return readDashboardConfigs()[dashboardId] ?? emptyCustomFallback(dashboardId);
+  return (
+    readCachedDashboardConfigs()[dashboardId] ?? emptyCustomFallback(dashboardId)
+  );
+}
+
+function emitLegacyConfigEvent(config: DashboardConfig) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(DASHBOARD_CONFIG_EVENT, { detail: { config } }),
+  );
+}
+
+export function readDashboardConfigs(): ConfigMap {
+  if (typeof window === "undefined") return cloneDefaults();
+  const cached = readCachedDashboardConfigs();
+  return Object.keys(cached).length > 0 ? cached : cloneDefaults();
+}
+
+export function writeDashboardConfig(config: DashboardConfig): ConfigMap {
+  const next = {
+    ...readDashboardConfigs(),
+    [config.dashboardId]: { ...config, dashboardId: config.dashboardId },
+  };
+  emitLegacyConfigEvent(next[config.dashboardId]!);
+  void persistSiteConfigPatch({ dashboardConfig: next[config.dashboardId]! }).catch(
+    () => {
+      // Host save failures are surfaced by re-hydration in persist helper.
+    },
+  );
+  return next;
 }
 
 export function useDashboardConfig(dashboardId: DashboardId): DashboardConfig {
@@ -129,36 +84,42 @@ export function useDashboardConfig(dashboardId: DashboardId): DashboardConfig {
   );
 
   useEffect(() => {
-    setConfig(
-      readDashboardConfigs()[dashboardId] ?? defaultConfigForId(dashboardId),
-    );
+    let cancelled = false;
 
-    const onChange = (event: Event) => {
+    void hydrateSiteConfigFromHost().then(() => {
+      if (cancelled) return;
+      setConfig(
+        readCachedDashboardConfigs()[dashboardId] ??
+          defaultConfigForId(dashboardId),
+      );
+    });
+
+    const unsubscribe = subscribeSiteConfig(() => {
+      setConfig(
+        readCachedDashboardConfigs()[dashboardId] ??
+          defaultConfigForId(dashboardId),
+      );
+    });
+
+    const onLegacy = (event: Event) => {
       const detail = (event as CustomEvent<{ config: DashboardConfig }>).detail;
       if (detail?.config?.dashboardId === dashboardId) {
         setConfig(detail.config);
-        return;
-      }
-      setConfig(
-        readDashboardConfigs()[dashboardId] ?? defaultConfigForId(dashboardId),
-      );
-    };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === DASHBOARD_CONFIG_STORAGE_KEY) {
-        setConfig(
-          readDashboardConfigs()[dashboardId] ??
-            defaultConfigForId(dashboardId),
-        );
       }
     };
+    window.addEventListener(DASHBOARD_CONFIG_EVENT, onLegacy);
 
-    window.addEventListener(DASHBOARD_CONFIG_EVENT, onChange);
-    window.addEventListener("storage", onStorage);
     return () => {
-      window.removeEventListener(DASHBOARD_CONFIG_EVENT, onChange);
-      window.removeEventListener("storage", onStorage);
+      cancelled = true;
+      unsubscribe();
+      window.removeEventListener(DASHBOARD_CONFIG_EVENT, onLegacy);
     };
   }, [dashboardId]);
+
+  // Keep cache warm for SSR→client transition readers.
+  useEffect(() => {
+    void getCachedSiteConfig();
+  }, []);
 
   return config;
 }

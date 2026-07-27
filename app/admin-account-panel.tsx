@@ -54,7 +54,7 @@ export function AdminAccountPanel({ fallbackPassword }: AdminAccountPanelProps) 
 
   if (!authenticated) return null;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setMessage(null);
@@ -65,7 +65,7 @@ export function AdminAccountPanel({ fallbackPassword }: AdminAccountPanelProps) 
     }
 
     if (mode === "change") {
-      const result = changeAdminPassword({
+      const result = await changeAdminPassword({
         fallbackPassword,
         currentPassword,
         nextPassword,
@@ -81,7 +81,7 @@ export function AdminAccountPanel({ fallbackPassword }: AdminAccountPanelProps) 
       return;
     }
 
-    const result = resetAdminPassword({
+    const result = await resetAdminPassword({
       fallbackPassword,
       email,
       nextPassword,

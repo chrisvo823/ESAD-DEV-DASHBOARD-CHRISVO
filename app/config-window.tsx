@@ -69,9 +69,10 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
       return;
     }
 
-    writeDashboardConfig(parsed.config);
     if (isCustomCardId(parsed.config.dashboardId)) {
       syncCustomCardConfig(parsed.config);
+    } else {
+      writeDashboardConfig(parsed.config);
     }
     const savedText = formatDashboardConfigText(parsed.config);
     setDraft(savedText);

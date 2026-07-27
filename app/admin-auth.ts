@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export const ADMIN_SESSION_KEY = "esad-admin-authenticated";
+export const ADMIN_SESSION_PASSWORD_KEY = "esad-admin-session-password";
 export const ADMIN_AUTH_EVENT = "esad-admin-auth-change";
 
 export function isAdminAuthenticated(): boolean {
@@ -10,39 +11,58 @@ export function isAdminAuthenticated(): boolean {
   return window.sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
 }
 
-export function setAdminAuthenticated(authenticated: boolean): void {
+export function getAdminSessionPassword(): string {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(ADMIN_SESSION_PASSWORD_KEY)?.trim() ?? "";
+}
+
+export function setAdminAuthenticated(
+  authenticated: boolean,
+  sessionPassword?: string,
+): void {
   if (typeof window === "undefined") return;
   if (authenticated) {
     window.sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+    if (sessionPassword) {
+      window.sessionStorage.setItem(
+        ADMIN_SESSION_PASSWORD_KEY,
+        sessionPassword,
+      );
+    }
   } else {
     window.sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    window.sessionStorage.removeItem(ADMIN_SESSION_PASSWORD_KEY);
   }
   window.dispatchEvent(
     new CustomEvent(ADMIN_AUTH_EVENT, { detail: { authenticated } }),
   );
 }
 
+function subscribeAdminAuth(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+  const onChange = () => onStoreChange();
+  window.addEventListener(ADMIN_AUTH_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(ADMIN_AUTH_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
 export function useAdminAuthenticated(): boolean {
-  const [authenticated, setAuthenticated] = useState(false);
+  return useSyncExternalStore(
+    subscribeAdminAuth,
+    isAdminAuthenticated,
+    () => false,
+  );
+}
 
-  useEffect(() => {
-    setAuthenticated(isAdminAuthenticated());
-    const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ authenticated: boolean }>).detail;
-      setAuthenticated(Boolean(detail?.authenticated));
-    };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === ADMIN_SESSION_KEY) {
-        setAuthenticated(isAdminAuthenticated());
-      }
-    };
-    window.addEventListener(ADMIN_AUTH_EVENT, onChange);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(ADMIN_AUTH_EVENT, onChange);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  return authenticated;
+export function useAdminSessionPassword(): string {
+  return useSyncExternalStore(
+    subscribeAdminAuth,
+    getAdminSessionPassword,
+    () => "",
+  );
 }

@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  getAdminSessionPassword,
+  setAdminAuthenticated,
+} from "./admin-auth";
+import {
+  hydrateSiteConfigFromHost,
+  readCachedRecoveryEmail,
+  subscribeSiteConfig,
+} from "./site-config-client";
 
+/** @deprecated Admin credentials are host-persisted; key kept for migration only. */
 export const ADMIN_CREDENTIALS_STORAGE_KEY = "esad-admin-credentials";
 export const ADMIN_CREDENTIALS_EVENT = "esad-admin-credentials-change";
 
@@ -10,140 +20,187 @@ export type StoredAdminCredentials = {
   recoveryEmail: string;
 };
 
-function sanitize(
-  raw: unknown,
-  fallbackPassword: string,
-): StoredAdminCredentials {
-  if (!raw || typeof raw !== "object") {
-    return { password: fallbackPassword, recoveryEmail: "" };
-  }
-  const entry = raw as Partial<StoredAdminCredentials>;
-  return {
-    password:
-      typeof entry.password === "string" && entry.password.length > 0
-        ? entry.password
-        : fallbackPassword,
-    recoveryEmail:
-      typeof entry.recoveryEmail === "string"
-        ? entry.recoveryEmail.trim()
-        : "",
-  };
+function emitCredentials(credentials: StoredAdminCredentials) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(ADMIN_CREDENTIALS_EVENT, {
+      detail: { credentials },
+    }),
+  );
 }
 
+/** Local view of credentials: password is session-only; recovery email is host-backed. */
 export function readAdminCredentials(
   fallbackPassword: string,
 ): StoredAdminCredentials {
   if (typeof window === "undefined") {
     return { password: fallbackPassword, recoveryEmail: "" };
   }
-  try {
-    const raw = window.localStorage.getItem(ADMIN_CREDENTIALS_STORAGE_KEY);
-    if (!raw) return { password: fallbackPassword, recoveryEmail: "" };
-    return sanitize(JSON.parse(raw), fallbackPassword);
-  } catch {
-    return { password: fallbackPassword, recoveryEmail: "" };
-  }
+  return {
+    password: getAdminSessionPassword() || fallbackPassword,
+    recoveryEmail: readCachedRecoveryEmail(),
+  };
 }
 
 export function writeAdminCredentials(
   credentials: StoredAdminCredentials,
   fallbackPassword: string,
 ): StoredAdminCredentials {
-  const next = sanitize(credentials, fallbackPassword);
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(
-      ADMIN_CREDENTIALS_STORAGE_KEY,
-      JSON.stringify(next),
-    );
-    window.dispatchEvent(
-      new CustomEvent(ADMIN_CREDENTIALS_EVENT, {
-        detail: { credentials: next },
-      }),
-    );
-  }
+  const next = {
+    password:
+      typeof credentials.password === "string" && credentials.password.length > 0
+        ? credentials.password
+        : fallbackPassword,
+    recoveryEmail:
+      typeof credentials.recoveryEmail === "string"
+        ? credentials.recoveryEmail.trim()
+        : "",
+  };
+  emitCredentials(next);
   return next;
 }
 
-export function changeAdminPassword(options: {
+export async function verifyAdminCredentials(options: {
+  username: string;
+  password: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const response = await fetch("/api/admin-credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "verify",
+        username: options.username,
+        password: options.password,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { ok: false, error: "Invalid credentials" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not reach host admin service." };
+  }
+}
+
+export async function changeAdminPassword(options: {
   fallbackPassword: string;
   currentPassword: string;
   nextPassword: string;
-}): { ok: true; credentials: StoredAdminCredentials } | { ok: false; error: string } {
-  const stored = readAdminCredentials(options.fallbackPassword);
-  if (options.currentPassword !== stored.password) {
-    return { ok: false, error: "Current password is incorrect." };
+}): Promise<
+  { ok: true; credentials: StoredAdminCredentials } | { ok: false; error: string }
+> {
+  const sessionPassword =
+    getAdminSessionPassword() || options.currentPassword || options.fallbackPassword;
+  try {
+    const response = await fetch("/api/admin-credentials", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-esad-admin-password": sessionPassword,
+      },
+      body: JSON.stringify({
+        action: "change",
+        currentPassword: options.currentPassword,
+        nextPassword: options.nextPassword,
+      }),
+      cache: "no-store",
+    });
+    const payload = (await response.json()) as { ok?: boolean; error?: string };
+    if (!response.ok || !payload.ok) {
+      return {
+        ok: false,
+        error: payload.error || "Could not change password.",
+      };
+    }
+    setAdminAuthenticated(true, options.nextPassword);
+    const credentials = {
+      password: options.nextPassword,
+      recoveryEmail: readCachedRecoveryEmail(),
+    };
+    emitCredentials(credentials);
+    return { ok: true, credentials };
+  } catch {
+    return { ok: false, error: "Could not reach host admin service." };
   }
-  if (options.nextPassword.trim().length < 4) {
-    return { ok: false, error: "New password must be at least 4 characters." };
-  }
-  if (options.nextPassword === options.currentPassword) {
-    return { ok: false, error: "New password must be different." };
-  }
-  const credentials = writeAdminCredentials(
-    { ...stored, password: options.nextPassword },
-    options.fallbackPassword,
-  );
-  return { ok: true, credentials };
 }
 
-export function resetAdminPassword(options: {
+export async function resetAdminPassword(options: {
   fallbackPassword: string;
   email: string;
   nextPassword: string;
-}): { ok: true; credentials: StoredAdminCredentials } | { ok: false; error: string } {
-  const email = options.email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: "Enter a valid recovery email." };
-  }
-  if (options.nextPassword.trim().length < 4) {
-    return { ok: false, error: "New password must be at least 4 characters." };
-  }
-
-  const stored = readAdminCredentials(options.fallbackPassword);
-  if (stored.recoveryEmail) {
-    if (stored.recoveryEmail.toLowerCase() !== email) {
-      return { ok: false, error: "Recovery email does not match." };
+}): Promise<
+  { ok: true; credentials: StoredAdminCredentials } | { ok: false; error: string }
+> {
+  try {
+    const response = await fetch("/api/admin-credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reset",
+        email: options.email,
+        nextPassword: options.nextPassword,
+      }),
+      cache: "no-store",
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      error?: string;
+      recoveryEmail?: string;
+    };
+    if (!response.ok || !payload.ok) {
+      return {
+        ok: false,
+        error: payload.error || "Could not reset password.",
+      };
     }
-  }
-
-  const credentials = writeAdminCredentials(
-    {
+    await hydrateSiteConfigFromHost();
+    const credentials = {
       password: options.nextPassword,
-      recoveryEmail: email,
-    },
-    options.fallbackPassword,
-  );
-  return { ok: true, credentials };
+      recoveryEmail:
+        typeof payload.recoveryEmail === "string"
+          ? payload.recoveryEmail
+          : options.email.trim().toLowerCase(),
+    };
+    emitCredentials(credentials);
+    return { ok: true, credentials };
+  } catch {
+    return { ok: false, error: "Could not reach host admin service." };
+  }
 }
 
-export function useAdminCredentials(fallbackPassword: string): StoredAdminCredentials {
+export function useAdminCredentials(
+  fallbackPassword: string,
+): StoredAdminCredentials {
   const [credentials, setCredentials] = useState<StoredAdminCredentials>({
     password: fallbackPassword,
     recoveryEmail: "",
   });
 
   useEffect(() => {
-    setCredentials(readAdminCredentials(fallbackPassword));
-    const onChange = (event: Event) => {
+    let cancelled = false;
+    void hydrateSiteConfigFromHost().then(() => {
+      if (!cancelled) {
+        setCredentials(readAdminCredentials(fallbackPassword));
+      }
+    });
+
+    const unsubscribe = subscribeSiteConfig(() => {
+      setCredentials(readAdminCredentials(fallbackPassword));
+    });
+    const onLegacy = (event: Event) => {
       const detail = (
         event as CustomEvent<{ credentials: StoredAdminCredentials }>
       ).detail;
-      if (detail?.credentials) {
-        setCredentials(detail.credentials);
-        return;
-      }
-      setCredentials(readAdminCredentials(fallbackPassword));
+      if (detail?.credentials) setCredentials(detail.credentials);
     };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === ADMIN_CREDENTIALS_STORAGE_KEY) {
-        setCredentials(readAdminCredentials(fallbackPassword));
-      }
-    };
-    window.addEventListener(ADMIN_CREDENTIALS_EVENT, onChange);
-    window.addEventListener("storage", onStorage);
+    window.addEventListener(ADMIN_CREDENTIALS_EVENT, onLegacy);
+
     return () => {
-      window.removeEventListener(ADMIN_CREDENTIALS_EVENT, onChange);
-      window.removeEventListener("storage", onStorage);
+      cancelled = true;
+      unsubscribe();
+      window.removeEventListener(ADMIN_CREDENTIALS_EVENT, onLegacy);
     };
   }, [fallbackPassword]);
 
