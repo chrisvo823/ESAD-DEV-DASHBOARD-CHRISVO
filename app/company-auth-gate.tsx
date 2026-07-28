@@ -35,7 +35,7 @@ export function CompanyAuthGate({
   const auth = useMemo(() => getFirebaseAuth(), []);
   const config = useMemo(() => getFirebaseWebConfig(), []);
   const allowedDomain = useMemo(() => getAllowedEmailDomain(), []);
-  const signInTitle = dashboardName?.trim() || "Dashboard";
+  const signInTitle = dashboardName?.trim() || "Engineering Dashboard";
   const [state, setState] = useState<GateState>(() =>
     config ? { status: "loading" } : { status: "missing-config" },
   );

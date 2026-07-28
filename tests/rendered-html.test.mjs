@@ -58,7 +58,7 @@ test("server-renders the host-configured dashboard", async () => {
     );
     assert.match(html, new RegExp(escapeRegExp(dashboardName)));
   } else {
-    assert.match(html, /<title>Dashboard<\/title>/i);
+    assert.match(html, /<title>Engineering Dashboard<\/title>/i);
   }
   if (programLead) {
     assert.match(html, new RegExp(escapeRegExp(programLead)));
@@ -552,10 +552,13 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(layout, /loadSiteAdminConfig/);
   assert.match(layout, /programConfig\.dashboardName/);
   assert.match(layout, /programConfig\.programLead/);
+  assert.match(layout, /Engineering Dashboard/);
   assert.doesNotMatch(layout, /MACH ESAD Development Dashboard/);
   assert.doesNotMatch(layout, /Engineering Program Office/);
   assert.match(layout, /og\.png/);
   assert.match(page, /dashboardName=\{siteConfig\.programConfig\.dashboardName\}/);
+  assert.match(programConfigSource, /Engineering Dashboard/);
+  assert.match(programConfigSource, /Project Lead: /);
   assert.match(packageJson, /"name": "site-creator-vinext-starter"/);
   assert.doesNotMatch(page, /SkeletonPreview|react-loading-skeleton/);
   assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);

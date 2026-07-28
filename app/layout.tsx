@@ -28,9 +28,10 @@ export async function generateMetadata(): Promise<Metadata> {
   // Title / identity always come from host Dashboard Configuration.
   const siteConfig = await loadSiteAdminConfig();
   const title =
-    siteConfig.programConfig.dashboardName.trim() || "Dashboard";
-  const description = siteConfig.programConfig.programLead.trim()
-    ? `${siteConfig.programConfig.programLead.trim()} — engineering project health, progress, and work tracking.`
+    siteConfig.programConfig.dashboardName.trim() || "Engineering Dashboard";
+  const lead = siteConfig.programConfig.programLead.trim();
+  const description = lead
+    ? `${lead} — engineering project health, progress, and work tracking.`
     : "Engineering project health, progress, and work tracking at a glance.";
 
   return {

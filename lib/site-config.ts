@@ -126,11 +126,18 @@ export function sanitizeProgramConfig(raw: unknown): ProgramConfig {
     ledYellowGreaterThan?: number;
     ledRedGreaterThan?: number;
   };
+  const dashboardName =
+    typeof stored.dashboardName === "string" ? stored.dashboardName.trim() : "";
+  const storedLead =
+    typeof stored.programLead === "string" ? stored.programLead : "";
+  // Preserve a single trailing space when present (default "Project Lead: ").
+  const programLead = storedLead.trim()
+    ? `${storedLead.trim()}${storedLead.endsWith(" ") ? " " : ""}`
+    : "";
+
   return withDefaultProgramLedThresholds({
-    dashboardName:
-      typeof stored.dashboardName === "string" ? stored.dashboardName.trim() : "",
-    programLead:
-      typeof stored.programLead === "string" ? stored.programLead.trim() : "",
+    dashboardName: dashboardName || DEFAULT_PROGRAM_CONFIG.dashboardName,
+    programLead: programLead || DEFAULT_PROGRAM_CONFIG.programLead,
     openTasksLabel: stored.openTasksLabel,
     overDueLabel: stored.overDueLabel,
     currentTaskLabel: stored.currentTaskLabel,
