@@ -3,7 +3,8 @@
 ## Cursor Cloud specific instructions
 
 This repo is a single **vinext** app (Cloudflare Workers runtime + Next.js 16 / React 19),
-rendering the static server-rendered "MACH ESAD Development Dashboard". There is no
+rendering the static server-rendered ESAD development dashboard. Dashboard Name and
+Program Lead come from host Dashboard Configuration (not compiled-in copy). There is no
 external database or service to run: `.openai/hosting.json` sets `d1`/`r2` to `null`
 and `db/schema.ts` is intentionally empty (D1/Drizzle are optional and unused).
 

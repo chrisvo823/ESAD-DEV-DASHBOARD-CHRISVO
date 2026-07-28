@@ -2,6 +2,26 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function readHostProgramIdentity() {
+  try {
+    const raw = await readFile(
+      new URL("../.data/admin-site-config.json", import.meta.url),
+      "utf8",
+    );
+    const parsed = JSON.parse(raw);
+    return {
+      dashboardName: parsed.programConfig?.dashboardName?.trim() ?? "",
+      programLead: parsed.programConfig?.programLead?.trim() ?? "",
+    };
+  } catch {
+    return { dashboardName: "", programLead: "" };
+  }
+}
+
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -23,21 +43,39 @@ async function render() {
   );
 }
 
-test("server-renders the MACH ESAD dashboard", async () => {
+test("server-renders the host-configured dashboard", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>MACH ESAD Development Dashboard<\/title>/i);
-  assert.match(
-    html,
-    /<meta(?=[^>]*\bname=["']description["'])(?=[^>]*\bcontent=["']Engineering project health, progress, and work tracking at a glance\.["'])[^>]*>/i,
+  // Identity must come from host Dashboard Configuration (not compiled defaults).
+  const { dashboardName, programLead } = await readHostProgramIdentity();
+  if (dashboardName) {
+    assert.match(
+      html,
+      new RegExp(`<title>${escapeRegExp(dashboardName)}<\\/title>`, "i"),
+    );
+    assert.match(html, new RegExp(escapeRegExp(dashboardName)));
+  } else {
+    assert.match(html, /<title>Dashboard<\/title>/i);
+  }
+  if (programLead) {
+    assert.match(html, new RegExp(escapeRegExp(programLead)));
+  }
+  assert.doesNotMatch(
+    await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    /MACH ESAD Development Dashboard/,
   );
-  assert.match(html, /Engineering Program Office/);
+  assert.doesNotMatch(
+    await readFile(new URL("../lib/program-config.ts", import.meta.url), "utf8"),
+    /MACH ESAD Development Dashboard|Engineering Program Office/,
+  );
+  assert.doesNotMatch(
+    await readFile(new URL("../app/company-auth-gate.tsx", import.meta.url), "utf8"),
+    /MACH ESAD Dashboard|MACH ESAD Development Dashboard/,
+  );
   assert.match(html, /Admin login/);
-  assert.match(html, /MACH ESAD Development Dashboard/);
-  assert.match(html, /Engineering Program Office/);
   assert.match(html, /Responsible Engineer/);
   assert.match(html, /Bruno Abousleiman/);
   assert.match(html, /Digital Safety Board/);
@@ -500,8 +538,13 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /aggregateProgramTaskStats/);
   assert.match(page, /Completed Tasks/);
   assert.match(page, /Overdue Tasks/);
-  assert.match(layout, /title: "MACH ESAD Development Dashboard"/);
+  assert.match(layout, /loadSiteAdminConfig/);
+  assert.match(layout, /programConfig\.dashboardName/);
+  assert.match(layout, /programConfig\.programLead/);
+  assert.doesNotMatch(layout, /MACH ESAD Development Dashboard/);
+  assert.doesNotMatch(layout, /Engineering Program Office/);
   assert.match(layout, /og\.png/);
+  assert.match(page, /dashboardName=\{siteConfig\.programConfig\.dashboardName\}/);
   assert.match(packageJson, /"name": "site-creator-vinext-starter"/);
   assert.doesNotMatch(page, /SkeletonPreview|react-loading-skeleton/);
   assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);

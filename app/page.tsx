@@ -968,7 +968,7 @@ export default async function Home() {
   const adminCredentials = getAdminCredentials();
 
   return (
-    <CompanyAuthGate>
+    <CompanyAuthGate dashboardName={siteConfig.programConfig.dashboardName}>
       <SiteConfigBootstrap initial={publicSiteConfig}>
         <DashboardRefresh />
         <main className="dashboard-shell">

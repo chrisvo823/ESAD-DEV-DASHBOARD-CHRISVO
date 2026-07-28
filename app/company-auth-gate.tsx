@@ -17,6 +17,8 @@ import { recordDashboardLogin } from "../lib/record-dashboard-login";
 
 type CompanyAuthGateProps = {
   children: ReactNode;
+  /** Host Dashboard Configuration title for the sign-in screen. */
+  dashboardName?: string;
 };
 
 type GateState =
@@ -26,10 +28,14 @@ type GateState =
   | { status: "blocked"; email: string }
   | { status: "ready"; user: User };
 
-export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
+export function CompanyAuthGate({
+  children,
+  dashboardName,
+}: CompanyAuthGateProps) {
   const auth = useMemo(() => getFirebaseAuth(), []);
   const config = useMemo(() => getFirebaseWebConfig(), []);
   const allowedDomain = useMemo(() => getAllowedEmailDomain(), []);
+  const signInTitle = dashboardName?.trim() || "Dashboard";
   const [state, setState] = useState<GateState>(() =>
     config ? { status: "loading" } : { status: "missing-config" },
   );
@@ -148,7 +154,7 @@ export function CompanyAuthGate({ children }: CompanyAuthGateProps) {
           width={72}
           height={72}
         />
-        <h1>MACH ESAD Dashboard</h1>
+        <h1>{signInTitle}</h1>
         <p>
           Sign in with your <strong>@{allowedDomain}</strong> Google account to
           continue.

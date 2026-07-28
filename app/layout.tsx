@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import { loadSiteAdminConfig } from "../lib/site-config-store";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,24 +16,44 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const host =
+    requestHeaders.get("x-forwarded-host") ??
+    requestHeaders.get("host") ??
+    "localhost:3000";
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
 
+  // Title / identity always come from host Dashboard Configuration.
+  const siteConfig = await loadSiteAdminConfig();
+  const title =
+    siteConfig.programConfig.dashboardName.trim() || "Dashboard";
+  const description = siteConfig.programConfig.programLead.trim()
+    ? `${siteConfig.programConfig.programLead.trim()} — engineering project health, progress, and work tracking.`
+    : "Engineering project health, progress, and work tracking at a glance.";
+
   return {
-    title: "MACH ESAD Development Dashboard",
-    description: "Engineering project health, progress, and work tracking at a glance.",
+    title,
+    description,
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
-      title: "MACH ESAD Development Dashboard",
-      description: "Engineering project health, progress, and work tracking at a glance.",
+      title,
+      description,
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1680, height: 943, alt: "MACH ESAD engineering project dashboard" }],
+      images: [
+        {
+          url: `${origin}/og.png`,
+          width: 1680,
+          height: 943,
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
-      title: "MACH ESAD Development Dashboard",
-      description: "Engineering project health, progress, and work tracking at a glance.",
+      title,
+      description,
       images: [`${origin}/og.png`],
     },
   };
