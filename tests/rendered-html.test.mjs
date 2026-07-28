@@ -383,12 +383,23 @@ test("keeps dashboard metadata and project data in source", async () => {
   ]);
   assert.match(siteConfigBootstrap, /seedSiteConfigFromServer/);
   assert.match(siteConfigBootstrap, /refreshSiteConfigFromHost/);
+  assert.match(siteConfigBootstrap, /subscribeSiteConfig/);
   assert.match(pageSourceForHost, /SiteConfigBootstrap/);
   assert.match(pageSourceForHost, /withHostCardConfigs/);
   assert.match(pageSourceForHost, /loadSiteAdminConfig/);
   assert.match(
     pageSourceForHost,
     /initialProgramConfig=\{siteConfig\.programConfig\}/,
+  );
+
+  const siteConfigStoreSource = await readFile(
+    new URL("../lib/site-config-store.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(siteConfigStoreSource, /readPersistedConfig/);
+  assert.match(
+    siteConfigStoreSource,
+    /Prefer the host file whenever it exists/,
   );
 
   const themesSource = await readFile(

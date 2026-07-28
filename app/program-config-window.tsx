@@ -46,6 +46,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
 
   useEffect(() => {
     if (!open) return;
+    // Sync drafts only when the window opens so a later host refresh cannot
+    // wipe in-progress (or just-saved) Dashboard Configuration text.
     const nextIdentity = formatProgramIdentityText(config);
     const nextLed = formatProgramLedThresholdText(config);
     setIdentityDraft(nextIdentity);
@@ -63,7 +65,9 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, config]);
+    // intentionally omit `config` — open transition captures current props
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function syncDrafts(nextIdentity: string, nextLed: string) {
     setIdentityDraft(nextIdentity);
