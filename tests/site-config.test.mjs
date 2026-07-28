@@ -71,9 +71,28 @@ test("host store persists program, dashboard, and custom card admin config", asy
   });
 
   assert.equal(updated.programConfig.dashboardName, "Host Dashboard");
+  // Metric labels default when omitted from a host patch.
+  assert.equal(updated.programConfig.openTasksLabel, "Open Tasks");
+  assert.equal(updated.programConfig.currentTaskLabel, "Current Task");
   assert.equal(updated.dashboardConfigs["1"]?.responsibleEngineer, "Ada");
   assert.equal(updated.customCards[0]?.config.boardNickname, "XB");
   assert.ok(updated.updatedAt);
+
+  const withLabels = await updateSiteAdminConfig({
+    programConfig: {
+      dashboardName: "Host Dashboard",
+      programLead: "Host Lead",
+      openTasksLabel: "Open Work",
+      overDueLabel: "Past Due",
+      currentTaskLabel: "Active Task",
+      nextTaskLabel: "Upcoming Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    },
+  });
+  assert.equal(withLabels.programConfig.openTasksLabel, "Open Work");
+  assert.equal(withLabels.programConfig.nextTaskLabel, "Upcoming Task");
 
   const pub = await getPublicSiteConfig();
   assert.equal(pub.persisted, true);

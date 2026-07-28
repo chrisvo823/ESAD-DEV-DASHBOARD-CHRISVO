@@ -135,6 +135,10 @@ export function sanitizeProgramConfig(raw: unknown): ProgramConfig {
       typeof stored.programLead === "string" && stored.programLead.trim()
         ? stored.programLead
         : DEFAULT_PROGRAM_CONFIG.programLead,
+    openTasksLabel: stored.openTasksLabel,
+    overDueLabel: stored.overDueLabel,
+    currentTaskLabel: stored.currentTaskLabel,
+    nextTaskLabel: stored.nextTaskLabel,
     ledGreenAtMost: stored.ledGreenAtMost,
     ledYellowAtLeast: stored.ledYellowAtLeast,
     ledRedAtLeast: stored.ledRedAtLeast,

@@ -482,7 +482,16 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /formatProgramLedThresholdText/);
   assert.match(programConfigWindow, /config-window-editor--led/);
   assert.match(programConfigWindow, /status LED/);
+  assert.match(programConfigWindow, /metric labels/);
+  assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Saved on the host/);
+  assert.match(projectPanel, /metricDisplayLabel/);
+  assert.match(programConfigSource, /openTasksLabel/);
+  assert.match(programConfigSource, /overDueLabel/);
+  assert.match(programConfigSource, /currentTaskLabel/);
+  assert.match(programConfigSource, /nextTaskLabel/);
+  assert.match(programConfigSource, /Open Tasks: "/);
+  assert.match(programConfigSource, /Current Task: "/);
   assert.match(configWindow, /Saved on the host/);
   assert.match(adminLoginsPanel, /running list of unique Google sign-ins/);
   assert.match(adminLoginsPanel, /summary\?\.users/);

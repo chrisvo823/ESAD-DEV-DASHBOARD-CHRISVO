@@ -3,10 +3,28 @@ import {
   type OverdueLedThresholds,
 } from "./dsb-tasks";
 
+/** Stable metric ids used in card data / logic (not the editable display text). */
+export const METRIC_KEYS = {
+  openTasks: "Open Tasks",
+  overDue: "Over Due",
+  currentTask: "Current Task",
+  nextTask: "Next Task",
+} as const;
+
+export type MetricKey = (typeof METRIC_KEYS)[keyof typeof METRIC_KEYS];
+
 /** Top-level dashboard title / program lead shown in the hero header. */
 export type ProgramConfig = {
   dashboardName: string;
   programLead: string;
+  /** Display label for the Open Tasks metric row. */
+  openTasksLabel: string;
+  /** Display label for the Over Due metric row. */
+  overDueLabel: string;
+  /** Display label for the Current Task metric row. */
+  currentTaskLabel: string;
+  /** Display label for the Next Task metric row. */
+  nextTaskLabel: string;
   /** Documented green cutoff shown in Dashboard Configuration. */
   ledGreenAtMost: number;
   /** Delayed / Yellow when Over Due count is ≥ this value (and not red). */
@@ -18,6 +36,10 @@ export type ProgramConfig = {
 export const DEFAULT_PROGRAM_CONFIG: ProgramConfig = {
   dashboardName: "MACH ESAD Development Dashboard",
   programLead: "Engineering Program Office",
+  openTasksLabel: METRIC_KEYS.openTasks,
+  overDueLabel: METRIC_KEYS.overDue,
+  currentTaskLabel: METRIC_KEYS.currentTask,
+  nextTaskLabel: METRIC_KEYS.nextTask,
   ledGreenAtMost: DEFAULT_OVERDUE_LED_THRESHOLDS.greenAtMost,
   ledYellowAtLeast: DEFAULT_OVERDUE_LED_THRESHOLDS.yellowAtLeast,
   ledRedAtLeast: DEFAULT_OVERDUE_LED_THRESHOLDS.redAtLeast,
@@ -36,8 +58,71 @@ export function overdueThresholdsFromProgramConfig(
   };
 }
 
+/** Resolve editable display text for a stable metric key. */
+export function metricDisplayLabel(
+  metricKey: string,
+  config: Pick<
+    ProgramConfig,
+    | "openTasksLabel"
+    | "overDueLabel"
+    | "currentTaskLabel"
+    | "nextTaskLabel"
+  >,
+): string {
+  switch (metricKey) {
+    case METRIC_KEYS.openTasks:
+      return config.openTasksLabel;
+    case METRIC_KEYS.overDue:
+      return config.overDueLabel;
+    case METRIC_KEYS.currentTask:
+      return config.currentTaskLabel;
+    case METRIC_KEYS.nextTask:
+      return config.nextTaskLabel;
+    default:
+      return metricKey;
+  }
+}
+
 function readFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readLabel(
+  value: unknown,
+  fallback: string,
+): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+export function withDefaultProgramMetricLabels<
+  T extends Partial<ProgramConfig>,
+>(
+  config: T,
+): T & {
+  openTasksLabel: string;
+  overDueLabel: string;
+  currentTaskLabel: string;
+  nextTaskLabel: string;
+} {
+  return {
+    ...config,
+    openTasksLabel: readLabel(
+      config.openTasksLabel,
+      DEFAULT_PROGRAM_CONFIG.openTasksLabel,
+    ),
+    overDueLabel: readLabel(
+      config.overDueLabel,
+      DEFAULT_PROGRAM_CONFIG.overDueLabel,
+    ),
+    currentTaskLabel: readLabel(
+      config.currentTaskLabel,
+      DEFAULT_PROGRAM_CONFIG.currentTaskLabel,
+    ),
+    nextTaskLabel: readLabel(
+      config.nextTaskLabel,
+      DEFAULT_PROGRAM_CONFIG.nextTaskLabel,
+    ),
+  };
 }
 
 export function withDefaultProgramLedThresholds<
@@ -52,12 +137,17 @@ export function withDefaultProgramLedThresholds<
 >(
   config: T,
 ): T & {
+  openTasksLabel: string;
+  overDueLabel: string;
+  currentTaskLabel: string;
+  nextTaskLabel: string;
   ledGreenAtMost: number;
   ledYellowAtLeast: number;
   ledRedAtLeast: number;
 } {
+  const withLabels = withDefaultProgramMetricLabels(config);
   return {
-    ...config,
+    ...withLabels,
     ledGreenAtMost:
       readFiniteNumber(config.ledGreenAtMost) ??
       readFiniteNumber(config.ledGreenLessThan) ??
@@ -76,6 +166,10 @@ export function withDefaultProgramLedThresholds<
 export const PROGRAM_CONFIG_FIELD_LABELS = [
   "Dashboard Name",
   "Program Lead",
+  "Open Tasks",
+  "Over Due",
+  "Current Task",
+  "Next Task",
   "Green",
   "Yellow",
   "Red",
@@ -94,11 +188,15 @@ function isLedFieldLabel(
 export const CARD_LED_THRESHOLD_SECTION =
   "Card LED Threshold Configuration:";
 
-/** Dashboard Name + Program Lead lines for the identity editor. */
+/** Dashboard Name, Program Lead, and metric label lines for the identity editor. */
 export function formatProgramIdentityText(config: ProgramConfig): string {
   return [
     `Dashboard Name: "${config.dashboardName}"`,
     `Program Lead: "${config.programLead}"`,
+    `Open Tasks: "${config.openTasksLabel}"`,
+    `Over Due: "${config.overDueLabel}"`,
+    `Current Task: "${config.currentTaskLabel}"`,
+    `Next Task: "${config.nextTaskLabel}"`,
   ].join("\n");
 }
 
@@ -235,12 +333,20 @@ export function parseProgramConfigText(
 
   const dashboardName = readQuotedField(text, "Dashboard Name");
   const programLead = readQuotedField(text, "Program Lead");
+  const openTasksLabel = readQuotedField(text, "Open Tasks");
+  const overDueLabel = readQuotedField(text, "Over Due");
+  const currentTaskLabel = readQuotedField(text, "Current Task");
+  const nextTaskLabel = readQuotedField(text, "Next Task");
   const greenRaw = readQuotedField(text, "Green");
   const yellowRaw = readQuotedField(text, "Yellow");
   const redRaw = readQuotedField(text, "Red");
   if (
     dashboardName == null ||
     programLead == null ||
+    openTasksLabel == null ||
+    overDueLabel == null ||
+    currentTaskLabel == null ||
+    nextTaskLabel == null ||
     greenRaw == null ||
     yellowRaw == null ||
     redRaw == null
@@ -262,6 +368,18 @@ export function parseProgramConfigText(
   if (!programLead.trim()) {
     valueErrors.push("Program Lead cannot be empty.");
   }
+  if (!openTasksLabel.trim()) {
+    valueErrors.push("Open Tasks label cannot be empty.");
+  }
+  if (!overDueLabel.trim()) {
+    valueErrors.push("Over Due label cannot be empty.");
+  }
+  if (!currentTaskLabel.trim()) {
+    valueErrors.push("Current Task label cannot be empty.");
+  }
+  if (!nextTaskLabel.trim()) {
+    valueErrors.push("Next Task label cannot be empty.");
+  }
   if (
     ledGreenAtMost == null ||
     ledYellowAtLeast == null ||
@@ -280,6 +398,10 @@ export function parseProgramConfigText(
     config: {
       dashboardName: dashboardName.trim(),
       programLead: programLead.trim(),
+      openTasksLabel: openTasksLabel.trim(),
+      overDueLabel: overDueLabel.trim(),
+      currentTaskLabel: currentTaskLabel.trim(),
+      nextTaskLabel: nextTaskLabel.trim(),
       ledGreenAtMost: ledGreenAtMost!,
       ledYellowAtLeast: ledYellowAtLeast!,
       ledRedAtLeast: ledRedAtLeast!,

@@ -23,7 +23,11 @@ import {
   scheduleMetricsForSourceStatus,
   taskMetricsForSourceStatus,
 } from "../lib/metric-source-state";
-import { overdueThresholdsFromProgramConfig } from "../lib/program-config";
+import {
+  METRIC_KEYS,
+  metricDisplayLabel,
+  overdueThresholdsFromProgramConfig,
+} from "../lib/program-config";
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
@@ -87,27 +91,31 @@ function metricsWithLiveLinkState(
       : scheduleMetricsForSourceStatus(smartsheetSource.status);
 
   return metrics.map((metric) => {
-    if (driveStubs && metric.label === "Open Tasks") {
+    if (driveStubs && metric.label === METRIC_KEYS.openTasks) {
       return { ...metric, ...driveStubs.open };
     }
-    if (driveStubs && metric.label === "Over Due") {
+    if (driveStubs && metric.label === METRIC_KEYS.overDue) {
       return { ...metric, ...driveStubs.overdue };
     }
-    if (driveSource.status === "ok" &&
-      (metric.label === "Open Tasks" || metric.label === "Over Due")) {
+    if (
+      driveSource.status === "ok" &&
+      (metric.label === METRIC_KEYS.openTasks ||
+        metric.label === METRIC_KEYS.overDue)
+    ) {
       return { ...metric, href: driveSource.link };
     }
 
-    if (scheduleStubs && metric.label === "Current Task") {
+    if (scheduleStubs && metric.label === METRIC_KEYS.currentTask) {
       return { ...metric, ...scheduleStubs.current };
     }
-    if (scheduleStubs && metric.label === "Next Task") {
+    if (scheduleStubs && metric.label === METRIC_KEYS.nextTask) {
       return { ...metric, ...scheduleStubs.next };
     }
 
     if (
       smartsheetPermalink &&
-      (metric.label === "Current Task" || metric.label === "Next Task")
+      (metric.label === METRIC_KEYS.currentTask ||
+        metric.label === METRIC_KEYS.nextTask)
     ) {
       const placeholder = isSchedulePlaceholder(metric.valueText);
       const valueHref =
@@ -145,13 +153,15 @@ const metricIcons = ["◷", "▤", "▥", "▸"];
 
 /** Open Tasks / Over Due bars use the same colors as Program Status legend. */
 function programStatusMetricFillClass(label: string): string | null {
-  if (label === "Open Tasks") return "metric-fill--program-open";
-  if (label === "Over Due") return "metric-fill--program-overdue";
+  if (label === METRIC_KEYS.openTasks) return "metric-fill--program-open";
+  if (label === METRIC_KEYS.overDue) return "metric-fill--program-overdue";
   return null;
 }
 
 function overdueCountFromMetrics(metrics: Metric[]): number {
-  const overdueMetric = metrics.find((metric) => metric.label === "Over Due");
+  const overdueMetric = metrics.find(
+    (metric) => metric.label === METRIC_KEYS.overDue,
+  );
   const value = overdueMetric?.value;
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, value)
@@ -273,14 +283,16 @@ export function ProjectPanel({
       <dl className="panel-metrics">
         {metrics.map((metric, metricIndex) => {
           const openTasksValue =
-            metrics.find((entry) => entry.label === "Open Tasks")?.value ?? 0;
+            metrics.find((entry) => entry.label === METRIC_KEYS.openTasks)
+              ?.value ?? 0;
+          const displayLabel = metricDisplayLabel(metric.label, programConfig);
           const showValueBar = !metric.hideValueBar;
           // Open Tasks / Over Due share one scale (open count) so a smaller
           // value never draws a longer bar than a larger value.
           const width = (() => {
             if (
-              metric.label === "Open Tasks" ||
-              metric.label === "Over Due"
+              metric.label === METRIC_KEYS.openTasks ||
+              metric.label === METRIC_KEYS.overDue
             ) {
               if (metric.value === 0) return 0;
               const scale = Math.max(openTasksValue, metric.value, 1);
@@ -317,36 +329,38 @@ export function ProjectPanel({
               </span>
               <div className="metric-copy">
                 <dt>
-                  {metric.label === "Open Tasks" &&
+                  {metric.label === METRIC_KEYS.openTasks &&
                   metric.detailItems &&
                   !isSourceFlag ? (
                     <TaskHoverLabel
-                      label={metric.label}
+                      label={displayLabel}
                       href={metric.href}
                       items={metric.detailItems}
                       title="Open tasks"
                       emptyText="No open tasks with due dates"
                       tone="open"
                     />
-                  ) : metric.label === "Over Due" && !isSourceFlag ? (
+                  ) : metric.label === METRIC_KEYS.overDue && !isSourceFlag ? (
                     <TaskHoverLabel
-                      label={metric.label}
+                      label={displayLabel}
                       href={metric.href}
                       items={metric.detailItems ?? []}
                       title="Overdue items"
                       emptyText="No overdue tasks"
                       tone="overdue"
                     />
-                  ) : (metric.label === "Current Task" ||
-                      metric.label === "Next Task") &&
+                  ) : (metric.label === METRIC_KEYS.currentTask ||
+                      metric.label === METRIC_KEYS.nextTask) &&
                     metric.scheduleRevisions &&
                     !isSourceFlag ? (
                     <ScheduleHoverLabel
-                      label={metric.label}
+                      label={displayLabel}
                       href={metric.href}
                       revisions={metric.scheduleRevisions}
                       focus={
-                        metric.label === "Next Task" ? "next" : "current"
+                        metric.label === METRIC_KEYS.nextTask
+                          ? "next"
+                          : "current"
                       }
                       focusTaskId={metric.focusTaskId}
                     />
@@ -357,10 +371,10 @@ export function ProjectPanel({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {metric.label}
+                      {displayLabel}
                     </a>
                   ) : (
-                    metric.label
+                    displayLabel
                   )}
                 </dt>
                 {showValueBar ? (
