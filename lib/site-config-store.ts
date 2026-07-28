@@ -38,20 +38,25 @@ async function readPersistedConfig(): Promise<SiteAdminConfig | null> {
 }
 
 async function writePersistedConfig(config: SiteAdminConfig): Promise<void> {
-  try {
-    await mkdir(DATA_DIR, { recursive: true });
-    await writeFile(DATA_FILE, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-  } catch {
-    // File persistence is best-effort (read-only / serverless hosts may fail).
-  }
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(DATA_FILE, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
+/**
+ * Prefer the host file whenever it exists so Dashboard Configuration cannot
+ * disappear behind a stale in-memory default from another isolate / cold start.
+ */
 export async function loadSiteAdminConfig(): Promise<SiteAdminConfig> {
+  const persisted = await readPersistedConfig();
+  if (persisted) {
+    setMemoryStore(persisted);
+    return persisted;
+  }
+
   const memory = memoryStore();
   if (memory) return memory;
 
-  const persisted = await readPersistedConfig();
-  const config = persisted ?? createDefaultSiteAdminConfig();
+  const config = createDefaultSiteAdminConfig();
   setMemoryStore(config);
   return config;
 }
@@ -80,8 +85,9 @@ export async function updateSiteAdminConfig(
 ): Promise<SiteAdminConfig> {
   const current = await loadSiteAdminConfig();
   const next = applySiteConfigPatch(current, patch);
-  setMemoryStore(next);
+  // Write disk first, then memory — so a failed write cannot leave only RAM state.
   await writePersistedConfig(next);
+  setMemoryStore(next);
   return next;
 }
 

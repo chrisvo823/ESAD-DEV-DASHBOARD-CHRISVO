@@ -173,7 +173,7 @@ test("applySiteConfigPatch updates nested admin fields", () => {
 });
 
 test("resolveHostDashboardConfig prefers host card configuration", () => {
-  const fallback = createDefaultSiteAdminConfig().dashboardConfigs["1"]!;
+  const fallback = createDefaultSiteAdminConfig().dashboardConfigs["1"];
   const host = {
     ...fallback,
     responsibleEngineer: "Host Engineer",
@@ -190,4 +190,33 @@ test("resolveHostDashboardConfig prefers host card configuration", () => {
     resolveHostDashboardConfig("1", {}, fallback).boardNickname,
     fallback.boardNickname,
   );
+});
+
+test("loadSiteAdminConfig prefers host file over stale empty memory", async () => {
+  await updateSiteAdminConfig({
+    programConfig: {
+      dashboardName: "Disk Survives Stale Memory",
+      programLead: "Disk Lead",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    },
+  });
+
+  // Poison memory with empty defaults (simulates another isolate / cold cache).
+  globalThis.__esadSiteAdminConfig__ = createDefaultSiteAdminConfig();
+
+  const loaded = await loadSiteAdminConfig();
+  assert.equal(loaded.programConfig.dashboardName, "Disk Survives Stale Memory");
+  assert.equal(loaded.programConfig.programLead, "Disk Lead");
+
+  const raw = await readFile(
+    path.join(tempRoot, ".data", "admin-site-config.json"),
+    "utf8",
+  );
+  assert.match(raw, /Disk Survives Stale Memory/);
 });

@@ -39,6 +39,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
 
   useEffect(() => {
     if (!open) return;
+    // Sync draft only when opening so a host refresh cannot wipe edits.
     const nextDraft = formatDashboardConfigText(config);
     setDraft(nextDraft);
     setErrors(validateDashboardConfigSyntax(nextDraft));
@@ -50,7 +51,9 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, config]);
+    // intentionally omit `config` — open transition captures current props
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function handleDraftChange(value: string) {
     setDraft(value);

@@ -4,14 +4,17 @@ import {
   createContext,
   useContext,
   useEffect,
+  useState,
   type ReactNode,
 } from "react";
 import type { ProgramConfig } from "../lib/program-config";
 import type { SiteConfigPublic } from "../lib/site-config";
 import { DEFAULT_PROGRAM_CONFIG } from "../lib/program-config";
 import {
+  getCachedSiteConfig,
   refreshSiteConfigFromHost,
   seedSiteConfigFromServer,
+  subscribeSiteConfig,
 } from "./site-config-client";
 
 const HostProgramConfigContext = createContext<ProgramConfig>(
@@ -39,13 +42,21 @@ export function SiteConfigBootstrap({
 }: SiteConfigBootstrapProps) {
   // Client render only — avoids cross-request cache leaks on the server.
   seedSiteConfigFromServer(initial);
+  const [programConfig, setProgramConfig] = useState<ProgramConfig>(
+    () => getCachedSiteConfig().programConfig ?? initial.programConfig,
+  );
 
   useEffect(() => {
-    void refreshSiteConfigFromHost();
+    void refreshSiteConfigFromHost().then((config) => {
+      setProgramConfig(config.programConfig);
+    });
+    return subscribeSiteConfig(() => {
+      setProgramConfig(getCachedSiteConfig().programConfig);
+    });
   }, []);
 
   return (
-    <HostProgramConfigContext.Provider value={initial.programConfig}>
+    <HostProgramConfigContext.Provider value={programConfig}>
       {children}
     </HostProgramConfigContext.Provider>
   );
