@@ -12,6 +12,7 @@ const {
   applySiteConfigPatch,
   createDefaultSiteAdminConfig,
   resolveHostDashboardConfig,
+  sanitizeProgramConfig,
   sanitizeSiteAdminConfig,
   toPublicSiteConfig,
 } = await import("../lib/site-config.ts");
@@ -36,8 +37,23 @@ test("public site config never exposes admin password", async () => {
   assert.equal("password" in pub, false);
   assert.equal(pub.recoveryEmail, "");
   assert.equal(pub.persisted, false);
-  assert.equal(pub.programConfig.dashboardName, "");
-  assert.equal(pub.programConfig.programLead, "");
+  assert.equal(pub.programConfig.dashboardName, "Engineering Dashboard");
+  assert.equal(pub.programConfig.programLead, "Project Lead: ");
+});
+
+test("sanitizeProgramConfig falls back to Engineering Dashboard defaults", () => {
+  const blank = sanitizeProgramConfig({
+    dashboardName: "",
+    programLead: "   ",
+  });
+  assert.equal(blank.dashboardName, "Engineering Dashboard");
+  assert.equal(blank.programLead, "Project Lead: ");
+  const kept = sanitizeProgramConfig({
+    dashboardName: "Custom Board Dashboard",
+    programLead: "Project Lead: Ada ",
+  });
+  assert.equal(kept.dashboardName, "Custom Board Dashboard");
+  assert.equal(kept.programLead, "Project Lead: Ada ");
 });
 
 test("host store persists program, dashboard, and custom card admin config", async () => {

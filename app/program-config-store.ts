@@ -27,9 +27,13 @@ export function readProgramConfig(
 export async function writeProgramConfig(
   config: ProgramConfig,
 ): Promise<ProgramConfig> {
+  const lead = config.programLead.trimStart();
   const next = withDefaultProgramLedThresholds({
     dashboardName: config.dashboardName.trim(),
-    programLead: config.programLead.trim(),
+    // Keep a single trailing space when present (e.g. default "Project Lead: ").
+    programLead: lead.trim()
+      ? `${lead.trim()}${lead.endsWith(" ") ? " " : ""}`
+      : "",
     openTasksLabel: config.openTasksLabel.trim(),
     overDueLabel: config.overDueLabel.trim(),
     currentTaskLabel: config.currentTaskLabel.trim(),

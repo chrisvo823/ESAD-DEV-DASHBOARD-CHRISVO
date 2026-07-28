@@ -29,9 +29,9 @@ const SAMPLE_IDENTITY_LINES = [
   'Next Task: "Next Task"',
 ];
 
-test("defaults leave dashboard identity empty for host Dashboard Configuration", () => {
-  assert.equal(DEFAULT_PROGRAM_CONFIG.dashboardName, "");
-  assert.equal(DEFAULT_PROGRAM_CONFIG.programLead, "");
+test("defaults use Engineering Dashboard identity when host file is missing", () => {
+  assert.equal(DEFAULT_PROGRAM_CONFIG.dashboardName, "Engineering Dashboard");
+  assert.equal(DEFAULT_PROGRAM_CONFIG.programLead, "Project Lead: ");
 });
 
 test("formats Dashboard Configuration text with metric labels and LED section", () => {

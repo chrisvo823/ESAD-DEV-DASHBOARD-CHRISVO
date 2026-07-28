@@ -34,9 +34,9 @@ export type ProgramConfig = {
 };
 
 export const DEFAULT_PROGRAM_CONFIG: ProgramConfig = {
-  // Identity comes from host Dashboard Configuration — not compiled-in copy.
-  dashboardName: "",
-  programLead: "",
+  // Used when the host Dashboard Configuration file does not exist yet.
+  dashboardName: "Engineering Dashboard",
+  programLead: "Project Lead: ",
   openTasksLabel: METRIC_KEYS.openTasks,
   overDueLabel: METRIC_KEYS.overDue,
   currentTaskLabel: METRIC_KEYS.currentTask,
@@ -395,10 +395,13 @@ export function parseProgramConfigText(
     };
   }
 
+  const lead = programLead.trimStart();
   return {
     config: {
       dashboardName: dashboardName.trim(),
-      programLead: programLead.trim(),
+      programLead: lead.trim()
+        ? `${lead.trim()}${lead.endsWith(" ") ? " " : ""}`
+        : "",
       openTasksLabel: openTasksLabel.trim(),
       overDueLabel: overDueLabel.trim(),
       currentTaskLabel: currentTaskLabel.trim(),
