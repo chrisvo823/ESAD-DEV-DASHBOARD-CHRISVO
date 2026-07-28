@@ -30,6 +30,10 @@ export async function writeProgramConfig(
   const next = withDefaultProgramLedThresholds({
     dashboardName: config.dashboardName.trim(),
     programLead: config.programLead.trim(),
+    openTasksLabel: config.openTasksLabel.trim(),
+    overDueLabel: config.overDueLabel.trim(),
+    currentTaskLabel: config.currentTaskLabel.trim(),
+    nextTaskLabel: config.nextTaskLabel.trim(),
     ledGreenAtMost: config.ledGreenAtMost,
     ledYellowAtLeast: config.ledYellowAtLeast,
     ledRedAtLeast: config.ledRedAtLeast,
