@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAdminCredentials } from "./dashboard-config";
 import {
@@ -14,6 +14,7 @@ import {
 const GLOBAL_KEY = "__esadSiteAdminConfig__";
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "admin-site-config.json");
+const DATA_FILE_TMP = path.join(DATA_DIR, "admin-site-config.json.tmp");
 
 type GlobalSiteStore = typeof globalThis & {
   [GLOBAL_KEY]?: SiteAdminConfig;
@@ -27,6 +28,11 @@ function setMemoryStore(config: SiteAdminConfig): void {
   (globalThis as GlobalSiteStore)[GLOBAL_KEY] = config;
 }
 
+/** Absolute path of the host Admin / Dashboard Configuration file. */
+export function getHostSiteConfigPath(): string {
+  return DATA_FILE;
+}
+
 async function readPersistedConfig(): Promise<SiteAdminConfig | null> {
   try {
     const text = await readFile(DATA_FILE, "utf8");
@@ -37,9 +43,39 @@ async function readPersistedConfig(): Promise<SiteAdminConfig | null> {
   }
 }
 
+/**
+ * Persist host Admin config and verify the file round-trips.
+ * Throws if the Dashboard Configuration cannot be written/read back.
+ */
 async function writePersistedConfig(config: SiteAdminConfig): Promise<void> {
   await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(DATA_FILE, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const payload = `${JSON.stringify(config, null, 2)}\n`;
+  // Atomic replace so a crashed mid-write cannot leave an empty/corrupt host file
+  // that would make the next load fall back to defaults (wiping custom config).
+  await writeFile(DATA_FILE_TMP, payload, "utf8");
+  await rename(DATA_FILE_TMP, DATA_FILE);
+
+  // Read-back guard: never report success unless the host file contains the save.
+  let verified: SiteAdminConfig | null = null;
+  try {
+    verified = await readPersistedConfig();
+  } catch {
+    verified = null;
+  }
+  if (!verified) {
+    throw new Error(
+      `Host configuration file was not readable after save (${DATA_FILE}).`,
+    );
+  }
+  if (
+    verified.programConfig.dashboardName !== config.programConfig.dashboardName ||
+    verified.programConfig.programLead !== config.programConfig.programLead ||
+    verified.updatedAt !== config.updatedAt
+  ) {
+    throw new Error(
+      "Host configuration file read-back did not match the saved Dashboard Configuration.",
+    );
+  }
 }
 
 /**
@@ -85,7 +121,7 @@ export async function updateSiteAdminConfig(
 ): Promise<SiteAdminConfig> {
   const current = await loadSiteAdminConfig();
   const next = applySiteConfigPatch(current, patch);
-  // Write disk first, then memory — so a failed write cannot leave only RAM state.
+  // Write + verify disk first, then memory — save never succeeds without a host file.
   await writePersistedConfig(next);
   setMemoryStore(next);
   return next;

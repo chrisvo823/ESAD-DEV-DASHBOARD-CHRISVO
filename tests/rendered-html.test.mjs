@@ -352,10 +352,22 @@ test("keeps dashboard metadata and project data in source", async () => {
   ]);
   assert.match(siteConfigRoute, /getPublicSiteConfig/);
   assert.match(siteConfigRoute, /updateSiteAdminConfig/);
+  assert.match(siteConfigRoute, /hostFileWritten:\s*true/);
+  assert.match(siteConfigRoute, /getHostSiteConfigPath/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
+  assert.match(siteConfigClient, /hostFetchGeneration/);
+  assert.match(siteConfigClient, /preferNewerConfig/);
+  assert.match(siteConfigClient, /hostFileWritten !== true/);
   assert.match(siteConfigClient, /\/api\/site-config/);
+  const siteConfigStore = await readFile(
+    new URL("../lib/site-config-store.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(siteConfigStore, /writePersistedConfig/);
+  assert.match(siteConfigStore, /rename\(DATA_FILE_TMP,\s*DATA_FILE\)/);
+  assert.match(siteConfigStore, /read-back did not match/);
   assert.match(programConfigStore, /persistSiteConfigPatch/);
   assert.match(programConfigStore, /programConfig:\s*next/);
   assert.match(dashboardConfigStore, /persistSiteConfigPatch/);

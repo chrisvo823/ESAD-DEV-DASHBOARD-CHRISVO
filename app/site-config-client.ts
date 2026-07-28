@@ -26,6 +26,29 @@ let cache: SiteConfigCache | null = null;
 let hydratePromise: Promise<SiteConfigCache> | null = null;
 /** True after a successful `/api/site-config` pull this page session. */
 let pulledFromHost = false;
+/**
+ * Bumped on every save / forced refresh so a slower in-flight GET cannot
+ * overwrite a newer Dashboard Configuration with stale host data.
+ */
+let hostFetchGeneration = 0;
+
+function configUpdatedAtMs(config: SiteConfigCache | null | undefined): number {
+  if (!config?.updatedAt) return 0;
+  const ms = Date.parse(config.updatedAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Keep the newer host config; never let an older GET wipe a just-saved value. */
+function preferNewerConfig(
+  current: SiteConfigCache | null,
+  incoming: SiteConfigCache,
+): SiteConfigCache {
+  if (!current) return incoming;
+  if (configUpdatedAtMs(incoming) < configUpdatedAtMs(current)) {
+    return current;
+  }
+  return incoming;
+}
 
 function emitSiteConfigChange(next: SiteConfigCache) {
   if (typeof window === "undefined") return;
@@ -194,10 +217,13 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
   if (pulledFromHost && cache) return cache;
   if (hydratePromise) return hydratePromise;
 
+  const fetchGeneration = hostFetchGeneration;
   hydratePromise = (async () => {
     try {
       const response = await fetch("/api/site-config", { cache: "no-store" });
       if (!response.ok) {
+        // Keep any existing cache (e.g. just-saved) instead of wiping to defaults.
+        if (cache) return cache;
         return setCache(defaultPublicConfig());
       }
       const host = (await response.json()) as SiteConfigCache;
@@ -210,9 +236,14 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
         persisted: Boolean(host.persisted),
         updatedAt: host.updatedAt ?? null,
       });
+      // A save bumped the generation while this GET was in flight — keep cache.
+      if (fetchGeneration !== hostFetchGeneration) {
+        return cache ?? maybeMigrated;
+      }
       pulledFromHost = true;
-      return setCache(maybeMigrated);
+      return setCache(preferNewerConfig(cache, maybeMigrated));
     } catch {
+      if (cache) return cache;
       return setCache(defaultPublicConfig());
     } finally {
       hydratePromise = null;
@@ -224,9 +255,11 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
 
 /** Force re-fetch host Admin config (used by the 5-minute dashboard refresh). */
 export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
-  cache = null;
+  // Keep the current cache visible while re-fetching so the UI cannot flash
+  // empty/default Dashboard Configuration over a just-saved host value.
   hydratePromise = null;
   pulledFromHost = false;
+  hostFetchGeneration += 1;
   return hydrateSiteConfigFromHost();
 }
 
@@ -237,6 +270,10 @@ export async function persistSiteConfigPatch(
   if (!password) {
     throw new Error("Admin session required to save host configuration.");
   }
+
+  // Invalidate any in-flight GET so it cannot overwrite this save.
+  hostFetchGeneration += 1;
+  const saveGeneration = hostFetchGeneration;
 
   // Optimistic local cache update for snappy UI.
   const current = getCachedSiteConfig();
@@ -279,22 +316,38 @@ export async function persistSiteConfigPatch(
     cache: "no-store",
   });
   if (!response.ok) {
-    // Re-hydrate to recover authoritative host state.
-    cache = null;
+    // Re-hydrate to recover authoritative host state (keep optimistic until then).
+    pulledFromHost = false;
+    hydratePromise = null;
     await hydrateSiteConfigFromHost();
     throw new Error(`Failed to save site config (${response.status}).`);
   }
 
-  const saved = (await response.json()) as SiteConfigCache;
-  return setCache({
-    programConfig: sanitizeProgramConfig(saved.programConfig),
-    dashboardConfigs: sanitizeDashboardConfigs(saved.dashboardConfigs),
-    customCards: sanitizeCustomCards(saved.customCards),
+  const payload = (await response.json()) as SiteConfigCache & {
+    hostFileWritten?: boolean;
+    hostFilePath?: string;
+  };
+  // Require explicit write confirmation — never treat a silent/partial save as success.
+  if (payload.hostFileWritten !== true) {
+    throw new Error("Host configuration file was not written on save.");
+  }
+
+  const saved: SiteConfigCache = {
+    programConfig: sanitizeProgramConfig(payload.programConfig),
+    dashboardConfigs: sanitizeDashboardConfigs(payload.dashboardConfigs),
+    customCards: sanitizeCustomCards(payload.customCards),
     recoveryEmail:
-      typeof saved.recoveryEmail === "string" ? saved.recoveryEmail : "",
-    persisted: Boolean(saved.persisted),
-    updatedAt: saved.updatedAt ?? null,
-  });
+      typeof payload.recoveryEmail === "string" ? payload.recoveryEmail : "",
+    persisted: Boolean(payload.persisted),
+    updatedAt: payload.updatedAt ?? null,
+  };
+
+  // Ignore if a newer save already landed.
+  if (saveGeneration !== hostFetchGeneration && cache) {
+    return preferNewerConfig(cache, saved);
+  }
+  pulledFromHost = true;
+  return setCache(preferNewerConfig(cache, saved));
 }
 
 export function readCachedProgramConfig(): ProgramConfig {

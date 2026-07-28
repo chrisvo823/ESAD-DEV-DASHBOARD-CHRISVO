@@ -1,7 +1,9 @@
+import { access } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import type { SiteConfigPatch } from "../../../lib/site-config";
 import {
   getHostAdminPassword,
+  getHostSiteConfigPath,
   getPublicSiteConfig,
   isAuthorizedSiteAdmin,
   updateSiteAdminConfig,
@@ -38,6 +40,23 @@ export async function PUT(request: Request) {
   }
 
   const patch = body as SiteConfigPatch;
-  const updated = await updateSiteAdminConfig(patch);
-  return NextResponse.json(toPublicSiteConfig(updated));
+  try {
+    const updated = await updateSiteAdminConfig(patch);
+    const hostPath = getHostSiteConfigPath();
+    await access(hostPath);
+    return NextResponse.json({
+      ...toPublicSiteConfig(updated),
+      hostFileWritten: true,
+      hostFilePath: hostPath,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Failed to write host configuration file.";
+    return NextResponse.json(
+      { error: message, hostFileWritten: false },
+      { status: 500 },
+    );
+  }
 }
