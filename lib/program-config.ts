@@ -34,8 +34,9 @@ export type ProgramConfig = {
 };
 
 export const DEFAULT_PROGRAM_CONFIG: ProgramConfig = {
-  dashboardName: "MACH ESAD Development Dashboard",
-  programLead: "Engineering Program Office",
+  // Identity comes from host Dashboard Configuration — not compiled-in copy.
+  dashboardName: "",
+  programLead: "",
   openTasksLabel: METRIC_KEYS.openTasks,
   overDueLabel: METRIC_KEYS.overDue,
   currentTaskLabel: METRIC_KEYS.currentTask,

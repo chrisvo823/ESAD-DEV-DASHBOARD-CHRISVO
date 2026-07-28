@@ -128,13 +128,9 @@ export function sanitizeProgramConfig(raw: unknown): ProgramConfig {
   };
   return withDefaultProgramLedThresholds({
     dashboardName:
-      typeof stored.dashboardName === "string" && stored.dashboardName.trim()
-        ? stored.dashboardName
-        : DEFAULT_PROGRAM_CONFIG.dashboardName,
+      typeof stored.dashboardName === "string" ? stored.dashboardName.trim() : "",
     programLead:
-      typeof stored.programLead === "string" && stored.programLead.trim()
-        ? stored.programLead
-        : DEFAULT_PROGRAM_CONFIG.programLead,
+      typeof stored.programLead === "string" ? stored.programLead.trim() : "",
     openTasksLabel: stored.openTasksLabel,
     overDueLabel: stored.overDueLabel,
     currentTaskLabel: stored.currentTaskLabel,

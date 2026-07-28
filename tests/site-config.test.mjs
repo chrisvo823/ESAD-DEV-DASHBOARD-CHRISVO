@@ -36,6 +36,8 @@ test("public site config never exposes admin password", async () => {
   assert.equal("password" in pub, false);
   assert.equal(pub.recoveryEmail, "");
   assert.equal(pub.persisted, false);
+  assert.equal(pub.programConfig.dashboardName, "");
+  assert.equal(pub.programConfig.programLead, "");
 });
 
 test("host store persists program, dashboard, and custom card admin config", async () => {

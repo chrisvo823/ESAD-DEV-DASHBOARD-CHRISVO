@@ -14,22 +14,33 @@ import {
 } from "../lib/program-config.ts";
 import { statusFromOverdueCount } from "../lib/dsb-tasks.ts";
 
-const DEFAULT_IDENTITY_LINES = [
-  'Dashboard Name: "MACH ESAD Development Dashboard"',
-  'Program Lead: "Engineering Program Office"',
+const SAMPLE_IDENTITY = {
+  ...DEFAULT_PROGRAM_CONFIG,
+  dashboardName: "Test Dashboard",
+  programLead: "Test Program Lead",
+};
+
+const SAMPLE_IDENTITY_LINES = [
+  'Dashboard Name: "Test Dashboard"',
+  'Program Lead: "Test Program Lead"',
   'Open Tasks: "Open Tasks"',
   'Over Due: "Over Due"',
   'Current Task: "Current Task"',
   'Next Task: "Next Task"',
 ];
 
+test("defaults leave dashboard identity empty for host Dashboard Configuration", () => {
+  assert.equal(DEFAULT_PROGRAM_CONFIG.dashboardName, "");
+  assert.equal(DEFAULT_PROGRAM_CONFIG.programLead, "");
+});
+
 test("formats Dashboard Configuration text with metric labels and LED section", () => {
   assert.equal(
-    formatProgramIdentityText(DEFAULT_PROGRAM_CONFIG),
-    DEFAULT_IDENTITY_LINES.join("\n"),
+    formatProgramIdentityText(SAMPLE_IDENTITY),
+    SAMPLE_IDENTITY_LINES.join("\n"),
   );
   assert.equal(
-    formatProgramLedThresholdText(DEFAULT_PROGRAM_CONFIG),
+    formatProgramLedThresholdText(SAMPLE_IDENTITY),
     [
       "Card LED Threshold Configuration:",
       'Green: "1"',
@@ -38,9 +49,9 @@ test("formats Dashboard Configuration text with metric labels and LED section", 
     ].join("\n"),
   );
   assert.equal(
-    formatProgramConfigText(DEFAULT_PROGRAM_CONFIG),
+    formatProgramConfigText(SAMPLE_IDENTITY),
     [
-      ...DEFAULT_IDENTITY_LINES,
+      ...SAMPLE_IDENTITY_LINES,
       "",
       "Card LED Threshold Configuration:",
       'Green: "1"',
@@ -49,7 +60,7 @@ test("formats Dashboard Configuration text with metric labels and LED section", 
     ].join("\n"),
   );
   assert.equal(CARD_LED_THRESHOLD_SECTION, "Card LED Threshold Configuration:");
-  assert.deepEqual(overdueThresholdsFromProgramConfig(DEFAULT_PROGRAM_CONFIG), {
+  assert.deepEqual(overdueThresholdsFromProgramConfig(SAMPLE_IDENTITY), {
     greenAtMost: 1,
     yellowAtLeast: 3,
     redAtLeast: 5,
@@ -58,14 +69,16 @@ test("formats Dashboard Configuration text with metric labels and LED section", 
 
 test("combines identity and LED editors for parsing", () => {
   const combined = combineProgramConfigEditors(
-    formatProgramIdentityText(DEFAULT_PROGRAM_CONFIG),
-    formatProgramLedThresholdText(DEFAULT_PROGRAM_CONFIG),
+    formatProgramIdentityText(SAMPLE_IDENTITY),
+    formatProgramLedThresholdText(SAMPLE_IDENTITY),
   );
   const parsed = parseProgramConfigText(combined);
   assert.ok("config" in parsed);
   assert.equal(parsed.config.ledGreenAtMost, 1);
   assert.equal(parsed.config.ledYellowAtLeast, 3);
   assert.equal(parsed.config.ledRedAtLeast, 5);
+  assert.equal(parsed.config.dashboardName, "Test Dashboard");
+  assert.equal(parsed.config.programLead, "Test Program Lead");
   assert.equal(parsed.config.openTasksLabel, "Open Tasks");
   assert.equal(parsed.config.overDueLabel, "Over Due");
   assert.equal(parsed.config.currentTaskLabel, "Current Task");
@@ -110,14 +123,14 @@ test("metricDisplayLabel uses editable Dashboard Configuration text", () => {
     "Open Work",
   );
   assert.equal(
-    metricDisplayLabel("Next Task", DEFAULT_PROGRAM_CONFIG),
+    metricDisplayLabel("Next Task", SAMPLE_IDENTITY),
     "Next Task",
   );
 });
 
 test("quoted LED thresholds drive card status LED color", () => {
   const text = [
-    ...DEFAULT_IDENTITY_LINES,
+    ...SAMPLE_IDENTITY_LINES,
     "Card LED Threshold Configuration:",
     'Green: "1"',
     'Yellow: "2"',
@@ -135,7 +148,7 @@ test("quoted LED thresholds drive card status LED color", () => {
 
 test("accepts legacy operator LED threshold syntax when parsing", () => {
   const text = [
-    ...DEFAULT_IDENTITY_LINES,
+    ...SAMPLE_IDENTITY_LINES,
     "Card LED Threshold Configuration:",
     'Green: "< 1"',
     'Yellow: "> 2"',
@@ -150,8 +163,8 @@ test("accepts legacy operator LED threshold syntax when parsing", () => {
 
 test("flags syntax errors when Dashboard Configuration values are unquoted", () => {
   const text = [
-    "Dashboard Name: MACH ESAD Development Dashboard",
-    'Program Lead: "Engineering Program Office"',
+    "Dashboard Name: Test Dashboard",
+    'Program Lead: "Test Program Lead"',
     'Open Tasks: "Open Tasks"',
     'Over Due: "Over Due"',
     'Current Task: "Current Task"',
@@ -168,7 +181,7 @@ test("flags syntax errors when Dashboard Configuration values are unquoted", () 
 
 test("flags invalid LED threshold syntax in Dashboard Configuration", () => {
   const text = [
-    ...DEFAULT_IDENTITY_LINES,
+    ...SAMPLE_IDENTITY_LINES,
     "Card LED Threshold Configuration:",
     'Green: "one"',
     'Yellow: "2"',
@@ -180,8 +193,8 @@ test("flags invalid LED threshold syntax in Dashboard Configuration", () => {
 
 test("flags missing closing quote for Program Lead", () => {
   const text = [
-    'Dashboard Name: "MACH ESAD Development Dashboard"',
-    'Program Lead: "Engineering Program Office',
+    'Dashboard Name: "Test Dashboard"',
+    'Program Lead: "Test Program Lead',
     'Open Tasks: "Open Tasks"',
     'Over Due: "Over Due"',
     'Current Task: "Current Task"',
@@ -197,8 +210,8 @@ test("flags missing closing quote for Program Lead", () => {
 
 test("flags missing metric label fields in Dashboard Configuration", () => {
   const text = [
-    'Dashboard Name: "MACH ESAD Development Dashboard"',
-    'Program Lead: "Engineering Program Office"',
+    'Dashboard Name: "Test Dashboard"',
+    'Program Lead: "Test Program Lead"',
     "Card LED Threshold Configuration:",
     'Green: "1"',
     'Yellow: "2"',
