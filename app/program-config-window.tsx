@@ -5,7 +5,10 @@ import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
-import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import {
+  openAdminConfigDriveFolder,
+  pickAdminConfigDriveFile,
+} from "./open-admin-config-drive";
 import { writeProgramConfig } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
 import {
@@ -58,12 +61,20 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     );
   }
 
+  function handleLoadConfigClick() {
+    // Must open Drive synchronously in the click stack (popup blockers).
+    openAdminConfigDriveFolder();
+    void handleLoadConfigFile();
+  }
+
   async function handleLoadConfigFile() {
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
-      const picked = await pickAdminConfigDriveFile("dashboard");
+      const picked = await pickAdminConfigDriveFile("dashboard", {
+        folderAlreadyOpen: true,
+      });
       if (!picked) {
         setLoadError(
           "No Dashboard Configuration file selected. The Google Drive config folder was opened — use Load Config File… again to select a file.",
@@ -142,7 +153,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     <button
                       type="button"
                       className="config-window-load"
-                      onClick={() => void handleLoadConfigFile()}
+                      onClick={handleLoadConfigClick}
                       disabled={loading}
                     >
                       {loading ? "Loading…" : "Load Config File…"}

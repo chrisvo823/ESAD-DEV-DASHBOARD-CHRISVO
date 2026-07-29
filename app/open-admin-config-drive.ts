@@ -39,22 +39,57 @@ declare global {
   }
 }
 
-function openDriveFolderTab(): void {
-  window.open(ADMIN_CONFIG_DRIVE_FOLDER_URL, "_blank", "noopener,noreferrer");
+/**
+ * Open the Admin config Drive folder. Must run synchronously inside a click
+ * handler — browsers block window.open after await / useEffect.
+ */
+export function openAdminConfigDriveFolder(): boolean {
+  try {
+    // Prefer a real <a> click — more reliable against popup blockers than
+    // window.open from an async React handler chain.
+    const anchor = document.createElement("a");
+    anchor.href = ADMIN_CONFIG_DRIVE_FOLDER_URL;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    return true;
+  } catch {
+    try {
+      const popup = window.open(ADMIN_CONFIG_DRIVE_FOLDER_URL, "_blank");
+      if (popup) {
+        try {
+          popup.opener = null;
+        } catch {
+          // ignore cross-origin opener assignment failures
+        }
+        return true;
+      }
+    } catch {
+      // fall through
+    }
+    return false;
+  }
 }
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${src}"]`,
+    );
     if (existing) {
       if (existing.dataset.loaded === "1") {
         resolve();
         return;
       }
       existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
-        once: true,
-      });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error(`Failed to load ${src}`)),
+        { once: true },
+      );
       return;
     }
     const script = document.createElement("script");
@@ -68,9 +103,11 @@ function loadScript(src: string): Promise<void> {
       },
       { once: true },
     );
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
-      once: true,
-    });
+    script.addEventListener(
+      "error",
+      () => reject(new Error(`Failed to load ${src}`)),
+      { once: true },
+    );
     document.head.appendChild(script);
   });
 }
@@ -118,7 +155,7 @@ function promptForDriveFile(
       ? "Dashboard Configuration"
       : "Card Configuration";
   const raw = window.prompt(
-    `Google Drive folder opened. Paste the ${label} Google Doc URL (or file id) from that folder:`,
+    `Google Drive folder opened. Paste the ${label} Google Doc URL (or file id) from that folder:\n${ADMIN_CONFIG_DRIVE_FOLDER_URL}`,
   );
   if (raw == null) return null;
   const id = parseDriveFileIdInput(raw);
@@ -131,15 +168,23 @@ function promptForDriveFile(
   return { id, name: id, mimeType: "application/vnd.google-apps.document" };
 }
 
+export type PickAdminConfigDriveOptions = {
+  /** When true, caller already opened the folder in the click handler. */
+  folderAlreadyOpen?: boolean;
+};
+
 /**
- * Always opens the Admin config Drive folder. When Google sign-in + API key are
- * available, also shows a Picker scoped to that folder so Admin can select a file.
- * Falls back to prompting for a Doc URL/id from that folder.
+ * Let Admin select a Dashboard/Card config file from the shared Drive folder.
+ * Call `openAdminConfigDriveFolder()` synchronously in the click handler first
+ * so the folder tab is not blocked; then call this to pick/load the file.
  */
 export async function pickAdminConfigDriveFile(
   kind: AdminConfigDriveKind,
+  options: PickAdminConfigDriveOptions = {},
 ): Promise<PickedDriveFile | null> {
-  openDriveFolderTab();
+  if (!options.folderAlreadyOpen) {
+    openAdminConfigDriveFolder();
+  }
 
   const accessToken = getGoogleAccessToken();
   const developerKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() || "";
@@ -198,8 +243,4 @@ export async function pickAdminConfigDriveFile(
   }
 
   return promptForDriveFile(kind);
-}
-
-export function openAdminConfigDriveFolder(): void {
-  openDriveFolderTab();
 }
