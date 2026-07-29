@@ -3,7 +3,10 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
-import { reloadProgramConfigFromGoogleDoc } from "./program-config-store";
+import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
+import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import { writeProgramConfig } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
 import {
   combineProgramConfigEditors,
@@ -11,10 +14,6 @@ import {
   formatProgramLedThresholdText,
   validateProgramConfigSyntax,
 } from "../lib/program-config";
-
-/** Shared Google Drive Dashboard Configuration Doc (read-only source of truth). */
-const DASHBOARD_CONFIG_GOOGLE_DOC_URL =
-  "https://docs.google.com/document/d/15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/edit?tab=t.0";
 
 type ProgramConfigWindowProps = {
   config: ProgramConfig;
@@ -64,7 +63,15 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     setLoadError(null);
     setLoaded(false);
     try {
-      const next = await reloadProgramConfigFromGoogleDoc();
+      const picked = await pickAdminConfigDriveFile("dashboard");
+      if (!picked) {
+        setLoadError(
+          "No Dashboard Configuration file selected. The Google Drive config folder was opened — use Load Config File… again to select a file.",
+        );
+        return;
+      }
+      const next = await loadProgramConfigFromDriveFile(picked.id);
+      await writeProgramConfig(next);
       applyConfig(next);
       setLoaded(true);
     } catch (err) {
@@ -81,11 +88,9 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
 
   useEffect(() => {
     if (!open) return;
-    // Show current values immediately, then pull the latest Google Doc.
     applyConfig(config);
     setLoaded(false);
     setLoadError(null);
-    void handleLoadConfigFile();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -152,24 +157,23 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Read-only view pulled from the shared Google Drive Dashboard
-                  Configuration Doc. Edits are not allowed here — update the Doc
-                  in Google Drive, then use{" "}
-                  <strong>Load Config File…</strong> (
+                  Read-only view of the active Dashboard Configuration.{" "}
+                  <strong>Load Config File…</strong> always opens the shared
+                  Google Drive folder (
                   <a
-                    href={DASHBOARD_CONFIG_GOOGLE_DOC_URL}
+                    href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    open Dashboard Configuration Doc
+                    open config folder
                   </a>
-                  ). Themes stay in this browser. Each value must be inside
-                  quotes. Open Tasks, Over Due, Current Task, and Next Task set
-                  the card metric label text. Card status LED thresholds use Over
-                  Due counts: Green: &quot;1&quot; lights green when overdue is
-                  below Yellow, Yellow: &quot;3&quot; lights yellow when overdue
-                  is 3 or more, Red: &quot;5&quot; lights red when overdue is 5
-                  or more.
+                  ) so Admin can select a Dashboard Configuration file. Themes
+                  stay in this browser. Each value must be inside quotes. Open Tasks, Over
+                  Due, Current Task, and Next Task set the card metric label
+                  text. Card status LED thresholds use Over Due counts: Green:
+                  &quot;1&quot; lights green when overdue is below Yellow,
+                  Yellow: &quot;3&quot; lights yellow when overdue is 3 or more,
+                  Red: &quot;5&quot; lights red when overdue is 5 or more.
                 </p>
                 <label
                   className="config-window-section-label"

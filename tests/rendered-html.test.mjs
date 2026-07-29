@@ -557,16 +557,32 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Load Config File/);
   assert.match(programConfigWindow, /Load Config File…/);
-  assert.match(programConfigWindow, /reloadProgramConfigFromGoogleDoc/);
+  assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
+  assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
+  assert.match(programConfigWindow, /writeProgramConfig/);
   assert.match(programConfigWindow, /readOnly/);
-  assert.doesNotMatch(programConfigWindow, /\bwriteProgramConfig\b/);
   assert.doesNotMatch(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(programConfigWindow, /Google Drive/);
-  assert.match(
-    programConfigWindow,
-    /15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/,
+  assert.match(programConfigWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
+  const adminConfigDriveSource = await readFile(
+    new URL("../lib/admin-config-drive.ts", import.meta.url),
+    "utf8",
   );
-  assert.match(programConfigWindow, /tab=t\.0/);
+  assert.match(
+    adminConfigDriveSource,
+    /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/,
+  );
+  assert.match(
+    adminConfigDriveSource,
+    /drive\.google\.com\/drive\/u\/0\/folders\//,
+  );
+  const openAdminConfigDriveSource = await readFile(
+    new URL("../app/open-admin-config-drive.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(openAdminConfigDriveSource, /pickAdminConfigDriveFile/);
+  assert.match(openAdminConfigDriveSource, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
+  assert.match(openAdminConfigDriveSource, /setParent/);
   const programConfigStoreSource = await readFile(
     new URL("../app/program-config-store.ts", import.meta.url),
     "utf8",
@@ -580,7 +596,12 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /nextTaskLabel/);
   assert.match(programConfigSource, /Open Tasks: "/);
   assert.match(programConfigSource, /Current Task: "/);
-  assert.match(configWindow, /Saved on the host/);
+  assert.match(configWindow, /pickAdminConfigDriveFile/);
+  assert.match(configWindow, /loadCardConfigFromDriveFile/);
+  assert.match(configWindow, /Load Config File…/);
+  assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
+  assert.match(configWindow, /readOnly/);
+  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(adminLoginsPanel, /running list of unique Google sign-ins/);
   assert.match(adminLoginsPanel, /summary\?\.users/);
   assert.match(page, /function HealthCore\(/);

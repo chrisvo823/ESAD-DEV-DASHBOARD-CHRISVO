@@ -1872,6 +1872,7 @@ body {
 [data-theme="light"] .config-window-trigger,
 [data-theme="light"] .config-window-close,
 [data-theme="light"] .config-window-save,
+[data-theme="light"] .config-window-load,
 [data-theme="light"] .admin-login-submit {
   background: rgba(255, 255, 255, .92);
   color: #17324d;

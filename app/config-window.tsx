@@ -3,12 +3,14 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
+import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { syncCustomCardConfig } from "./custom-cards-store";
 import { writeDashboardConfig } from "./dashboard-config-store";
+import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import {
   formatDashboardConfigText,
-  parseDashboardConfigText,
   validateDashboardConfigSyntax,
 } from "../lib/dashboard-config";
 import { isCustomCardId } from "../lib/custom-cards";
@@ -23,9 +25,9 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   const [mounted, setMounted] = useState(false);
   const [draft, setDraft] = useState(() => formatDashboardConfigText(config));
   const [errors, setErrors] = useState<string[]>([]);
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const titleId = useId();
   const errorId = useId();
 
@@ -37,15 +39,51 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     if (!authenticated) setOpen(false);
   }, [authenticated]);
 
-  useEffect(() => {
-    if (!open) return;
-    // Sync draft only when opening so a host refresh cannot wipe edits.
-    const nextDraft = formatDashboardConfigText(config);
+  function applyConfig(next: DashboardConfig) {
+    const nextDraft = formatDashboardConfigText(next);
     setDraft(nextDraft);
     setErrors(validateDashboardConfigSyntax(nextDraft));
-    setSaved(false);
-    setSaveError(null);
-    setSaving(false);
+  }
+
+  async function handleLoadConfigFile(base: DashboardConfig = config) {
+    setLoading(true);
+    setLoadError(null);
+    setLoaded(false);
+    try {
+      const picked = await pickAdminConfigDriveFile("card");
+      if (!picked) {
+        setLoadError(
+          "No Card Configuration file selected. The Google Drive config folder was opened — use Load Config File… again to select a file.",
+        );
+        return;
+      }
+      const next = await loadCardConfigFromDriveFile(picked.id, base);
+      if (isCustomCardId(next.dashboardId)) {
+        await syncCustomCardConfig(next);
+      } else {
+        await writeDashboardConfig(next);
+      }
+      applyConfig(next);
+      setLoaded(true);
+    } catch (err) {
+      setLoaded(false);
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load Card Configuration from Google Drive.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    applyConfig(config);
+    setLoaded(false);
+    setLoadError(null);
+    // Card Configuration always opens the Drive folder for Admin file selection.
+    void handleLoadConfigFile(config);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -54,54 +92,6 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     // intentionally omit `config` — open transition captures current props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  function handleDraftChange(value: string) {
-    setDraft(value);
-    setSaved(false);
-    setSaveError(null);
-    setErrors(validateDashboardConfigSyntax(value));
-  }
-
-  async function handleSave() {
-    const syntaxErrors = validateDashboardConfigSyntax(draft);
-    if (syntaxErrors.length > 0) {
-      setErrors(syntaxErrors);
-      setSaved(false);
-      setSaveError(null);
-      return;
-    }
-
-    const parsed = parseDashboardConfigText(draft, config);
-    if ("error" in parsed) {
-      setErrors(parsed.errors);
-      setSaved(false);
-      setSaveError(null);
-      return;
-    }
-
-    setSaving(true);
-    setSaveError(null);
-    try {
-      if (isCustomCardId(parsed.config.dashboardId)) {
-        await syncCustomCardConfig(parsed.config);
-      } else {
-        await writeDashboardConfig(parsed.config);
-      }
-      const savedText = formatDashboardConfigText(parsed.config);
-      setDraft(savedText);
-      setErrors([]);
-      setSaved(true);
-    } catch (err) {
-      setSaved(false);
-      setSaveError(
-        err instanceof Error
-          ? err.message
-          : "Failed to save card configuration on the host.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (!authenticated) return null;
 
@@ -136,17 +126,17 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   <div>
                     <p className="config-window-kicker">Configuration Window</p>
                     <h3 id={titleId}>
-                      {config.boardNickname} · editable card fields
+                      {config.boardNickname} · card configuration
                     </h3>
                   </div>
                   <div className="config-window-actions">
                     <button
                       type="button"
-                      className="config-window-save"
-                      onClick={() => void handleSave()}
-                      disabled={hasSyntaxErrors || saving}
+                      className="config-window-load"
+                      onClick={() => void handleLoadConfigFile()}
+                      disabled={loading}
                     >
-                      {saving ? "Saving…" : "Save"}
+                      {loading ? "Loading…" : "Load Config File…"}
                     </button>
                     <button
                       type="button"
@@ -158,18 +148,30 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Saved on the host and shared for all users. Each value must be
-                  inside quotes, e.g. Board Name: &quot;Digital Safety Board&quot;.
+                  Read-only view of this card&apos;s Configuration. Opening
+                  Configuration (or <strong>Load Config File…</strong>) always
+                  opens the shared Google Drive folder (
+                  <a
+                    href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    open config folder
+                  </a>
+                  ) so Admin can select a Card Configuration file. Loaded values
+                  are saved on the host for all users. Each value must be inside
+                  quotes, e.g. Board Name: &quot;Digital Safety Board&quot;.
                 </p>
                 <textarea
-                  className={`config-window-editor${
+                  className={`config-window-editor config-window-editor--readonly${
                     hasSyntaxErrors ? " config-window-editor--error" : ""
                   }`}
                   value={draft}
                   spellCheck={false}
+                  readOnly
+                  aria-readonly="true"
                   aria-invalid={hasSyntaxErrors}
                   aria-label={`Configuration for ${config.boardNickname}`}
-                  onChange={(event) => handleDraftChange(event.target.value)}
                 />
                 {hasSyntaxErrors ? (
                   <ul
@@ -182,14 +184,14 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     ))}
                   </ul>
                 ) : null}
-                {saveError ? (
+                {loadError ? (
                   <p className="config-window-errors" role="alert">
-                    {saveError}
+                    {loadError}
                   </p>
                 ) : null}
-                {saved && !hasSyntaxErrors && !saveError ? (
+                {loaded && !hasSyntaxErrors && !loadError ? (
                   <p className="config-window-saved">
-                    Configuration saved on host
+                    Configuration loaded from Google Drive
                   </p>
                 ) : null}
               </div>
