@@ -20,11 +20,12 @@ test("parses Google Doc and Drive file ids from pasted URLs", async () => {
     "utf8",
   );
   assert.match(source, /export function parseDriveFileIdInput/);
-  assert.match(source, /\/document\/d\//);
-  assert.match(source, /\/file\/d\//);
+  assert.match(source, /GOOGLE_DOC_ID_RE/);
+  assert.match(source, /DRIVE_FILE_ID_RE/);
   assert.match(source, /pickAdminConfigDriveFile/);
   assert.match(source, /openDriveFolderTab/);
   assert.match(source, /ADMIN_CONFIG_DRIVE_FOLDER_ID/);
+  assert.match(source, /promptForDriveFile/);
 });
 
 test("Load Config and Card Configuration wire to the Drive folder picker", async () => {
