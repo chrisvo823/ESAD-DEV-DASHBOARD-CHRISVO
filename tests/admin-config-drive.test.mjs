@@ -23,9 +23,12 @@ test("parses Google Doc and Drive file ids from pasted URLs", async () => {
   assert.match(source, /GOOGLE_DOC_ID_RE/);
   assert.match(source, /DRIVE_FILE_ID_RE/);
   assert.match(source, /pickAdminConfigDriveFile/);
-  assert.match(source, /openDriveFolderTab/);
+  assert.match(source, /export function openAdminConfigDriveFolder/);
+  assert.match(source, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(source, /ADMIN_CONFIG_DRIVE_FOLDER_ID/);
   assert.match(source, /promptForDriveFile/);
+  assert.match(source, /folderAlreadyOpen/);
+  assert.match(source, /createElement\("a"\)/);
 });
 
 test("Load Config and Card Configuration wire to the Drive folder picker", async () => {
@@ -40,11 +43,15 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
       "utf8",
     ),
   ]);
-  assert.match(programWindow, /pickAdminConfigDriveFile\("dashboard"\)/);
+  assert.match(programWindow, /openAdminConfigDriveFolder\(\)/);
+  assert.match(programWindow, /handleLoadConfigClick/);
+  assert.match(programWindow, /pickAdminConfigDriveFile\("dashboard"/);
+  assert.match(programWindow, /folderAlreadyOpen: true/);
   assert.match(programWindow, /loadProgramConfigFromDriveFile/);
-  assert.match(configWindow, /pickAdminConfigDriveFile\("card"\)/);
+  assert.match(configWindow, /openAdminConfigDriveFolder\(\)/);
+  assert.match(configWindow, /handleLoadConfigClick/);
+  assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
-  assert.match(configWindow, /void handleLoadConfigFile\(config\)/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
   assert.doesNotMatch(configWindow, /\bSave\b/);
   assert.match(loadFromDrive, /drive\/v3\/files\//);

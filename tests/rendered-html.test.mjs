@@ -557,6 +557,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Load Config File/);
   assert.match(programConfigWindow, /Load Config File…/);
+  assert.match(programConfigWindow, /openAdminConfigDriveFolder/);
+  assert.match(programConfigWindow, /handleLoadConfigClick/);
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programConfigWindow, /writeProgramConfig/);
@@ -581,7 +583,9 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(openAdminConfigDriveSource, /pickAdminConfigDriveFile/);
+  assert.match(openAdminConfigDriveSource, /openAdminConfigDriveFolder/);
   assert.match(openAdminConfigDriveSource, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
+  assert.match(openAdminConfigDriveSource, /createElement\("a"\)/);
   assert.match(openAdminConfigDriveSource, /setParent/);
   const programConfigStoreSource = await readFile(
     new URL("../app/program-config-store.ts", import.meta.url),
@@ -596,6 +600,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /nextTaskLabel/);
   assert.match(programConfigSource, /Open Tasks: "/);
   assert.match(programConfigSource, /Current Task: "/);
+  assert.match(configWindow, /openAdminConfigDriveFolder/);
+  assert.match(configWindow, /handleLoadConfigClick/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /Load Config/);

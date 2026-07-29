@@ -7,7 +7,10 @@ import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { syncCustomCardConfig } from "./custom-cards-store";
 import { writeDashboardConfig } from "./dashboard-config-store";
 import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
-import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import {
+  openAdminConfigDriveFolder,
+  pickAdminConfigDriveFile,
+} from "./open-admin-config-drive";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import {
   formatDashboardConfigText,
@@ -45,12 +48,23 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     setErrors(validateDashboardConfigSyntax(nextDraft));
   }
 
-  async function handleLoadConfigFile(base: DashboardConfig = config) {
+  function handleLoadConfigClick() {
+    // Must open Drive synchronously in the click stack (popup blockers).
+    openAdminConfigDriveFolder();
+    void handleLoadConfigFile();
+  }
+
+  async function handleLoadConfigFile(
+    base: DashboardConfig = config,
+    options: { folderAlreadyOpen?: boolean } = {},
+  ) {
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
-      const picked = await pickAdminConfigDriveFile("card");
+      const picked = await pickAdminConfigDriveFile("card", {
+        folderAlreadyOpen: options.folderAlreadyOpen ?? true,
+      });
       if (!picked) {
         setLoadError(
           "No Card Configuration file selected. The Google Drive config folder was opened — use Load Config again to select a file.",
@@ -82,8 +96,9 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     applyConfig(config);
     setLoaded(false);
     setLoadError(null);
-    // Card Configuration always opens the Drive folder for Admin file selection.
-    void handleLoadConfigFile(config);
+    // Folder was already opened in the Configuration click handler; continue
+    // with file selection (picker / URL paste) without another window.open.
+    void handleLoadConfigFile(config, { folderAlreadyOpen: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -102,7 +117,11 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
       <button
         type="button"
         className="config-window-trigger"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          // Open Drive in this click — useEffect cannot open tabs reliably.
+          openAdminConfigDriveFolder();
+          setOpen(true);
+        }}
       >
         Configuration
       </button>
@@ -133,7 +152,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     <button
                       type="button"
                       className="config-window-load"
-                      onClick={() => void handleLoadConfigFile()}
+                      onClick={handleLoadConfigClick}
                       disabled={loading}
                     >
                       {loading ? "Loading…" : "Load Config"}
