@@ -524,7 +524,8 @@ body {
   box-shadow: 0 0 0 1px rgba(196, 91, 91, .35);
 }
 
-.config-window-save:disabled {
+.config-window-save:disabled,
+.config-window-load:disabled {
   opacity: .45;
   cursor: not-allowed;
 }
