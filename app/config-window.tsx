@@ -53,7 +53,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
       const picked = await pickAdminConfigDriveFile("card");
       if (!picked) {
         setLoadError(
-          "No Card Configuration file selected. The Google Drive config folder was opened — use Load Config File… again to select a file.",
+          "No Card Configuration file selected. The Google Drive config folder was opened — use Load Config again to select a file.",
         );
         return;
       }
@@ -136,7 +136,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                       onClick={() => void handleLoadConfigFile()}
                       disabled={loading}
                     >
-                      {loading ? "Loading…" : "Load Config File…"}
+                      {loading ? "Loading…" : "Load Config"}
                     </button>
                     <button
                       type="button"
@@ -148,9 +148,9 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Read-only view of this card&apos;s Configuration. Opening
-                  Configuration (or <strong>Load Config File…</strong>) always
-                  opens the shared Google Drive folder (
+                  Read-only view of this card&apos;s Configuration.{" "}
+                  <strong>Load Config</strong> opens the shared Google Drive
+                  folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
