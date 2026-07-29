@@ -557,14 +557,15 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Load Config File/);
   assert.match(programConfigWindow, /Load Config File…/);
-  assert.match(programConfigWindow, /openAdminConfigDriveFolder/);
-  assert.match(programConfigWindow, /handleLoadConfigClick/);
+  assert.match(programConfigWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
+  assert.match(programConfigWindow, /Load Config File…/);
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programConfigWindow, /writeProgramConfig/);
   assert.match(programConfigWindow, /readOnly/);
   assert.doesNotMatch(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(programConfigWindow, /Google Drive/);
+  assert.match(programConfigWindow, /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/);
   assert.match(programConfigWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   const adminConfigDriveSource = await readFile(
     new URL("../lib/admin-config-drive.ts", import.meta.url),
@@ -600,13 +601,15 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /nextTaskLabel/);
   assert.match(programConfigSource, /Open Tasks: "/);
   assert.match(programConfigSource, /Current Task: "/);
-  assert.match(configWindow, /openAdminConfigDriveFolder/);
-  assert.match(configWindow, /handleLoadConfigClick/);
+  assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
   assert.doesNotMatch(configWindow, /\bSave\b/);
+  assert.doesNotMatch(configWindow, /editable card fields/);
+  assert.doesNotMatch(configWindow, /Saved on the host/);
+  assert.match(configWindow, /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/);
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(configWindow, /readOnly/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);

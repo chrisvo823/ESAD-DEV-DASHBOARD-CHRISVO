@@ -5,10 +5,7 @@ import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
-import {
-  openAdminConfigDriveFolder,
-  pickAdminConfigDriveFile,
-} from "./open-admin-config-drive";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import { writeProgramConfig } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
 import {
@@ -61,17 +58,12 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     );
   }
 
-  function handleLoadConfigClick() {
-    // Must open Drive synchronously in the click stack (popup blockers).
-    openAdminConfigDriveFolder();
-    void handleLoadConfigFile();
-  }
-
   async function handleLoadConfigFile() {
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
+      // Folder opens via the native <a href> on the Load Config control.
       const picked = await pickAdminConfigDriveFile("dashboard", {
         folderAlreadyOpen: true,
       });
@@ -150,14 +142,23 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     </h3>
                   </div>
                   <div className="config-window-actions">
-                    <button
-                      type="button"
+                    <a
                       className="config-window-load"
-                      onClick={handleLoadConfigClick}
-                      disabled={loading}
+                      href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-disabled={loading}
+                      onClick={(event) => {
+                        if (loading) {
+                          event.preventDefault();
+                          return;
+                        }
+                        // Native <a> opens the Drive folder; also start file pick.
+                        void handleLoadConfigFile();
+                      }}
                     >
                       {loading ? "Loading…" : "Load Config File…"}
-                    </button>
+                    </a>
                     <button
                       type="button"
                       className="config-window-close"
@@ -169,14 +170,14 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Read-only view of the active Dashboard Configuration.{" "}
-                  <strong>Load Config File…</strong> always opens the shared
-                  Google Drive folder (
+                  <strong>Load Config File…</strong> is a direct link to the
+                  shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    open config folder
+                    https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
                   ) so Admin can select a Dashboard Configuration file. Themes
                   stay in this browser. Each value must be inside quotes. Open Tasks, Over

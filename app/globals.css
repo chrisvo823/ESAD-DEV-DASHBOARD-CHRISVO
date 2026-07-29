@@ -437,6 +437,21 @@ body {
   color: #c8f0d8;
 }
 
+a.config-window-load,
+a.config-window-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+a.config-window-load[aria-disabled="true"] {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: default;
+}
+
 .config-window-actions {
   display: flex;
   gap: 8px;
