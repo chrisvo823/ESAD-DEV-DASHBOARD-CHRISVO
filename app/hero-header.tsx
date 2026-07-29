@@ -13,7 +13,7 @@ import { useThemeState } from "./theme-store";
 type HeroHeaderProps = {
   adminUsername: string;
   adminPassword: string;
-  /** Host-loaded Dashboard Configuration (title, lead, LED thresholds). */
+  /** Google Doc Dashboard Configuration (title, lead, LED thresholds). */
   initialProgramConfig: ProgramConfig;
 };
 

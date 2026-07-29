@@ -33,8 +33,8 @@ type SiteConfigBootstrapProps = {
 };
 
 /**
- * Seed client cache from the host-loaded SSR payload, then re-pull from
- * `/api/site-config` so Card and Dashboard Configuration stay host-sourced.
+ * Seed client cache from the SSR payload (already Google Doc–backed), then
+ * re-pull `/api/site-config` so every user's Hero stays Doc-sourced.
  */
 export function SiteConfigBootstrap({
   initial,

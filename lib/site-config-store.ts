@@ -41,6 +41,8 @@ export type SiteConfigStoreOptions = {
   googleAccessToken?: string | null;
   /** When true, do not pull Dashboard Configuration from the Google Doc. */
   skipGoogleDoc?: boolean;
+  /** Bypass the short Google Doc TTL cache (used for live Hero SSR). */
+  forceGoogleDocRefresh?: boolean;
 };
 
 function memoryStore(): SiteAdminConfig | undefined {
@@ -77,8 +79,9 @@ async function loadBaseSiteAdminConfig(): Promise<SiteAdminConfig> {
 }
 
 /**
- * Overlay Dashboard Configuration from the shared Google Doc when available.
- * Falls back to the host file / defaults when the Doc cannot be read.
+ * Overlay Dashboard Configuration from the shared Google Doc.
+ * The Google Doc is the source of truth for Hero title / lead / metric labels /
+ * LED thresholds for every user. Host file is only a cache / offline fallback.
  */
 async function applyGoogleDocProgramConfig(
   base: SiteAdminConfig,
@@ -89,10 +92,13 @@ async function applyGoogleDocProgramConfig(
   const cacheStore = globalThis as GlobalGoogleDocCache;
   const cached = cacheStore[GOOGLE_DOC_CACHE_KEY];
   const now = Date.now();
-  // User-provided tokens always bypass the short TTL cache.
+  // Only reuse a successful Doc pull within the TTL. Never cache misses/failures
+  // as lasting "empty" state — that would block Hero updates for all users.
   const canUseCache =
+    !options?.forceGoogleDocRefresh &&
     !options?.googleAccessToken?.trim() &&
-    cached &&
+    cached != null &&
+    cached.programConfig != null &&
     now - cached.fetchedAtMs < GOOGLE_DOC_CACHE_TTL_MS;
 
   try {
@@ -101,10 +107,14 @@ async function applyGoogleDocProgramConfig(
       fromDoc = await readProgramConfigFromGoogleDoc({
         accessToken: options?.googleAccessToken,
       });
-      cacheStore[GOOGLE_DOC_CACHE_KEY] = {
-        programConfig: fromDoc,
-        fetchedAtMs: now,
-      };
+      if (fromDoc) {
+        cacheStore[GOOGLE_DOC_CACHE_KEY] = {
+          programConfig: fromDoc,
+          fetchedAtMs: now,
+        };
+      } else {
+        delete cacheStore[GOOGLE_DOC_CACHE_KEY];
+      }
     }
     if (!fromDoc) return base;
 
@@ -123,17 +133,14 @@ async function applyGoogleDocProgramConfig(
     }
     return next;
   } catch {
-    cacheStore[GOOGLE_DOC_CACHE_KEY] = {
-      programConfig: null,
-      fetchedAtMs: now,
-    };
+    // Do not poison the TTL cache with a failed read.
     return base;
   }
 }
 
 /**
- * Load Admin config. Dashboard Configuration (program identity / LED thresholds /
- * metric labels) comes from the shared Google Doc for every user.
+ * Load Admin config. Dashboard Configuration for the live Hero always comes
+ * from the shared Google Doc for every user when the Doc is readable.
  */
 export async function loadSiteAdminConfig(
   options?: SiteConfigStoreOptions,

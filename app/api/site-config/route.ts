@@ -18,10 +18,13 @@ function readGoogleAccessToken(request: Request): string | null {
 export async function GET(request: Request) {
   const config = await getPublicSiteConfig({
     googleAccessToken: readGoogleAccessToken(request),
+    // Keep all users' live Hero in sync with the Google Doc on each pull.
+    forceGoogleDocRefresh: true,
   });
   return NextResponse.json({
     ...config,
     googleDocUrl: getDashboardConfigGoogleDocUrl(),
+    dashboardConfigSource: "google-doc",
   });
 }
 

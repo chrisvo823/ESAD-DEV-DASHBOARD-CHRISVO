@@ -354,6 +354,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigRoute, /updateSiteAdminConfig/);
   assert.match(siteConfigRoute, /x-esad-google-access-token/);
   assert.match(siteConfigRoute, /googleDocWritten/);
+  assert.match(siteConfigRoute, /forceGoogleDocRefresh:\s*true/);
+  assert.match(siteConfigRoute, /dashboardConfigSource/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
@@ -412,7 +414,14 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigStoreSource, /readPersistedConfig/);
   assert.match(siteConfigStoreSource, /readProgramConfigFromGoogleDoc/);
   assert.match(siteConfigStoreSource, /writeProgramConfigToGoogleDoc/);
+  assert.match(siteConfigStoreSource, /forceGoogleDocRefresh/);
   assert.match(siteConfigStoreSource, /Dashboard Configuration/);
+  assert.match(pageSourceForHost, /forceGoogleDocRefresh:\s*true/);
+  const layoutSource = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(layoutSource, /forceGoogleDocRefresh:\s*true/);
 
   const themesSource = await readFile(
     new URL("../lib/themes.ts", import.meta.url),

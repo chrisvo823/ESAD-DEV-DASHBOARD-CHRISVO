@@ -934,8 +934,8 @@ function withHostCardConfigs(
 }
 
 export default async function Home() {
-  // Card + Dashboard Configuration must come from the host store.
-  const siteConfig = await loadSiteAdminConfig();
+  // Live Hero + identity always load from the shared Google Doc Dashboard Configuration.
+  const siteConfig = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
   const publicSiteConfig = toPublicSiteConfig(siteConfig);
   const hostProjects = withHostCardConfigs(
     projects,

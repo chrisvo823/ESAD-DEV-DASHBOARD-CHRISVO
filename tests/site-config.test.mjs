@@ -330,3 +330,37 @@ test("Dashboard Configuration saves to and loads from the shared Google Doc", as
   assert.equal(loaded.programConfig.openTasksLabel, "Open Work");
   assert.equal(loaded.programConfig.ledRedAtLeast, 6);
 });
+
+test("forceGoogleDocRefresh bypasses TTL so live Hero stays Doc-sourced", async () => {
+  mockGoogleDocText = formatProgramConfigText({
+    dashboardName: "Cached Doc Name",
+    programLead: "Cached Lead",
+    openTasksLabel: "Open Tasks",
+    overDueLabel: "Over Due",
+    currentTaskLabel: "Current Task",
+    nextTaskLabel: "Next Task",
+    ledGreenAtMost: 1,
+    ledYellowAtLeast: 3,
+    ledRedAtLeast: 5,
+  });
+  await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
+
+  mockGoogleDocText = formatProgramConfigText({
+    dashboardName: "Fresh Doc Hero",
+    programLead: "Fresh Doc Lead",
+    openTasksLabel: "Open Tasks",
+    overDueLabel: "Over Due",
+    currentTaskLabel: "Current Task",
+    nextTaskLabel: "Next Task",
+    ledGreenAtMost: 1,
+    ledYellowAtLeast: 3,
+    ledRedAtLeast: 5,
+  });
+
+  const stale = await loadSiteAdminConfig();
+  assert.equal(stale.programConfig.dashboardName, "Cached Doc Name");
+
+  const fresh = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
+  assert.equal(fresh.programConfig.dashboardName, "Fresh Doc Hero");
+  assert.equal(fresh.programConfig.programLead, "Fresh Doc Lead");
+});
