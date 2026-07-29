@@ -11,6 +11,18 @@ import {
   sanitizeProgramConfig,
 } from "../lib/site-config";
 import { getAdminSessionPassword } from "./admin-auth";
+import { getGoogleAccessToken } from "./google-access-token";
+
+function siteConfigRequestHeaders(
+  extra?: Record<string, string>,
+): Record<string, string> {
+  const headers: Record<string, string> = { ...(extra ?? {}) };
+  const googleAccessToken = getGoogleAccessToken();
+  if (googleAccessToken) {
+    headers["x-esad-google-access-token"] = googleAccessToken;
+  }
+  return headers;
+}
 
 export const SITE_CONFIG_EVENT = "esad-site-config-change";
 
@@ -145,10 +157,10 @@ async function migrateLegacyIfNeeded(host: SiteConfigCache): Promise<SiteConfigC
   try {
     const response = await fetch("/api/site-config", {
       method: "PUT",
-      headers: {
+      headers: siteConfigRequestHeaders({
         "Content-Type": "application/json",
         "x-esad-admin-password": legacyPassword,
-      },
+      }),
       body: JSON.stringify(patch),
       cache: "no-store",
     });
@@ -196,8 +208,13 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
 
   hydratePromise = (async () => {
     try {
-      const response = await fetch("/api/site-config", { cache: "no-store" });
+      const response = await fetch("/api/site-config", {
+        cache: "no-store",
+        headers: siteConfigRequestHeaders(),
+      });
       if (!response.ok) {
+        // Keep any existing cache instead of wiping Dashboard Configuration.
+        if (cache) return cache;
         return setCache(defaultPublicConfig());
       }
       const host = (await response.json()) as SiteConfigCache;
@@ -213,6 +230,7 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
       pulledFromHost = true;
       return setCache(maybeMigrated);
     } catch {
+      if (cache) return cache;
       return setCache(defaultPublicConfig());
     } finally {
       hydratePromise = null;
@@ -224,7 +242,7 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
 
 /** Force re-fetch host Admin config (used by the 5-minute dashboard refresh). */
 export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
-  cache = null;
+  // Keep current values visible while re-fetching from the Google Doc / host.
   hydratePromise = null;
   pulledFromHost = false;
   return hydrateSiteConfigFromHost();
@@ -271,21 +289,35 @@ export async function persistSiteConfigPatch(
 
   const response = await fetch("/api/site-config", {
     method: "PUT",
-    headers: {
+    headers: siteConfigRequestHeaders({
       "Content-Type": "application/json",
       "x-esad-admin-password": password,
-    },
+    }),
     body: JSON.stringify(patch),
     cache: "no-store",
   });
   if (!response.ok) {
-    // Re-hydrate to recover authoritative host state.
+    let detail = `Failed to save site config (${response.status}).`;
+    try {
+      const failure = (await response.json()) as { error?: string };
+      if (failure.error?.trim()) detail = failure.error.trim();
+    } catch {
+      // keep status-based message
+    }
+    // Re-hydrate to recover authoritative host / Google Doc state.
     cache = null;
     await hydrateSiteConfigFromHost();
-    throw new Error(`Failed to save site config (${response.status}).`);
+    throw new Error(detail);
   }
 
-  const saved = (await response.json()) as SiteConfigCache;
+  const saved = (await response.json()) as SiteConfigCache & {
+    googleDocWritten?: boolean;
+  };
+  if (patch.programConfig && saved.googleDocWritten === false) {
+    throw new Error(
+      "Dashboard Configuration was not written to the shared Google Doc.",
+    );
+  }
   return setCache({
     programConfig: sanitizeProgramConfig(saved.programConfig),
     dashboardConfigs: sanitizeDashboardConfigs(saved.dashboardConfigs),

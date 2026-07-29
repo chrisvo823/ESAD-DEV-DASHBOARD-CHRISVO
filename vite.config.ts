@@ -52,6 +52,19 @@ for (const key of adminEnvKeys) {
   }
 }
 
+const googleDocsEnvKeys = [
+  "GOOGLE_DOCS_ACCESS_TOKEN",
+  "GOOGLE_SERVICE_ACCOUNT_JSON",
+] as const;
+const googleDocsVars: Record<string, string> = {};
+for (const key of googleDocsEnvKeys) {
+  const value = process.env[key] ?? readEnvFileValue(key);
+  if (value) {
+    process.env[key] = value;
+    googleDocsVars[key] = value;
+  }
+}
+
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
@@ -64,6 +77,7 @@ const localBindingConfig = {
       : {}),
     ...googleSheetVars,
     ...adminVars,
+    ...googleDocsVars,
   },
   d1_databases: d1
     ? [

@@ -176,13 +176,22 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Saved on the host and shared for all users (Themes stay in this
-                  browser). Each value must be inside quotes. Open Tasks, Over
-                  Due, Current Task, and Next Task set the card metric label
-                  text. Card status LED thresholds use Over Due counts: Green:
-                  &quot;1&quot; lights green when overdue is below Yellow, Yellow:
-                  &quot;3&quot; lights yellow when overdue is 3 or more, Red:
-                  &quot;5&quot; lights red when overdue is 5 or more.
+                  Saved to the shared Google Doc and loaded by every user&apos;s
+                  dashboard (
+                  <a
+                    href="https://docs.google.com/document/d/15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/edit?usp=drive_link"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    open Dashboard Configuration Doc
+                  </a>
+                  ). Themes stay in this browser. Each value must be inside
+                  quotes. Open Tasks, Over Due, Current Task, and Next Task set
+                  the card metric label text. Card status LED thresholds use Over
+                  Due counts: Green: &quot;1&quot; lights green when overdue is
+                  below Yellow, Yellow: &quot;3&quot; lights yellow when overdue
+                  is 3 or more, Red: &quot;5&quot; lights red when overdue is 5
+                  or more.
                 </p>
                 <label
                   className="config-window-section-label"

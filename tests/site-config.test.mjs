@@ -3,10 +3,73 @@ import test from "node:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { formatProgramConfigText } from "../lib/program-config.ts";
 
 const tempRoot = await mkdtemp(path.join(os.tmpdir(), "esad-site-config-"));
 const previousCwd = process.cwd();
 process.chdir(tempRoot);
+
+process.env.GOOGLE_DOCS_ACCESS_TOKEN = "test-google-docs-token";
+
+/** In-memory stand-in for the shared Dashboard Configuration Google Doc. */
+let mockGoogleDocText = formatProgramConfigText({
+  dashboardName: "Engineering Dashboard",
+  programLead: "Project Lead: ",
+  openTasksLabel: "Open Tasks",
+  overDueLabel: "Over Due",
+  currentTaskLabel: "Current Task",
+  nextTaskLabel: "Next Task",
+  ledGreenAtMost: 1,
+  ledYellowAtLeast: 3,
+  ledRedAtLeast: 5,
+});
+
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = String(input);
+  if (url.includes("docs.googleapis.com/v1/documents/")) {
+    if (url.endsWith(":batchUpdate") && init?.method === "POST") {
+      const body = JSON.parse(String(init.body ?? "{}"));
+      const inserted = body?.requests?.find((request) => request.insertText)
+        ?.insertText?.text;
+      if (typeof inserted === "string") mockGoogleDocText = inserted;
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const lines = mockGoogleDocText.split("\n");
+    return new Response(
+      JSON.stringify({
+        body: {
+          content: [
+            { endIndex: 1 },
+            ...lines.map((line, index) => ({
+              endIndex: index + 2,
+              paragraph: {
+                elements: [
+                  {
+                    textRun: {
+                      content: `${line}\n`,
+                    },
+                  },
+                ],
+              },
+            })),
+          ],
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+  if (url.includes("docs.google.com/document/") && url.includes("export")) {
+    return new Response(mockGoogleDocText, { status: 200 });
+  }
+  return originalFetch(input, init);
+};
 
 const {
   applySiteConfigPatch,
@@ -26,6 +89,8 @@ const {
 } = await import("../lib/site-config-store.ts");
 
 test.after(async () => {
+  globalThis.fetch = originalFetch;
+  delete process.env.GOOGLE_DOCS_ACCESS_TOKEN;
   process.chdir(previousCwd);
   await rm(tempRoot, { recursive: true, force: true });
 });
@@ -235,4 +300,33 @@ test("loadSiteAdminConfig prefers host file over stale empty memory", async () =
     "utf8",
   );
   assert.match(raw, /Disk Survives Stale Memory/);
+});
+
+test("Dashboard Configuration saves to and loads from the shared Google Doc", async () => {
+  await updateSiteAdminConfig({
+    programConfig: {
+      dashboardName: "Google Doc Dashboard",
+      programLead: "Google Doc Lead",
+      openTasksLabel: "Open Work",
+      overDueLabel: "Past Due",
+      currentTaskLabel: "Active Task",
+      nextTaskLabel: "Upcoming Task",
+      ledGreenAtMost: 2,
+      ledYellowAtLeast: 4,
+      ledRedAtLeast: 6,
+    },
+  });
+
+  assert.match(mockGoogleDocText, /Google Doc Dashboard/);
+  assert.match(mockGoogleDocText, /Google Doc Lead/);
+
+  // Clear host cache + memory so load must come from the Google Doc.
+  globalThis.__esadSiteAdminConfig__ = undefined;
+  await rm(path.join(tempRoot, ".data"), { recursive: true, force: true });
+
+  const loaded = await loadSiteAdminConfig();
+  assert.equal(loaded.programConfig.dashboardName, "Google Doc Dashboard");
+  assert.equal(loaded.programConfig.programLead, "Google Doc Lead");
+  assert.equal(loaded.programConfig.openTasksLabel, "Open Work");
+  assert.equal(loaded.programConfig.ledRedAtLeast, 6);
 });

@@ -352,10 +352,23 @@ test("keeps dashboard metadata and project data in source", async () => {
   ]);
   assert.match(siteConfigRoute, /getPublicSiteConfig/);
   assert.match(siteConfigRoute, /updateSiteAdminConfig/);
+  assert.match(siteConfigRoute, /x-esad-google-access-token/);
+  assert.match(siteConfigRoute, /googleDocWritten/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
+  assert.match(siteConfigClient, /x-esad-google-access-token/);
   assert.match(siteConfigClient, /\/api\/site-config/);
+  const companyAuthGate = await readFile(
+    new URL("../app/company-auth-gate.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    companyAuthGate,
+    /googleapis\.com\/auth\/documents/,
+  );
+  assert.match(companyAuthGate, /setGoogleAccessToken/);
+  assert.match(companyAuthGate, /refreshSiteConfigFromHost/);
   assert.match(programConfigStore, /persistSiteConfigPatch/);
   assert.match(programConfigStore, /programConfig:\s*next/);
   assert.match(dashboardConfigStore, /persistSiteConfigPatch/);
@@ -397,10 +410,9 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(siteConfigStoreSource, /readPersistedConfig/);
-  assert.match(
-    siteConfigStoreSource,
-    /Prefer the host file whenever it exists/,
-  );
+  assert.match(siteConfigStoreSource, /readProgramConfigFromGoogleDoc/);
+  assert.match(siteConfigStoreSource, /writeProgramConfigToGoogleDoc/);
+  assert.match(siteConfigStoreSource, /Dashboard Configuration/);
 
   const themesSource = await readFile(
     new URL("../lib/themes.ts", import.meta.url),
@@ -533,7 +545,11 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /status LED/);
   assert.match(programConfigWindow, /metric labels/);
   assert.match(programConfigWindow, /Open Tasks, Over/);
-  assert.match(programConfigWindow, /Saved on the host/);
+  assert.match(programConfigWindow, /shared Google Doc/);
+  assert.match(
+    programConfigWindow,
+    /15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/,
+  );
   assert.match(projectPanel, /metricDisplayLabel/);
   assert.match(programConfigSource, /openTasksLabel/);
   assert.match(programConfigSource, /overDueLabel/);

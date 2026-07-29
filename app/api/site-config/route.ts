@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SiteConfigPatch } from "../../../lib/site-config";
 import {
+  getDashboardConfigGoogleDocUrl,
   getHostAdminPassword,
   getPublicSiteConfig,
   isAuthorizedSiteAdmin,
@@ -10,9 +11,18 @@ import { toPublicSiteConfig } from "../../../lib/site-config";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const config = await getPublicSiteConfig();
-  return NextResponse.json(config);
+function readGoogleAccessToken(request: Request): string | null {
+  return request.headers.get("x-esad-google-access-token");
+}
+
+export async function GET(request: Request) {
+  const config = await getPublicSiteConfig({
+    googleAccessToken: readGoogleAccessToken(request),
+  });
+  return NextResponse.json({
+    ...config,
+    googleDocUrl: getDashboardConfigGoogleDocUrl(),
+  });
 }
 
 export async function PUT(request: Request) {
@@ -38,6 +48,27 @@ export async function PUT(request: Request) {
   }
 
   const patch = body as SiteConfigPatch;
-  const updated = await updateSiteAdminConfig(patch);
-  return NextResponse.json(toPublicSiteConfig(updated));
+  try {
+    const updated = await updateSiteAdminConfig(patch, {
+      googleAccessToken: readGoogleAccessToken(request),
+    });
+    return NextResponse.json({
+      ...toPublicSiteConfig(updated),
+      googleDocUrl: getDashboardConfigGoogleDocUrl(),
+      googleDocWritten: Boolean(patch.programConfig),
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Failed to save Dashboard Configuration to the Google Doc.";
+    return NextResponse.json(
+      {
+        error: message,
+        googleDocUrl: getDashboardConfigGoogleDocUrl(),
+        googleDocWritten: false,
+      },
+      { status: 500 },
+    );
+  }
 }

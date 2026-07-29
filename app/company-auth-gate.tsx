@@ -14,6 +14,8 @@ import {
 } from "../lib/allowed-email";
 import { getFirebaseAuth, getFirebaseWebConfig } from "../lib/firebase-client";
 import { recordDashboardLogin } from "../lib/record-dashboard-login";
+import { setGoogleAccessToken } from "./google-access-token";
+import { refreshSiteConfigFromHost } from "./site-config-client";
 
 type CompanyAuthGateProps = {
   children: ReactNode;
@@ -63,6 +65,8 @@ export function CompanyAuthGate({
 
       setState({ status: "ready", user });
       void recordDashboardLogin(user.email);
+      // Pull Dashboard Configuration from the shared Google Doc for this session.
+      void refreshSiteConfigFromHost();
     });
 
     return () => unsub();
@@ -74,12 +78,18 @@ export function CompanyAuthGate({
     setError(null);
     try {
       const provider = new GoogleAuthProvider();
+      // Docs scope lets Admin save + users load Dashboard Configuration from Drive.
+      provider.addScope("https://www.googleapis.com/auth/documents");
+      provider.addScope("https://www.googleapis.com/auth/drive.readonly");
       provider.setCustomParameters({
         hd: allowedDomain,
         prompt: "select_account",
       });
       const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      setGoogleAccessToken(credential?.accessToken ?? null);
       if (!isAllowedCompanyEmail(result.user.email, allowedDomain)) {
+        setGoogleAccessToken(null);
         await signOut(auth);
         setState({
           status: "blocked",
@@ -87,6 +97,7 @@ export function CompanyAuthGate({
         });
       } else {
         void recordDashboardLogin(result.user.email);
+        void refreshSiteConfigFromHost();
       }
     } catch (err) {
       const message =
@@ -102,6 +113,7 @@ export function CompanyAuthGate({
     if (!auth) return;
     setBusy(true);
     try {
+      setGoogleAccessToken(null);
       await signOut(auth);
     } finally {
       setBusy(false);
