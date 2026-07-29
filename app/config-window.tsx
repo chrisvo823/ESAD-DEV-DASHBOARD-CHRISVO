@@ -7,10 +7,7 @@ import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { syncCustomCardConfig } from "./custom-cards-store";
 import { writeDashboardConfig } from "./dashboard-config-store";
 import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
-import {
-  openAdminConfigDriveFolder,
-  pickAdminConfigDriveFile,
-} from "./open-admin-config-drive";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import {
   formatDashboardConfigText,
@@ -48,22 +45,14 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     setErrors(validateDashboardConfigSyntax(nextDraft));
   }
 
-  function handleLoadConfigClick() {
-    // Must open Drive synchronously in the click stack (popup blockers).
-    openAdminConfigDriveFolder();
-    void handleLoadConfigFile();
-  }
-
-  async function handleLoadConfigFile(
-    base: DashboardConfig = config,
-    options: { folderAlreadyOpen?: boolean } = {},
-  ) {
+  async function handleLoadConfigFile(base: DashboardConfig = config) {
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
+      // Folder opens via the native <a href> on the Load Config control.
       const picked = await pickAdminConfigDriveFile("card", {
-        folderAlreadyOpen: options.folderAlreadyOpen ?? true,
+        folderAlreadyOpen: true,
       });
       if (!picked) {
         setLoadError(
@@ -96,9 +85,6 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     applyConfig(config);
     setLoaded(false);
     setLoadError(null);
-    // Folder was already opened in the Configuration click handler; continue
-    // with file selection (picker / URL paste) without another window.open.
-    void handleLoadConfigFile(config, { folderAlreadyOpen: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -114,17 +100,18 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <a
         className="config-window-trigger"
+        href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
+        target="_blank"
+        rel="noopener noreferrer"
         onClick={() => {
-          // Open Drive in this click — useEffect cannot open tabs reliably.
-          openAdminConfigDriveFolder();
+          // Native link opens Drive; also show the card Configuration dialog.
           setOpen(true);
         }}
       >
         Configuration
-      </button>
+      </a>
       {mounted && open
         ? createPortal(
             <div
@@ -149,14 +136,22 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     </h3>
                   </div>
                   <div className="config-window-actions">
-                    <button
-                      type="button"
+                    <a
                       className="config-window-load"
-                      onClick={handleLoadConfigClick}
-                      disabled={loading}
+                      href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-disabled={loading}
+                      onClick={(event) => {
+                        if (loading) {
+                          event.preventDefault();
+                          return;
+                        }
+                        void handleLoadConfigFile();
+                      }}
                     >
                       {loading ? "Loading…" : "Load Config"}
-                    </button>
+                    </a>
                     <button
                       type="button"
                       className="config-window-close"
@@ -168,14 +163,14 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Read-only view of this card&apos;s Configuration.{" "}
-                  <strong>Load Config</strong> opens the shared Google Drive
-                  folder (
+                  <strong>Load Config</strong> is a direct link to the shared
+                  Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    open config folder
+                    https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
                   ) so Admin can select a Card Configuration file. Loaded values
                   are saved on the host for all users. Each value must be inside

@@ -43,17 +43,18 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
       "utf8",
     ),
   ]);
-  assert.match(programWindow, /openAdminConfigDriveFolder\(\)/);
-  assert.match(programWindow, /handleLoadConfigClick/);
+  assert.match(programWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(programWindow, /pickAdminConfigDriveFile\("dashboard"/);
   assert.match(programWindow, /folderAlreadyOpen: true/);
   assert.match(programWindow, /loadProgramConfigFromDriveFile/);
-  assert.match(configWindow, /openAdminConfigDriveFolder\(\)/);
-  assert.match(configWindow, /handleLoadConfigClick/);
+  assert.match(programWindow, /<a[\s\S]*className="config-window-load"/);
+  assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
+  assert.match(configWindow, /<a[\s\S]*className="config-window-load"/);
   assert.doesNotMatch(configWindow, /\bSave\b/);
+  assert.doesNotMatch(configWindow, /editable card fields/);
   assert.match(loadFromDrive, /drive\/v3\/files\//);
   assert.match(loadFromDrive, /export\?mimeType=text\/plain/);
 });
