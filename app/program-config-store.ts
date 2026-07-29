@@ -40,7 +40,7 @@ export async function reloadProgramConfigFromGoogleDoc(): Promise<ProgramConfig>
   return config;
 }
 
-/** @deprecated Dashboard Configuration is Google Doc–sourced and not Admin-editable. */
+/** Persist Dashboard Configuration loaded from a Drive file selected by Admin. */
 export async function writeProgramConfig(
   config: ProgramConfig,
 ): Promise<ProgramConfig> {
