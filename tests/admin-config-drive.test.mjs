@@ -45,6 +45,8 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"\)/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /void handleLoadConfigFile\(config\)/);
+  assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
+  assert.doesNotMatch(configWindow, /\bSave\b/);
   assert.match(loadFromDrive, /drive\/v3\/files\//);
   assert.match(loadFromDrive, /export\?mimeType=text\/plain/);
 });

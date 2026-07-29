@@ -598,7 +598,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /Current Task: "/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
-  assert.match(configWindow, /Load Config File…/);
+  assert.match(configWindow, /Load Config/);
+  assert.doesNotMatch(configWindow, /Load Config File…/);
+  assert.doesNotMatch(configWindow, /\bSave\b/);
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(configWindow, /readOnly/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
