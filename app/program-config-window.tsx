@@ -136,7 +136,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   <div className="config-window-actions">
                     <button
                       type="button"
-                      className="config-window-save"
+                      className="config-window-load"
                       onClick={() => void handleLoadConfigFile()}
                       disabled={loading}
                     >
