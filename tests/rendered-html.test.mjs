@@ -157,13 +157,14 @@ test("server-renders the host-configured dashboard", async () => {
   assert.match(html, /Current Task[\s\S]*?Next Task/);
   // Without SMARTSHEET_ACCESS_TOKEN, schedule falls back to static revisions —
   // never wipe Current/Next Task into an unlinked Error state.
+  // Current/Next Task must not themselves render the Error flag.
   assert.doesNotMatch(
     html,
-    /Current Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
+    /task-hover-trigger--current[\s\S]*?metric-task-name metric-source-flag--error/,
   );
   assert.doesNotMatch(
     html,
-    /Next Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
+    /task-hover-trigger--next[\s\S]*?metric-task-name metric-source-flag--error/,
   );
   // Today (late Jul 2026): Schematic is Current; Layout is Next (not Rev B Requirements).
   assert.match(html, /Schematic/);
@@ -554,11 +555,24 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /status LED/);
   assert.match(programConfigWindow, /metric labels/);
   assert.match(programConfigWindow, /Open Tasks, Over/);
-  assert.match(programConfigWindow, /shared Google Doc/);
+  assert.match(programConfigWindow, /Load Config File/);
+  assert.match(programConfigWindow, /Load Config File…/);
+  assert.match(programConfigWindow, /reloadProgramConfigFromGoogleDoc/);
+  assert.match(programConfigWindow, /readOnly/);
+  assert.doesNotMatch(programConfigWindow, /\bwriteProgramConfig\b/);
+  assert.doesNotMatch(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(programConfigWindow, /Google Drive/);
   assert.match(
     programConfigWindow,
     /15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/,
   );
+  assert.match(programConfigWindow, /tab=t\.0/);
+  const programConfigStoreSource = await readFile(
+    new URL("../app/program-config-store.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(programConfigStoreSource, /reloadProgramConfigFromGoogleDoc/);
+  assert.match(programConfigStoreSource, /refreshSiteConfigFromHost/);
   assert.match(projectPanel, /metricDisplayLabel/);
   assert.match(programConfigSource, /openTasksLabel/);
   assert.match(programConfigSource, /overDueLabel/);

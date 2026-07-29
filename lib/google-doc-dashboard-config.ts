@@ -11,7 +11,7 @@ export const DASHBOARD_CONFIG_GOOGLE_DOC_ID =
   "15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA";
 
 export const DASHBOARD_CONFIG_GOOGLE_DOC_URL =
-  `https://docs.google.com/document/d/${DASHBOARD_CONFIG_GOOGLE_DOC_ID}/edit?usp=drive_link`;
+  `https://docs.google.com/document/d/${DASHBOARD_CONFIG_GOOGLE_DOC_ID}/edit?tab=t.0`;
 
 const DOCS_API_BASE = "https://docs.googleapis.com/v1";
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";

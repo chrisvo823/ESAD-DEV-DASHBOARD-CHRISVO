@@ -17,6 +17,7 @@ test("exposes the shared Dashboard Configuration Google Doc id and url", () => {
     DASHBOARD_CONFIG_GOOGLE_DOC_URL,
     /15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/,
   );
+  assert.match(DASHBOARD_CONFIG_GOOGLE_DOC_URL, /tab=t\.0/);
 });
 
 test("parses Dashboard Configuration text from a Google Doc body", () => {

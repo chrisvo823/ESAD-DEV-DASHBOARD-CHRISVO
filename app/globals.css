@@ -487,6 +487,16 @@ body {
   border-color: #74b7ff;
 }
 
+.config-window-editor--readonly {
+  cursor: default;
+  opacity: 0.96;
+}
+
+.config-window-editor--readonly:focus {
+  outline: 1px solid rgba(116, 183, 255, 0.45);
+  border-color: rgba(116, 183, 255, 0.55);
+}
+
 .config-window-error,
 .config-window-errors,
 .config-window-saved {
