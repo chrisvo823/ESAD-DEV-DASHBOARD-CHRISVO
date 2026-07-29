@@ -3,15 +3,18 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
-import { writeProgramConfig } from "./program-config-store";
+import { reloadProgramConfigFromGoogleDoc } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
 import {
   combineProgramConfigEditors,
   formatProgramIdentityText,
   formatProgramLedThresholdText,
-  parseProgramConfigText,
   validateProgramConfigSyntax,
 } from "../lib/program-config";
+
+/** Shared Google Drive Dashboard Configuration Doc (read-only source of truth). */
+const DASHBOARD_CONFIG_GOOGLE_DOC_URL =
+  "https://docs.google.com/document/d/15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/edit?tab=t.0";
 
 type ProgramConfigWindowProps = {
   config: ProgramConfig;
@@ -21,16 +24,16 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   const authenticated = useAdminAuthenticated();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [identityDraft, setIdentityDraft] = useState(() =>
+  const [identityText, setIdentityText] = useState(() =>
     formatProgramIdentityText(config),
   );
-  const [ledDraft, setLedDraft] = useState(() =>
+  const [ledText, setLedText] = useState(() =>
     formatProgramLedThresholdText(config),
   );
   const [errors, setErrors] = useState<string[]>([]);
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const titleId = useId();
   const identityEditorId = useId();
   const ledEditorId = useId();
@@ -44,22 +47,45 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     if (!authenticated) setOpen(false);
   }, [authenticated]);
 
-  useEffect(() => {
-    if (!open) return;
-    // Sync drafts only when the window opens so a later host refresh cannot
-    // wipe in-progress (or just-saved) Dashboard Configuration text.
-    const nextIdentity = formatProgramIdentityText(config);
-    const nextLed = formatProgramLedThresholdText(config);
-    setIdentityDraft(nextIdentity);
-    setLedDraft(nextLed);
+  function applyConfig(next: ProgramConfig) {
+    const nextIdentity = formatProgramIdentityText(next);
+    const nextLed = formatProgramLedThresholdText(next);
+    setIdentityText(nextIdentity);
+    setLedText(nextLed);
     setErrors(
       validateProgramConfigSyntax(
         combineProgramConfigEditors(nextIdentity, nextLed),
       ),
     );
-    setSaved(false);
-    setSaveError(null);
-    setSaving(false);
+  }
+
+  async function handleLoadConfigFile() {
+    setLoading(true);
+    setLoadError(null);
+    setLoaded(false);
+    try {
+      const next = await reloadProgramConfigFromGoogleDoc();
+      applyConfig(next);
+      setLoaded(true);
+    } catch (err) {
+      setLoaded(false);
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load Dashboard Configuration from Google Drive.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    // Show current values immediately, then pull the latest Google Doc.
+    applyConfig(config);
+    setLoaded(false);
+    setLoadError(null);
+    void handleLoadConfigFile();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -68,56 +94,6 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     // intentionally omit `config` — open transition captures current props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  function syncDrafts(nextIdentity: string, nextLed: string) {
-    setIdentityDraft(nextIdentity);
-    setLedDraft(nextLed);
-    setSaved(false);
-    setSaveError(null);
-    setErrors(
-      validateProgramConfigSyntax(
-        combineProgramConfigEditors(nextIdentity, nextLed),
-      ),
-    );
-  }
-
-  async function handleSave() {
-    const combined = combineProgramConfigEditors(identityDraft, ledDraft);
-    const syntaxErrors = validateProgramConfigSyntax(combined);
-    if (syntaxErrors.length > 0) {
-      setErrors(syntaxErrors);
-      setSaved(false);
-      setSaveError(null);
-      return;
-    }
-
-    const parsed = parseProgramConfigText(combined);
-    if ("error" in parsed) {
-      setErrors(parsed.errors);
-      setSaved(false);
-      setSaveError(null);
-      return;
-    }
-
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await writeProgramConfig(parsed.config);
-      setIdentityDraft(formatProgramIdentityText(parsed.config));
-      setLedDraft(formatProgramLedThresholdText(parsed.config));
-      setErrors([]);
-      setSaved(true);
-    } catch (err) {
-      setSaved(false);
-      setSaveError(
-        err instanceof Error
-          ? err.message
-          : "Failed to save Dashboard Configuration on the host.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (!authenticated) return null;
 
@@ -160,11 +136,11 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   <div className="config-window-actions">
                     <button
                       type="button"
-                      className="config-window-save"
-                      onClick={() => void handleSave()}
-                      disabled={hasSyntaxErrors || saving}
+                      className="config-window-load"
+                      onClick={() => void handleLoadConfigFile()}
+                      disabled={loading}
                     >
-                      {saving ? "Saving…" : "Save"}
+                      {loading ? "Loading…" : "Load Config File…"}
                     </button>
                     <button
                       type="button"
@@ -176,13 +152,24 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Saved on the host and shared for all users (Themes stay in this
-                  browser). Each value must be inside quotes. Open Tasks, Over
-                  Due, Current Task, and Next Task set the card metric label
-                  text. Card status LED thresholds use Over Due counts: Green:
-                  &quot;1&quot; lights green when overdue is below Yellow, Yellow:
-                  &quot;3&quot; lights yellow when overdue is 3 or more, Red:
-                  &quot;5&quot; lights red when overdue is 5 or more.
+                  Read-only view pulled from the shared Google Drive Dashboard
+                  Configuration Doc. Edits are not allowed here — update the Doc
+                  in Google Drive, then use{" "}
+                  <strong>Load Config File…</strong> (
+                  <a
+                    href={DASHBOARD_CONFIG_GOOGLE_DOC_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    open Dashboard Configuration Doc
+                  </a>
+                  ). Themes stay in this browser. Each value must be inside
+                  quotes. Open Tasks, Over Due, Current Task, and Next Task set
+                  the card metric label text. Card status LED thresholds use Over
+                  Due counts: Green: &quot;1&quot; lights green when overdue is
+                  below Yellow, Yellow: &quot;3&quot; lights yellow when overdue
+                  is 3 or more, Red: &quot;5&quot; lights red when overdue is 5
+                  or more.
                 </p>
                 <label
                   className="config-window-section-label"
@@ -192,16 +179,15 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </label>
                 <textarea
                   id={identityEditorId}
-                  className={`config-window-editor config-window-editor--identity${
+                  className={`config-window-editor config-window-editor--identity config-window-editor--readonly${
                     hasSyntaxErrors ? " config-window-editor--error" : ""
                   }`}
-                  value={identityDraft}
+                  value={identityText}
                   spellCheck={false}
+                  readOnly
+                  aria-readonly="true"
                   aria-invalid={hasSyntaxErrors}
-                  aria-label="Dashboard identity configuration"
-                  onChange={(event) =>
-                    syncDrafts(event.target.value, ledDraft)
-                  }
+                  aria-label="Dashboard identity configuration from Google Drive"
                 />
                 <label
                   className="config-window-section-label"
@@ -211,16 +197,15 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </label>
                 <textarea
                   id={ledEditorId}
-                  className={`config-window-editor config-window-editor--led${
+                  className={`config-window-editor config-window-editor--led config-window-editor--readonly${
                     hasSyntaxErrors ? " config-window-editor--error" : ""
                   }`}
-                  value={ledDraft}
+                  value={ledText}
                   spellCheck={false}
+                  readOnly
+                  aria-readonly="true"
                   aria-invalid={hasSyntaxErrors}
-                  aria-label="Card LED Threshold Configuration"
-                  onChange={(event) =>
-                    syncDrafts(identityDraft, event.target.value)
-                  }
+                  aria-label="Card LED Threshold Configuration from Google Drive"
                 />
                 {hasSyntaxErrors ? (
                   <ul
@@ -233,14 +218,14 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     ))}
                   </ul>
                 ) : null}
-                {saveError ? (
+                {loadError ? (
                   <p className="config-window-errors" role="alert">
-                    {saveError}
+                    {loadError}
                   </p>
                 ) : null}
-                {saved && !hasSyntaxErrors && !saveError ? (
+                {loaded && !hasSyntaxErrors && !loadError ? (
                   <p className="config-window-saved">
-                    Configuration saved on host
+                    Configuration loaded from Google Drive
                   </p>
                 ) : null}
               </div>

@@ -157,13 +157,14 @@ test("server-renders the host-configured dashboard", async () => {
   assert.match(html, /Current Task[\s\S]*?Next Task/);
   // Without SMARTSHEET_ACCESS_TOKEN, schedule falls back to static revisions —
   // never wipe Current/Next Task into an unlinked Error state.
+  // Current/Next Task must not themselves render the Error flag.
   assert.doesNotMatch(
     html,
-    /Current Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
+    /task-hover-trigger--current[\s\S]*?metric-task-name metric-source-flag--error/,
   );
   assert.doesNotMatch(
     html,
-    /Next Task[\s\S]*?metric-task-name[\s\S]*?>Error</,
+    /task-hover-trigger--next[\s\S]*?metric-task-name metric-source-flag--error/,
   );
   // Today (late Jul 2026): Schematic is Current; Layout is Next (not Rev B Requirements).
   assert.match(html, /Schematic/);
@@ -352,10 +353,25 @@ test("keeps dashboard metadata and project data in source", async () => {
   ]);
   assert.match(siteConfigRoute, /getPublicSiteConfig/);
   assert.match(siteConfigRoute, /updateSiteAdminConfig/);
+  assert.match(siteConfigRoute, /x-esad-google-access-token/);
+  assert.match(siteConfigRoute, /googleDocWritten/);
+  assert.match(siteConfigRoute, /forceGoogleDocRefresh:\s*true/);
+  assert.match(siteConfigRoute, /dashboardConfigSource/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
+  assert.match(siteConfigClient, /x-esad-google-access-token/);
   assert.match(siteConfigClient, /\/api\/site-config/);
+  const companyAuthGate = await readFile(
+    new URL("../app/company-auth-gate.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    companyAuthGate,
+    /googleapis\.com\/auth\/documents/,
+  );
+  assert.match(companyAuthGate, /setGoogleAccessToken/);
+  assert.match(companyAuthGate, /refreshSiteConfigFromHost/);
   assert.match(programConfigStore, /persistSiteConfigPatch/);
   assert.match(programConfigStore, /programConfig:\s*next/);
   assert.match(dashboardConfigStore, /persistSiteConfigPatch/);
@@ -397,10 +413,16 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(siteConfigStoreSource, /readPersistedConfig/);
-  assert.match(
-    siteConfigStoreSource,
-    /Prefer the host file whenever it exists/,
+  assert.match(siteConfigStoreSource, /readProgramConfigFromGoogleDoc/);
+  assert.match(siteConfigStoreSource, /writeProgramConfigToGoogleDoc/);
+  assert.match(siteConfigStoreSource, /forceGoogleDocRefresh/);
+  assert.match(siteConfigStoreSource, /Dashboard Configuration/);
+  assert.match(pageSourceForHost, /forceGoogleDocRefresh:\s*true/);
+  const layoutSource = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
   );
+  assert.match(layoutSource, /forceGoogleDocRefresh:\s*true/);
 
   const themesSource = await readFile(
     new URL("../lib/themes.ts", import.meta.url),
@@ -533,7 +555,24 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /status LED/);
   assert.match(programConfigWindow, /metric labels/);
   assert.match(programConfigWindow, /Open Tasks, Over/);
-  assert.match(programConfigWindow, /Saved on the host/);
+  assert.match(programConfigWindow, /Load Config File/);
+  assert.match(programConfigWindow, /Load Config File…/);
+  assert.match(programConfigWindow, /reloadProgramConfigFromGoogleDoc/);
+  assert.match(programConfigWindow, /readOnly/);
+  assert.doesNotMatch(programConfigWindow, /\bwriteProgramConfig\b/);
+  assert.doesNotMatch(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(programConfigWindow, /Google Drive/);
+  assert.match(
+    programConfigWindow,
+    /15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/,
+  );
+  assert.match(programConfigWindow, /tab=t\.0/);
+  const programConfigStoreSource = await readFile(
+    new URL("../app/program-config-store.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(programConfigStoreSource, /reloadProgramConfigFromGoogleDoc/);
+  assert.match(programConfigStoreSource, /refreshSiteConfigFromHost/);
   assert.match(projectPanel, /metricDisplayLabel/);
   assert.match(programConfigSource, /openTasksLabel/);
   assert.match(programConfigSource, /overDueLabel/);

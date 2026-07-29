@@ -25,8 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
 
-  // Title / identity always come from host Dashboard Configuration.
-  const siteConfig = await loadSiteAdminConfig();
+  // Title / identity always come from the shared Google Doc Dashboard Configuration.
+  const siteConfig = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
   const title =
     siteConfig.programConfig.dashboardName.trim() || "Engineering Dashboard";
   const lead = siteConfig.programConfig.programLead.trim();

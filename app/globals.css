@@ -398,7 +398,8 @@ body {
 .admin-login-submit,
 .config-window-trigger,
 .config-window-close,
-.config-window-save {
+.config-window-save,
+.config-window-load {
   border: 1px solid #3b79ae;
   background: rgba(10, 28, 46, .92);
   color: #d7ecff;
@@ -414,7 +415,8 @@ body {
 .admin-login-button,
 .config-window-trigger,
 .config-window-close,
-.config-window-save {
+.config-window-save,
+.config-window-load {
   padding: 8px 12px;
 }
 
@@ -422,13 +424,15 @@ body {
 .admin-login-submit:hover,
 .config-window-trigger:hover,
 .config-window-close:hover,
-.config-window-save:hover {
+.config-window-save:hover,
+.config-window-load:hover {
   border-color: #74b7ff;
   background: rgba(18, 48, 74, .96);
   color: #fff;
 }
 
-.config-window-save {
+.config-window-save,
+.config-window-load {
   border-color: #3d9a6a;
   color: #c8f0d8;
 }
@@ -487,6 +491,16 @@ body {
   border-color: #74b7ff;
 }
 
+.config-window-editor--readonly {
+  cursor: default;
+  opacity: 0.96;
+}
+
+.config-window-editor--readonly:focus {
+  outline: 1px solid rgba(116, 183, 255, 0.45);
+  border-color: rgba(116, 183, 255, 0.55);
+}
+
 .config-window-error,
 .config-window-errors,
 .config-window-saved {
@@ -510,7 +524,8 @@ body {
   box-shadow: 0 0 0 1px rgba(196, 91, 91, .35);
 }
 
-.config-window-save:disabled {
+.config-window-save:disabled,
+.config-window-load:disabled {
   opacity: .45;
   cursor: not-allowed;
 }

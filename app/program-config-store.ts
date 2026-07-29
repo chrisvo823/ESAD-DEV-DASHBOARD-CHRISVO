@@ -10,6 +10,7 @@ import {
   hydrateSiteConfigFromHost,
   persistSiteConfigPatch,
   readCachedProgramConfig,
+  refreshSiteConfigFromHost,
   subscribeSiteConfig,
 } from "./site-config-client";
 
@@ -24,6 +25,22 @@ export function readProgramConfig(
   return readCachedProgramConfig();
 }
 
+/**
+ * Force-pull Dashboard Configuration from the shared Google Doc and apply it
+ * to the live Hero for all users on this session.
+ */
+export async function reloadProgramConfigFromGoogleDoc(): Promise<ProgramConfig> {
+  const next = await refreshSiteConfigFromHost();
+  const config = next.programConfig;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(PROGRAM_CONFIG_EVENT, { detail: { config } }),
+    );
+  }
+  return config;
+}
+
+/** @deprecated Dashboard Configuration is Google Doc–sourced and not Admin-editable. */
 export async function writeProgramConfig(
   config: ProgramConfig,
 ): Promise<ProgramConfig> {
