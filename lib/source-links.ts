@@ -25,6 +25,8 @@ export type SmartsheetSource =
 /** Display labels for blank / unusable metric sources. */
 export const METRIC_SOURCE_EMPTY = "Empty";
 export const METRIC_SOURCE_ERROR = "Error";
+/** Valid Google Sheet link, but CSV/content could not be loaded. */
+export const METRIC_SOURCE_UNAVAILABLE = "Unavailable";
 
 export function isBlankLink(link: string | null | undefined): boolean {
   return link == null || link.trim() === "";

@@ -31,6 +31,7 @@ import {
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
+  METRIC_SOURCE_UNAVAILABLE,
   hrefMatchesSmartsheetConfig,
   resolveGoogleDriveSource,
   resolveSmartsheetSource,
@@ -63,7 +64,8 @@ function isSchedulePlaceholder(valueText: string | undefined): boolean {
     !valueText ||
     valueText === "—" ||
     valueText === METRIC_SOURCE_EMPTY ||
-    valueText === METRIC_SOURCE_ERROR
+    valueText === METRIC_SOURCE_ERROR ||
+    valueText === METRIC_SOURCE_UNAVAILABLE
   );
 }
 
@@ -311,13 +313,16 @@ export function ProjectPanel({
           })();
           const isSourceFlag =
             metric.valueText === METRIC_SOURCE_EMPTY ||
-            metric.valueText === METRIC_SOURCE_ERROR;
+            metric.valueText === METRIC_SOURCE_ERROR ||
+            metric.valueText === METRIC_SOURCE_UNAVAILABLE;
           const sourceFlagClass =
             metric.valueText === METRIC_SOURCE_ERROR
               ? " metric-source-flag metric-source-flag--error"
-              : metric.valueText === METRIC_SOURCE_EMPTY
-                ? " metric-source-flag metric-source-flag--empty"
-                : "";
+              : metric.valueText === METRIC_SOURCE_UNAVAILABLE
+                ? " metric-source-flag metric-source-flag--unavailable"
+                : metric.valueText === METRIC_SOURCE_EMPTY
+                  ? " metric-source-flag metric-source-flag--empty"
+                  : "";
 
           return (
             <div

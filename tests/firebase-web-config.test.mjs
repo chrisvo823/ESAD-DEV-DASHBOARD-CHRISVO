@@ -34,6 +34,8 @@ test("firebase client hydrates from layout inject and public API", async () => {
   assert.match(client, /ensureFirebaseAuth/);
   assert.match(client, /configureFirebaseWebConfig/);
   assert.match(api, /readFirebaseWebConfigFromEnv/);
+  assert.doesNotMatch(api, /status:\s*503/);
+  assert.match(api, /config:\s*null/);
   assert.match(layout, /__ESAD_FIREBASE_CONFIG__/);
   assert.match(vite, /firebaseVars/);
   assert.match(vite, /NEXT_PUBLIC_FIREBASE_API_KEY/);

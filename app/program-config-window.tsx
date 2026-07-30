@@ -67,9 +67,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     try {
       const picked = await pickAdminConfigDriveFile("dashboard");
       if (!picked) {
-        setLoadError(
-          "A Dashboard Configuration file is required. Use Load Config File… and select a file from the popup.",
-        );
+        // User cancelled the file picker / Drive login — not an error.
         return;
       }
       const next = await loadProgramConfigFromDriveFile(picked.id);

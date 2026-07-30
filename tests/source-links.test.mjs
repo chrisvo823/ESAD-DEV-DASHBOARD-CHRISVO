@@ -8,6 +8,7 @@ import {
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
+  METRIC_SOURCE_UNAVAILABLE,
   hrefMatchesSmartsheetConfig,
   parseGoogleSheetIdFromLink,
   parseSmartsheetPermalink,
@@ -19,6 +20,7 @@ import {
 import {
   scheduleMetricsForSourceStatus,
   taskMetricsForSourceStatus,
+  taskMetricsForUnavailableSheet,
 } from "../lib/metric-source-state.ts";
 
 test("parses Google Spreadsheet ids from Drive / Sheets links", () => {
@@ -119,7 +121,7 @@ test("Configuration Smartsheet Link drives Current/Next Task hrefs", () => {
   assert.equal(linked.next.href, AVIONICS_MASTER_SCHEDULE_PERMALINK);
 });
 
-test("builds Empty and Error metric stubs", () => {
+test("builds Empty, Error, and Unavailable metric stubs", () => {
   const emptyTasks = taskMetricsForSourceStatus("empty");
   assert.equal(emptyTasks.open.valueText, METRIC_SOURCE_EMPTY);
   assert.equal(emptyTasks.overdue.valueText, METRIC_SOURCE_EMPTY);
@@ -129,4 +131,14 @@ test("builds Empty and Error metric stubs", () => {
   assert.equal(errorSchedule.current.valueText, METRIC_SOURCE_ERROR);
   assert.equal(errorSchedule.next.valueText, METRIC_SOURCE_ERROR);
   assert.equal(errorSchedule.current.href, undefined);
+
+  const unavailable = taskMetricsForUnavailableSheet(
+    "https://docs.google.com/spreadsheets/d/abc/edit",
+  );
+  assert.equal(unavailable.open.valueText, METRIC_SOURCE_UNAVAILABLE);
+  assert.equal(unavailable.overdue.valueText, METRIC_SOURCE_UNAVAILABLE);
+  assert.equal(
+    unavailable.open.href,
+    "https://docs.google.com/spreadsheets/d/abc/edit",
+  );
 });
