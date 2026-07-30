@@ -142,7 +142,7 @@ export function DriveFilePickerModal({
           </button>
         </header>
         <p className="drive-file-picker-help">
-          Files from the shared Admin Google Drive folder. Select one, then
+          Google Docs in the shared Admin Drive folder. Select one, then
           confirm.{" "}
           <a
             href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
