@@ -3,6 +3,7 @@ import type { DsbScheduleRevision } from "./dsb-schedule";
 import {
   METRIC_SOURCE_EMPTY,
   METRIC_SOURCE_ERROR,
+  METRIC_SOURCE_UNAVAILABLE,
   resolveGoogleDriveSource,
   resolveSmartsheetSource,
   type MetricSourceStatus,
@@ -76,6 +77,25 @@ export function taskMetricsForSourceStatus(
     barLabel: undefined,
     detailItems: [],
     href: undefined,
+  };
+  return { open: { ...stub }, overdue: { ...stub } };
+}
+
+/**
+ * Valid Google Drive / Sheets link whose CSV could not be loaded
+ * (private sheet, empty export, network failure).
+ */
+export function taskMetricsForUnavailableSheet(
+  href?: string,
+): { open: TaskMetricPatch; overdue: TaskMetricPatch } {
+  const stub: TaskMetricPatch = {
+    value: 0,
+    valueText: METRIC_SOURCE_UNAVAILABLE,
+    hideValueBar: true,
+    barPercent: undefined,
+    barLabel: undefined,
+    detailItems: [],
+    href,
   };
   return { open: { ...stub }, overdue: { ...stub } };
 }

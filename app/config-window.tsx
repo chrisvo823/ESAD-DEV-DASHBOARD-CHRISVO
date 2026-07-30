@@ -54,9 +54,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     try {
       const picked = await pickAdminConfigDriveFile("card");
       if (!picked) {
-        setLoadError(
-          "A Card Configuration file is required. Use Load Config and select a file from the popup.",
-        );
+        // User cancelled the file picker / Drive login — not an error.
         return;
       }
       const next = await loadCardConfigFromDriveFile(picked.id, base);

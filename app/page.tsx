@@ -40,6 +40,7 @@ import {
 import {
   scheduleMetricsForSourceStatus,
   taskMetricsForSourceStatus,
+  taskMetricsForUnavailableSheet,
 } from "../lib/metric-source-state";
 import {
   resolveGoogleDriveSource,
@@ -845,12 +846,12 @@ function applyLiveProjectStats(
       };
     } else {
       // Valid Google Drive Link but sheet content could not be loaded.
-      const stubs = taskMetricsForSourceStatus("invalid");
+      const stubs = taskMetricsForUnavailableSheet(driveSource.link);
       nextProject = {
         ...nextProject,
         status: statusFromOverdueCount(0),
         taskProgressPercent: 0,
-        taskProgressCaption: "Google Drive Link error",
+        taskProgressCaption: "Google Drive sheet unavailable",
         metrics: nextProject.metrics.map((metric) => {
           if (metric.label === "Open Tasks") {
             return { ...metric, ...stubs.open };

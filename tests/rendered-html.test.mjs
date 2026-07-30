@@ -542,6 +542,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   );
   assert.match(sourceLinks, /METRIC_SOURCE_EMPTY = "Empty"/);
   assert.match(sourceLinks, /METRIC_SOURCE_ERROR = "Error"/);
+  assert.match(sourceLinks, /METRIC_SOURCE_UNAVAILABLE = "Unavailable"/);
   assert.match(sourceLinks, /resolveGoogleDriveSource/);
   assert.match(sourceLinks, /resolveSmartsheetSource/);
   assert.match(sourceLinks, /smartsheetHrefFromConfig/);

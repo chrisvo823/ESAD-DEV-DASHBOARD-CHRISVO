@@ -2,6 +2,7 @@ import type { CustomCardRecord } from "../lib/custom-cards";
 import {
   scheduleMetricsForSourceStatus,
   taskMetricsForSourceStatus,
+  taskMetricsForUnavailableSheet,
 } from "../lib/metric-source-state";
 import {
   resolveGoogleDriveSource,
@@ -19,15 +20,13 @@ export function customCardToProject(
   const smartsheetHref = smartsheetHrefFromConfig(card.config.smartsheetLink);
 
   // Custom cards do not server-fetch sheet/schedule rows yet.
-  // Blank → Empty; invalid URL → Error; valid Smartsheet Link → linked "—".
-  const taskStatus =
-    driveSource.status === "ok" ? "invalid" : driveSource.status;
+  // Blank → Empty; invalid URL → Error; valid link → Unavailable until fetched.
   const scheduleStatus = smartsheetSource.status;
 
-  const taskStubs = taskMetricsForSourceStatus(
-    taskStatus,
-    driveSource.status === "ok" ? driveSource.link : undefined,
-  );
+  const taskStubs =
+    driveSource.status === "ok"
+      ? taskMetricsForUnavailableSheet(driveSource.link)
+      : taskMetricsForSourceStatus(driveSource.status);
   const scheduleStubs = scheduleMetricsForSourceStatus(
     scheduleStatus,
     smartsheetHref ?? undefined,
@@ -60,7 +59,9 @@ export function customCardToProject(
     taskProgressCaption:
       driveSource.status === "empty"
         ? "Google Drive Link empty"
-        : "Google Drive Link error",
+        : driveSource.status === "ok"
+          ? "Google Drive sheet unavailable"
+          : "Google Drive Link error",
     updated: "—",
     config: card.config,
   };

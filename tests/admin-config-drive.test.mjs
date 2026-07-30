@@ -132,6 +132,11 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(programWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programWindow, /file-selection[\s\n]+popup/);
   assert.match(programWindow, /noteConfigLoadedAndDeployIfReady/);
+  assert.match(programWindow, /User cancelled the file picker/);
+  assert.doesNotMatch(
+    programWindow,
+    /A Dashboard Configuration file is required/,
+  );
   assert.match(
     programWindow,
     /<button[\s\S]*className="config-window-load"[\s\S]*Load Config File…/,
@@ -141,6 +146,11 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
   assert.match(configWindow, /file-selection[\s\n]+popup/);
+  assert.match(configWindow, /User cancelled the file picker/);
+  assert.doesNotMatch(
+    configWindow,
+    /A Card Configuration file is required/,
+  );
   assert.match(
     configWindow,
     /<button[\s\S]*className="config-window-load"[\s\S]*Load Config/,

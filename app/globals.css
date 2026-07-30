@@ -1326,6 +1326,11 @@ a.config-window-load[aria-disabled="true"] {
   font-weight: 750;
 }
 
+.metric-source-flag--unavailable {
+  color: #f0c674;
+  font-weight: 650;
+}
+
 .metric-link {
   color: inherit;
   text-decoration: underline;

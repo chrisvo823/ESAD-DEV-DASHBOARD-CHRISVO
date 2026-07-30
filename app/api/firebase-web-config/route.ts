@@ -9,15 +9,14 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const config = readFirebaseWebConfigFromEnv();
+  // 200 with null config — missing Firebase is a normal preview state, not a
+  // server failure (avoids noisy browser console 503s).
   if (!config) {
-    return NextResponse.json(
-      {
-        config: null,
-        error:
-          "Firebase Auth is not configured. Set NEXT_PUBLIC_FIREBASE_* or FIREBASE_WEB_CONFIG.",
-      },
-      { status: 503 },
-    );
+    return NextResponse.json({
+      config: null,
+      error:
+        "Firebase Auth is not configured. Set NEXT_PUBLIC_FIREBASE_* or FIREBASE_WEB_CONFIG.",
+    });
   }
   return NextResponse.json({ config });
 }

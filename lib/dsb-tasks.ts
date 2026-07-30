@@ -3,6 +3,7 @@ import {
   googleSheetCsvUrl,
   googleSheetEditUrl,
 } from "./esad-projects";
+import { resolveGoogleDocsAccessToken } from "./google-doc-dashboard-config";
 import { parseGoogleSheetIdFromLink } from "./source-links";
 
 export const DSB_SHEET_ID =
@@ -419,6 +420,32 @@ export function countOpenTasksFromCsv(
   };
 }
 
+async function fetchSheetCsvViaDriveApi(
+  sheetId: string,
+  fetchImpl: typeof fetch,
+): Promise<string | null> {
+  try {
+    const accessToken = await resolveGoogleDocsAccessToken();
+    if (!accessToken) return null;
+    const response = await fetchImpl(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(sheetId)}/export?mimeType=text/csv`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "text/csv,text/plain,*/*",
+        },
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) return null;
+    const csvText = await response.text();
+    if (!csvText.trim() || csvText.includes("<!DOCTYPE html>")) return null;
+    return csvText;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchProjectTaskStats(
   sheetId: string,
   fetchImpl: typeof fetch = fetch,
@@ -432,11 +459,13 @@ export async function fetchProjectTaskStats(
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      return null;
+    let csvText =
+      response.ok ? await response.text() : "";
+    if (!csvText.trim() || csvText.includes("<!DOCTYPE html>")) {
+      // Public export empty/blocked — try service-account / env Drive export.
+      csvText = (await fetchSheetCsvViaDriveApi(sheetId, fetchImpl)) ?? "";
     }
 
-    const csvText = await response.text();
     if (!csvText.trim() || csvText.includes("<!DOCTYPE html>")) {
       return null;
     }
