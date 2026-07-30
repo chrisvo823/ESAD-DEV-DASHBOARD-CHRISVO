@@ -39,6 +39,8 @@ test("firebase client hydrates from layout inject and public API", async () => {
   assert.match(vite, /NEXT_PUBLIC_FIREBASE_API_KEY/);
   assert.match(authGate, /ensureFirebaseWebConfig/);
   assert.match(authGate, /ensureFirebaseAuth/);
+  assert.match(authGate, /Checking Google sign-in/);
+  assert.match(authGate, /Preview mode — Firebase Auth is not configured/);
   assert.match(driveLogin, /Sign in with Google Drive/);
   assert.match(driveLogin, /drive-login-modal/);
 });
