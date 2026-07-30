@@ -59,8 +59,8 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.doesNotMatch(configWindow, /\bSave\b/);
   assert.doesNotMatch(configWindow, /editable card fields/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
-  assert.doesNotMatch(configWindow, /config-window-save/);
-  assert.doesNotMatch(globalsCss, /\.config-window-save\b/);
+  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
+  assert.doesNotMatch(globalsCss, /\.config-window-save(?!d)/);
   // Sites / Cloudflare Workers deploy via `npm run build` → vinext, not next.
   assert.match(packageJson, /"build": "vinext build"/);
   assert.match(packageJson, /"dev": "vinext dev"/);
