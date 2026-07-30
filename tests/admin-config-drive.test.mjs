@@ -32,17 +32,20 @@ test("parses Google Doc and Drive file ids from pasted URLs", async () => {
 });
 
 test("Load Config and Card Configuration wire to the Drive folder picker", async () => {
-  const [programWindow, configWindow, loadFromDrive] = await Promise.all([
-    readFile(
-      new URL("../app/program-config-window.tsx", import.meta.url),
-      "utf8",
-    ),
-    readFile(new URL("../app/config-window.tsx", import.meta.url), "utf8"),
-    readFile(
-      new URL("../app/load-config-from-drive.ts", import.meta.url),
-      "utf8",
-    ),
-  ]);
+  const [programWindow, configWindow, loadFromDrive, packageJson, globalsCss] =
+    await Promise.all([
+      readFile(
+        new URL("../app/program-config-window.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../app/config-window.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/load-config-from-drive.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../package.json", import.meta.url), "utf8"),
+      readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    ]);
   assert.match(programWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(programWindow, /pickAdminConfigDriveFile\("dashboard"/);
   assert.match(programWindow, /folderAlreadyOpen: true/);
@@ -55,6 +58,12 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(configWindow, /<a[\s\S]*className="config-window-load"/);
   assert.doesNotMatch(configWindow, /\bSave\b/);
   assert.doesNotMatch(configWindow, /editable card fields/);
+  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
+  assert.doesNotMatch(globalsCss, /\.config-window-save(?!d)/);
+  // Sites / Cloudflare Workers deploy via `npm run build` → vinext, not next.
+  assert.match(packageJson, /"build": "vinext build"/);
+  assert.match(packageJson, /"dev": "vinext dev"/);
   assert.match(loadFromDrive, /drive\/v3\/files\//);
   assert.match(loadFromDrive, /export\?mimeType=text\/plain/);
 });
