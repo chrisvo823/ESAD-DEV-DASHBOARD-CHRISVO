@@ -53,6 +53,7 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(programWindow, /folderAlreadyOpen: true/);
   assert.match(programWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programWindow, /requires selecting a Dashboard Configuration file/);
+  assert.match(programWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(
     programWindow,
     /<button[\s\S]*className="config-window-load"[\s\S]*Load Config File…/,
@@ -60,6 +61,7 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(configWindow, /openAdminConfigDriveFolder\(\)/);
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
+  assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
   assert.match(configWindow, /requires selecting a Card Configuration file/);
   assert.match(

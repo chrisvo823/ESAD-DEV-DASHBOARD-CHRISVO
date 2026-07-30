@@ -7,6 +7,7 @@ import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { syncCustomCardConfig } from "./custom-cards-store";
 import { writeDashboardConfig } from "./dashboard-config-store";
 import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
+import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
 import {
   openAdminConfigDriveFolder,
   pickAdminConfigDriveFile,
@@ -31,6 +32,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deployMessage, setDeployMessage] = useState<string | null>(null);
   const titleId = useId();
   const errorId = useId();
 
@@ -71,9 +73,12 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
         await writeDashboardConfig(next);
       }
       applyConfig(next);
+      const deploy = await noteConfigLoadedAndDeployIfReady({ card: next });
+      setDeployMessage(deploy.message);
       setLoaded(true);
     } catch (err) {
       setLoaded(false);
+      setDeployMessage(null);
       setLoadError(
         err instanceof Error
           ? err.message
@@ -89,6 +94,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     applyConfig(config);
     setLoaded(false);
     setLoadError(null);
+    setDeployMessage(null);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -165,8 +171,9 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ) and requires selecting a Card Configuration file. Loaded
-                  values are saved on the host for all users. Each value must be
+                  ) and requires selecting a Card Configuration file. After both
+                  Dashboard and Card Configuration files are loaded, the
+                  combined config is deployed to all users. Each value must be
                   inside quotes, e.g. Board Name: &quot;Digital Safety
                   Board&quot;.
                 </p>
@@ -199,7 +206,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                 ) : null}
                 {loaded && !hasSyntaxErrors && !loadError ? (
                   <p className="config-window-saved">
-                    Configuration loaded from Google Drive
+                    {deployMessage ??
+                      "Configuration loaded from Google Drive"}
                   </p>
                 ) : null}
               </div>

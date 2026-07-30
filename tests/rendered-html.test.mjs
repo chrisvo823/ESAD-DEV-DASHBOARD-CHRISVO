@@ -291,12 +291,20 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(dashboardRefresh, /DASHBOARD_REFRESH_INTERVAL_MS/);
-  assert.match(dashboardRefresh, /=\s*1_000/);
+  assert.match(dashboardRefresh, /=\s*3 \* 60 \* 1000/);
+  assert.doesNotMatch(dashboardRefresh, /=\s*1_000\b/);
   assert.match(dashboardRefresh, /router\.refresh\(\)/);
   assert.match(dashboardRefresh, /refreshSiteConfigFromHost/);
   assert.match(dashboardRefresh, /visibilitychange/);
   assert.match(dashboardRefresh, /inFlightRef/);
   assert.match(dashboardRefresh, /Google Drive/);
+  const configDeploy = await readFile(
+    new URL("../app/config-deploy.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(configDeploy, /noteConfigLoadedAndDeployIfReady/);
+  assert.match(configDeploy, /persistSiteConfigPatch/);
+  assert.match(configDeploy, /deployed to all users/i);
 
   const customCardsSection = await readFile(
     new URL("../app/custom-cards-section.tsx", import.meta.url),
@@ -577,6 +585,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programConfigWindow, /writeProgramConfig/);
+  assert.match(programConfigWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(programConfigWindow, /readOnly/);
   assert.doesNotMatch(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(programConfigWindow, /Google Drive/);
@@ -625,6 +634,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
+  assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
   assert.doesNotMatch(configWindow, /\bSave\b/);

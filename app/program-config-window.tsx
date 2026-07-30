@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
+import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
 import {
   openAdminConfigDriveFolder,
   pickAdminConfigDriveFile,
@@ -36,6 +37,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deployMessage, setDeployMessage] = useState<string | null>(null);
   const titleId = useId();
   const identityEditorId = useId();
   const ledEditorId = useId();
@@ -80,9 +82,14 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
       const next = await loadProgramConfigFromDriveFile(picked.id);
       await writeProgramConfig(next);
       applyConfig(next);
+      const deploy = await noteConfigLoadedAndDeployIfReady({
+        dashboard: next,
+      });
+      setDeployMessage(deploy.message);
       setLoaded(true);
     } catch (err) {
       setLoaded(false);
+      setDeployMessage(null);
       setLoadError(
         err instanceof Error
           ? err.message
@@ -98,6 +105,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     applyConfig(config);
     setLoaded(false);
     setLoadError(null);
+    setDeployMessage(null);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -177,7 +185,9 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
                   ) and requires selecting a Dashboard Configuration file.
-                  Themes stay in this browser. Each value must be inside quotes.
+                  After both Dashboard and Card Configuration files are loaded,
+                  the combined config is deployed to all users. Themes stay in
+                  this browser. Each value must be inside quotes.
                   Open Tasks, Over Due, Current Task, and Next Task set the
                   card metric label text. Card status LED thresholds use Over
                   Due counts: Green: &quot;1&quot; lights green when overdue is
@@ -239,7 +249,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 ) : null}
                 {loaded && !hasSyntaxErrors && !loadError ? (
                   <p className="config-window-saved">
-                    Configuration loaded from Google Drive
+                    {deployMessage ??
+                      "Configuration loaded from Google Drive"}
                   </p>
                 ) : null}
               </div>
