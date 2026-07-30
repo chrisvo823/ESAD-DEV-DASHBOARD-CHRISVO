@@ -240,7 +240,7 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
   return hydratePromise;
 }
 
-/** Force re-fetch host Admin config (used by the 5-minute dashboard refresh). */
+/** Force re-fetch host Admin config (used by the 1-second dashboard refresh). */
 export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
   // Keep current values visible while re-fetching from the Google Doc / host.
   hydratePromise = null;

@@ -291,10 +291,12 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(dashboardRefresh, /DASHBOARD_REFRESH_INTERVAL_MS/);
-  assert.match(dashboardRefresh, /5 \* 60 \* 1000/);
+  assert.match(dashboardRefresh, /=\s*1_000/);
   assert.match(dashboardRefresh, /router\.refresh\(\)/);
   assert.match(dashboardRefresh, /refreshSiteConfigFromHost/);
   assert.match(dashboardRefresh, /visibilitychange/);
+  assert.match(dashboardRefresh, /inFlightRef/);
+  assert.match(dashboardRefresh, /Google Drive/);
 
   const customCardsSection = await readFile(
     new URL("../app/custom-cards-section.tsx", import.meta.url),

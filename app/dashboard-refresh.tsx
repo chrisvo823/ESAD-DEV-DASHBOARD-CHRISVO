@@ -4,32 +4,38 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { refreshSiteConfigFromHost } from "./site-config-client";
 
-/** How often the dashboard re-pulls card data (Google Sheets + Smartsheet + host config). */
-export const DASHBOARD_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+/** How often the dashboard re-pulls Google Drive config + card data. */
+export const DASHBOARD_REFRESH_INTERVAL_MS = 1_000;
 
 /**
- * Periodically refresh the server-rendered dashboard and host Admin card config.
- * Uses Next.js router.refresh() so RSC data (Open Tasks, Over Due, Current/Next)
- * is re-fetched without a full browser reload.
+ * Periodically refresh host Admin config from Google Drive and re-render
+ * server card metrics (Google Sheets / Smartsheet). Uses Next.js
+ * router.refresh() so RSC data is re-fetched without a full browser reload.
  */
 export function DashboardRefresh() {
   const router = useRouter();
   const lastRefreshAtRef = useRef(0);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     lastRefreshAtRef.current = Date.now();
 
     async function refreshDashboard() {
-      if (cancelled) return;
+      if (cancelled || inFlightRef.current) return;
+      inFlightRef.current = true;
       lastRefreshAtRef.current = Date.now();
       try {
-        await refreshSiteConfigFromHost();
-      } catch {
-        // Host config refresh is best-effort; still refresh RSC card metrics.
-      }
-      if (!cancelled) {
-        router.refresh();
+        try {
+          await refreshSiteConfigFromHost();
+        } catch {
+          // Host / Google Drive config refresh is best-effort; still refresh RSC.
+        }
+        if (!cancelled) {
+          router.refresh();
+        }
+      } finally {
+        inFlightRef.current = false;
       }
     }
 
