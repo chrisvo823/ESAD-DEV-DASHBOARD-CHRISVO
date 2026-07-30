@@ -29,6 +29,8 @@ test("parses Google Doc and Drive file ids from pasted URLs", async () => {
   assert.match(source, /promptForDriveFile/);
   assert.match(source, /folderAlreadyOpen/);
   assert.match(source, /createElement\("a"\)/);
+  assert.match(source, /A file must be selected from the Google Drive folder/);
+  assert.match(source, /A file selection is required/);
 });
 
 test("Load Config and Card Configuration wire to the Drive folder picker", async () => {
@@ -46,16 +48,33 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     ]);
-  assert.match(programWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
+  assert.match(programWindow, /openAdminConfigDriveFolder\(\)/);
   assert.match(programWindow, /pickAdminConfigDriveFile\("dashboard"/);
   assert.match(programWindow, /folderAlreadyOpen: true/);
   assert.match(programWindow, /loadProgramConfigFromDriveFile/);
-  assert.match(programWindow, /<a[\s\S]*className="config-window-load"/);
-  assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
+  assert.match(programWindow, /requires selecting a Dashboard Configuration file/);
+  assert.match(
+    programWindow,
+    /<button[\s\S]*className="config-window-load"[\s\S]*Load Config File…/,
+  );
+  assert.match(configWindow, /openAdminConfigDriveFolder\(\)/);
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
-  assert.match(configWindow, /<a[\s\S]*className="config-window-load"/);
+  assert.match(configWindow, /requires selecting a Card Configuration file/);
+  assert.match(
+    configWindow,
+    /<button[\s\S]*className="config-window-load"[\s\S]*Load Config/,
+  );
+  // Card Configuration trigger opens the dialog only — Drive opens on Load Config.
+  assert.match(
+    configWindow,
+    /<button\s+type="button"\s+className="config-window-trigger"\s+onClick=\{\(\) => setOpen\(true\)\}\s*>\s*Configuration\s*<\/button>/,
+  );
+  assert.doesNotMatch(
+    configWindow,
+    /<a[\s\S]*className="config-window-trigger"/,
+  );
   assert.doesNotMatch(configWindow, /\bSave\b/);
   assert.doesNotMatch(configWindow, /editable card fields/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);

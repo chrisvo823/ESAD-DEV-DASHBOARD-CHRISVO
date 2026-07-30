@@ -571,8 +571,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Load Config File/);
   assert.match(programConfigWindow, /Load Config File…/);
+  assert.match(programConfigWindow, /openAdminConfigDriveFolder/);
+  assert.match(programConfigWindow, /requires selecting a Dashboard Configuration file/);
   assert.match(programConfigWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
-  assert.match(programConfigWindow, /Load Config File…/);
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programConfigWindow, /writeProgramConfig/);
@@ -602,6 +603,10 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(openAdminConfigDriveSource, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(openAdminConfigDriveSource, /createElement\("a"\)/);
   assert.match(openAdminConfigDriveSource, /setParent/);
+  assert.match(
+    openAdminConfigDriveSource,
+    /A file must be selected from the Google Drive folder/,
+  );
   const programConfigStoreSource = await readFile(
     new URL("../app/program-config-store.ts", import.meta.url),
     "utf8",
@@ -615,6 +620,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /nextTaskLabel/);
   assert.match(programConfigSource, /Open Tasks: "/);
   assert.match(programConfigSource, /Current Task: "/);
+  assert.match(configWindow, /openAdminConfigDriveFolder/);
+  assert.match(configWindow, /requires selecting a Card Configuration file/);
   assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
@@ -627,6 +634,14 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(configWindow, /readOnly/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.doesNotMatch(
+    configWindow,
+    /<a[\s\S]*className="config-window-trigger"/,
+  );
+  assert.match(
+    configWindow,
+    /<button\s+type="button"\s+className="config-window-trigger"/,
+  );
   assert.match(adminLoginsPanel, /running list of unique Google sign-ins/);
   assert.match(adminLoginsPanel, /summary\?\.users/);
   assert.match(page, /function HealthCore\(/);

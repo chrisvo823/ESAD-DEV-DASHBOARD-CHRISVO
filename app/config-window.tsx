@@ -7,7 +7,10 @@ import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { syncCustomCardConfig } from "./custom-cards-store";
 import { writeDashboardConfig } from "./dashboard-config-store";
 import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
-import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import {
+  openAdminConfigDriveFolder,
+  pickAdminConfigDriveFile,
+} from "./open-admin-config-drive";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import {
   formatDashboardConfigText,
@@ -46,17 +49,18 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   }
 
   async function handleLoadConfigFile(base: DashboardConfig = config) {
+    // Open Drive folder synchronously in the click path (popup-safe).
+    openAdminConfigDriveFolder();
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
-      // Folder opens via the native <a href> on the Load Config control.
       const picked = await pickAdminConfigDriveFile("card", {
         folderAlreadyOpen: true,
       });
       if (!picked) {
         setLoadError(
-          "No Card Configuration file selected. The Google Drive config folder was opened — use Load Config again to select a file.",
+          "A Card Configuration file is required. The Google Drive folder was opened — select a file (or paste its Doc URL) to continue.",
         );
         return;
       }
@@ -100,18 +104,13 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
 
   return (
     <>
-      <a
+      <button
+        type="button"
         className="config-window-trigger"
-        href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => {
-          // Native link opens Drive; also show the card Configuration dialog.
-          setOpen(true);
-        }}
+        onClick={() => setOpen(true)}
       >
         Configuration
-      </a>
+      </button>
       {mounted && open
         ? createPortal(
             <div
@@ -136,22 +135,16 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     </h3>
                   </div>
                   <div className="config-window-actions">
-                    <a
+                    <button
+                      type="button"
                       className="config-window-load"
-                      href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-disabled={loading}
-                      onClick={(event) => {
-                        if (loading) {
-                          event.preventDefault();
-                          return;
-                        }
+                      disabled={loading}
+                      onClick={() => {
                         void handleLoadConfigFile();
                       }}
                     >
                       {loading ? "Loading…" : "Load Config"}
-                    </a>
+                    </button>
                     <button
                       type="button"
                       className="config-window-close"
@@ -163,8 +156,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Read-only view of this card&apos;s Configuration.{" "}
-                  <strong>Load Config</strong> is a direct link to the shared
-                  Google Drive folder (
+                  <strong>Load Config</strong> opens the shared Google Drive
+                  folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -172,9 +165,10 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ) so Admin can select a Card Configuration file. Loaded values
-                  are saved on the host for all users. Each value must be inside
-                  quotes, e.g. Board Name: &quot;Digital Safety Board&quot;.
+                  ) and requires selecting a Card Configuration file. Loaded
+                  values are saved on the host for all users. Each value must be
+                  inside quotes, e.g. Board Name: &quot;Digital Safety
+                  Board&quot;.
                 </p>
                 <textarea
                   className={`config-window-editor config-window-editor--readonly${

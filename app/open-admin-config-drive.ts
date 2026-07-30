@@ -147,6 +147,10 @@ export function parseDriveFileIdInput(raw: string): string | null {
   return null;
 }
 
+/**
+ * Require Admin to paste a Google Doc / Drive file URL (or id) from the shared
+ * config folder. Re-prompts on invalid input; Cancel returns null.
+ */
 function promptForDriveFile(
   kind: AdminConfigDriveKind,
 ): PickedDriveFile | null {
@@ -154,18 +158,27 @@ function promptForDriveFile(
     kind === "dashboard"
       ? "Dashboard Configuration"
       : "Card Configuration";
-  const raw = window.prompt(
-    `Google Drive folder opened. Paste the ${label} Google Doc URL (or file id) from that folder:\n${ADMIN_CONFIG_DRIVE_FOLDER_URL}`,
-  );
-  if (raw == null) return null;
-  const id = parseDriveFileIdInput(raw);
-  if (!id) {
+  const message =
+    `A file must be selected from the Google Drive folder.\n\n` +
+    `Folder:\n${ADMIN_CONFIG_DRIVE_FOLDER_URL}\n\n` +
+    `Paste the ${label} Google Doc URL (or file id), then OK:`;
+
+  for (;;) {
+    const raw = window.prompt(message);
+    if (raw == null) return null;
+    const id = parseDriveFileIdInput(raw);
+    if (id) {
+      return {
+        id,
+        name: id,
+        mimeType: "application/vnd.google-apps.document",
+      };
+    }
     window.alert(
-      "That does not look like a Google Doc / Drive file URL or id. Open the config folder, copy the Doc link, and try again.",
+      "A file selection is required. That does not look like a Google Doc / Drive file URL or id.\n\n" +
+        `Open the folder, copy the Doc link, and paste it here:\n${ADMIN_CONFIG_DRIVE_FOLDER_URL}`,
     );
-    return null;
   }
-  return { id, name: id, mimeType: "application/vnd.google-apps.document" };
 }
 
 export type PickAdminConfigDriveOptions = {
@@ -174,9 +187,11 @@ export type PickAdminConfigDriveOptions = {
 };
 
 /**
- * Let Admin select a Dashboard/Card config file from the shared Drive folder.
- * Call `openAdminConfigDriveFolder()` synchronously in the click handler first
- * so the folder tab is not blocked; then call this to pick/load the file.
+ * Open the shared Admin config Drive folder (unless already open) and require
+ * Admin to select a Dashboard/Card configuration file from it.
+ *
+ * Prefer calling `openAdminConfigDriveFolder()` synchronously in the click
+ * handler first so the folder tab is not blocked by popup policies.
  */
 export async function pickAdminConfigDriveFile(
   kind: AdminConfigDriveKind,
@@ -237,8 +252,7 @@ export async function pickAdminConfigDriveFile(
       });
 
       if (picked) return picked;
-      // User cancelled picker — do not also prompt.
-      return null;
+      // Picker cancelled without a file — fall back to required paste prompt.
     }
   }
 
