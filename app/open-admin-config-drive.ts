@@ -4,10 +4,6 @@ import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { DriveFilePickerModal } from "./drive-file-picker-modal";
-import {
-  ensureGoogleDriveAccessToken,
-} from "./ensure-google-drive-access";
-import { getGoogleAccessToken } from "./google-access-token";
 import type {
   AdminConfigDriveKind,
   PickedDriveFile,
@@ -104,24 +100,14 @@ export type PickAdminConfigDriveOptions = {
 /**
  * Require Admin to select a Dashboard/Card configuration file from the shared
  * Drive folder via the in-app file-selection popup. Never asks to paste a URL.
- * Opens the Google Drive login popup first when no Drive OAuth token is present.
+ *
+ * Opens the file list immediately (server SA / env token / existing client
+ * OAuth). The file picker offers a Google Drive login popup only when listing
+ * fails and Firebase Auth is available.
  */
 export async function pickAdminConfigDriveFile(
   kind: AdminConfigDriveKind,
   _options: PickAdminConfigDriveOptions = {},
 ): Promise<PickedDriveFile | null> {
-  if (!getGoogleAccessToken()) {
-    try {
-      await ensureGoogleDriveAccessToken({
-        reason:
-          kind === "dashboard"
-            ? "Sign in with Google Drive to choose a Dashboard Configuration Doc."
-            : "Sign in with Google Drive to choose a Card Configuration Doc.",
-      });
-    } catch {
-      // User cancelled login — abort without opening the file list.
-      return null;
-    }
-  }
   return showDriveFilePickerPopup(kind);
 }

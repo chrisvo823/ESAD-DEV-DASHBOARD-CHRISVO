@@ -3,6 +3,10 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
+import {
+  ensureFirebaseWebConfig,
+  getFirebaseWebConfig,
+} from "../lib/firebase-client";
 import { getAdminSessionPassword } from "./admin-auth";
 import { ensureGoogleDriveAccessToken } from "./ensure-google-drive-access";
 import { getGoogleAccessToken } from "./google-access-token";
@@ -30,6 +34,12 @@ function kindLabel(kind: AdminConfigDriveKind): string {
     : "Card Configuration";
 }
 
+function looksLikeCredentialsError(message: string): boolean {
+  return /credential|not configured|unauthorized|401|403|sign in|access token|firebase/i.test(
+    message,
+  );
+}
+
 export function DriveFilePickerModal({
   kind,
   onSelect,
@@ -43,9 +53,21 @@ export function DriveFilePickerModal({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [grantBusy, setGrantBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [firebaseAvailable, setFirebaseAvailable] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await ensureFirebaseWebConfig();
+      if (!cancelled) setFirebaseAvailable(Boolean(getFirebaseWebConfig()));
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -105,7 +127,10 @@ export function DriveFilePickerModal({
     setGrantBusy(true);
     setError(null);
     try {
-      await ensureGoogleDriveAccessToken();
+      await ensureGoogleDriveAccessToken({
+        reason: `Sign in with Google Drive to choose a ${kindLabel(kind)} Doc.`,
+        forcePopup: true,
+      });
       setReloadKey((key) => key + 1);
     } catch (err) {
       setError(
@@ -133,6 +158,10 @@ export function DriveFilePickerModal({
   if (!mounted) return null;
 
   const selected = files.find((file) => file.id === selectedId) ?? null;
+  const showDriveLogin =
+    Boolean(error) &&
+    looksLikeCredentialsError(error ?? "") &&
+    firebaseAvailable;
 
   return createPortal(
     <div
@@ -179,16 +208,25 @@ export function DriveFilePickerModal({
           {!loading && error ? (
             <div className="drive-file-picker-error-block" role="alert">
               <p className="drive-file-picker-error">{error}</p>
-              <button
-                type="button"
-                className="config-window-load"
-                disabled={grantBusy}
-                onClick={() => void handleGrantDriveAccess()}
-              >
-                {grantBusy
-                  ? "Opening Google Drive login…"
-                  : "Sign in with Google Drive"}
-              </button>
+              {showDriveLogin ? (
+                <button
+                  type="button"
+                  className="config-window-load"
+                  disabled={grantBusy}
+                  onClick={() => void handleGrantDriveAccess()}
+                >
+                  {grantBusy
+                    ? "Opening Google Drive login…"
+                    : "Sign in with Google Drive"}
+                </button>
+              ) : (
+                <p className="drive-file-picker-status">
+                  Configure <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> (share the
+                  Admin folder with that account) or Firebase{" "}
+                  <code>NEXT_PUBLIC_FIREBASE_*</code> /{" "}
+                  <code>FIREBASE_WEB_CONFIG</code>, then retry.
+                </p>
+              )}
             </div>
           ) : null}
           {!loading && !error && files.length === 0 ? (

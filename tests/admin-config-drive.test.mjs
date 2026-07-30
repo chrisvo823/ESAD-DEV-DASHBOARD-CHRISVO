@@ -35,9 +35,8 @@ test("uses a file-selection popup instead of paste-URL prompt", async () => {
   assert.match(pickerSource, /export function openAdminConfigDriveFolder/);
   assert.match(pickerSource, /showDriveFilePickerPopup/);
   assert.match(pickerSource, /DriveFilePickerModal/);
-  assert.match(pickerSource, /ensureGoogleDriveAccessToken/);
-  assert.match(pickerSource, /getGoogleAccessToken/);
-  // In-app modal is the sole selection UI (no paste prompt / Google Picker gate).
+  // File picker opens first; Drive login is recovery-only (not a hard gate).
+  assert.doesNotMatch(pickerSource, /ensureGoogleDriveAccessToken/);
   assert.doesNotMatch(pickerSource, /window\.prompt/);
   assert.doesNotMatch(pickerSource, /promptForDriveFile/);
   assert.doesNotMatch(pickerSource, /Paste the/);
@@ -48,6 +47,8 @@ test("uses a file-selection popup instead of paste-URL prompt", async () => {
   assert.match(modalSource, /Select file/);
   assert.match(modalSource, /admin-config-drive-types/);
   assert.match(modalSource, /Sign in with Google Drive/);
+  assert.match(modalSource, /ensureFirebaseWebConfig/);
+  assert.match(modalSource, /GOOGLE_SERVICE_ACCOUNT_JSON/);
   const driveLoginModal = await readFile(
     new URL("../app/google-drive-login-modal.tsx", import.meta.url),
     "utf8",
