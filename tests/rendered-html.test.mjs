@@ -291,12 +291,20 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(dashboardRefresh, /DASHBOARD_REFRESH_INTERVAL_MS/);
-  assert.match(dashboardRefresh, /=\s*1_000/);
+  assert.match(dashboardRefresh, /=\s*3 \* 60 \* 1000/);
+  assert.doesNotMatch(dashboardRefresh, /=\s*1_000\b/);
   assert.match(dashboardRefresh, /router\.refresh\(\)/);
   assert.match(dashboardRefresh, /refreshSiteConfigFromHost/);
   assert.match(dashboardRefresh, /visibilitychange/);
   assert.match(dashboardRefresh, /inFlightRef/);
   assert.match(dashboardRefresh, /Google Drive/);
+  const configDeploy = await readFile(
+    new URL("../app/config-deploy.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(configDeploy, /noteConfigLoadedAndDeployIfReady/);
+  assert.match(configDeploy, /persistSiteConfigPatch/);
+  assert.match(configDeploy, /deployed to all users/i);
 
   const customCardsSection = await readFile(
     new URL("../app/custom-cards-section.tsx", import.meta.url),
@@ -571,11 +579,13 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Load Config File/);
   assert.match(programConfigWindow, /Load Config File…/);
+  assert.match(programConfigWindow, /openAdminConfigDriveFolder/);
+  assert.match(programConfigWindow, /requires selecting a Dashboard Configuration file/);
   assert.match(programConfigWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
-  assert.match(programConfigWindow, /Load Config File…/);
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programConfigWindow, /writeProgramConfig/);
+  assert.match(programConfigWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(programConfigWindow, /readOnly/);
   assert.doesNotMatch(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(programConfigWindow, /Google Drive/);
@@ -602,6 +612,10 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(openAdminConfigDriveSource, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(openAdminConfigDriveSource, /createElement\("a"\)/);
   assert.match(openAdminConfigDriveSource, /setParent/);
+  assert.match(
+    openAdminConfigDriveSource,
+    /A file must be selected from the Google Drive folder/,
+  );
   const programConfigStoreSource = await readFile(
     new URL("../app/program-config-store.ts", import.meta.url),
     "utf8",
@@ -615,9 +629,12 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /nextTaskLabel/);
   assert.match(programConfigSource, /Open Tasks: "/);
   assert.match(programConfigSource, /Current Task: "/);
+  assert.match(configWindow, /openAdminConfigDriveFolder/);
+  assert.match(configWindow, /requires selecting a Card Configuration file/);
   assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
+  assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
   assert.doesNotMatch(configWindow, /\bSave\b/);
@@ -627,6 +644,14 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
   assert.match(configWindow, /readOnly/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.doesNotMatch(
+    configWindow,
+    /<a[\s\S]*className="config-window-trigger"/,
+  );
+  assert.match(
+    configWindow,
+    /<button\s+type="button"\s+className="config-window-trigger"/,
+  );
   assert.match(adminLoginsPanel, /running list of unique Google sign-ins/);
   assert.match(adminLoginsPanel, /summary\?\.users/);
   assert.match(page, /function HealthCore\(/);

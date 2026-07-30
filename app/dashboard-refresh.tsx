@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { refreshSiteConfigFromHost } from "./site-config-client";
 
 /** How often the dashboard re-pulls Google Drive config + card data. */
-export const DASHBOARD_REFRESH_INTERVAL_MS = 1_000;
+export const DASHBOARD_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 /**
  * Periodically refresh host Admin config from Google Drive and re-render

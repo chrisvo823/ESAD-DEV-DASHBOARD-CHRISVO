@@ -5,7 +5,11 @@ import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
-import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
+import {
+  openAdminConfigDriveFolder,
+  pickAdminConfigDriveFile,
+} from "./open-admin-config-drive";
 import { writeProgramConfig } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
 import {
@@ -33,6 +37,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deployMessage, setDeployMessage] = useState<string | null>(null);
   const titleId = useId();
   const identityEditorId = useId();
   const ledEditorId = useId();
@@ -59,26 +64,32 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   }
 
   async function handleLoadConfigFile() {
+    // Open Drive folder synchronously in the click path (popup-safe).
+    openAdminConfigDriveFolder();
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
-      // Folder opens via the native <a href> on the Load Config control.
       const picked = await pickAdminConfigDriveFile("dashboard", {
         folderAlreadyOpen: true,
       });
       if (!picked) {
         setLoadError(
-          "No Dashboard Configuration file selected. The Google Drive config folder was opened — use Load Config File… again to select a file.",
+          "A Dashboard Configuration file is required. The Google Drive folder was opened — select a file (or paste its Doc URL) to continue.",
         );
         return;
       }
       const next = await loadProgramConfigFromDriveFile(picked.id);
       await writeProgramConfig(next);
       applyConfig(next);
+      const deploy = await noteConfigLoadedAndDeployIfReady({
+        dashboard: next,
+      });
+      setDeployMessage(deploy.message);
       setLoaded(true);
     } catch (err) {
       setLoaded(false);
+      setDeployMessage(null);
       setLoadError(
         err instanceof Error
           ? err.message
@@ -94,6 +105,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     applyConfig(config);
     setLoaded(false);
     setLoadError(null);
+    setDeployMessage(null);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -142,23 +154,16 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     </h3>
                   </div>
                   <div className="config-window-actions">
-                    <a
+                    <button
+                      type="button"
                       className="config-window-load"
-                      href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-disabled={loading}
-                      onClick={(event) => {
-                        if (loading) {
-                          event.preventDefault();
-                          return;
-                        }
-                        // Native <a> opens the Drive folder; also start file pick.
+                      disabled={loading}
+                      onClick={() => {
                         void handleLoadConfigFile();
                       }}
                     >
                       {loading ? "Loading…" : "Load Config File…"}
-                    </a>
+                    </button>
                     <button
                       type="button"
                       className="config-window-close"
@@ -170,8 +175,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Read-only view of the active Dashboard Configuration.{" "}
-                  <strong>Load Config File…</strong> is a direct link to the
-                  shared Google Drive folder (
+                  <strong>Load Config File…</strong> opens the shared Google
+                  Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -179,13 +184,16 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ) so Admin can select a Dashboard Configuration file. Themes
-                  stay in this browser. Each value must be inside quotes. Open Tasks, Over
-                  Due, Current Task, and Next Task set the card metric label
-                  text. Card status LED thresholds use Over Due counts: Green:
-                  &quot;1&quot; lights green when overdue is below Yellow,
-                  Yellow: &quot;3&quot; lights yellow when overdue is 3 or more,
-                  Red: &quot;5&quot; lights red when overdue is 5 or more.
+                  ) and requires selecting a Dashboard Configuration file.
+                  After both Dashboard and Card Configuration files are loaded,
+                  the combined config is deployed to all users. Themes stay in
+                  this browser. Each value must be inside quotes.
+                  Open Tasks, Over Due, Current Task, and Next Task set the
+                  card metric label text. Card status LED thresholds use Over
+                  Due counts: Green: &quot;1&quot; lights green when overdue is
+                  below Yellow, Yellow: &quot;3&quot; lights yellow when overdue
+                  is 3 or more, Red: &quot;5&quot; lights red when overdue is 5
+                  or more.
                 </p>
                 <label
                   className="config-window-section-label"
@@ -241,7 +249,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 ) : null}
                 {loaded && !hasSyntaxErrors && !loadError ? (
                   <p className="config-window-saved">
-                    Configuration loaded from Google Drive
+                    {deployMessage ??
+                      "Configuration loaded from Google Drive"}
                   </p>
                 ) : null}
               </div>
