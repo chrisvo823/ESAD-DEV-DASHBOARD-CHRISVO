@@ -35,6 +35,8 @@ test("uses a file-selection popup instead of paste-URL prompt", async () => {
   assert.match(pickerSource, /export function openAdminConfigDriveFolder/);
   assert.match(pickerSource, /showDriveFilePickerPopup/);
   assert.match(pickerSource, /DriveFilePickerModal/);
+  assert.match(pickerSource, /ensureGoogleDriveAccessToken/);
+  assert.match(pickerSource, /getGoogleAccessToken/);
   // In-app modal is the sole selection UI (no paste prompt / Google Picker gate).
   assert.doesNotMatch(pickerSource, /window\.prompt/);
   assert.doesNotMatch(pickerSource, /promptForDriveFile/);
@@ -45,6 +47,50 @@ test("uses a file-selection popup instead of paste-URL prompt", async () => {
   assert.match(modalSource, /\/api\/admin-config-drive-files/);
   assert.match(modalSource, /Select file/);
   assert.match(modalSource, /admin-config-drive-types/);
+  assert.match(modalSource, /Sign in with Google Drive/);
+  const driveLoginModal = await readFile(
+    new URL("../app/google-drive-login-modal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(driveLoginModal, /Sign in with Google Drive/);
+  assert.match(driveLoginModal, /signInWithGoogleDriveAccess/);
+  const ensureDrive = await readFile(
+    new URL("../app/ensure-google-drive-access.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(ensureDrive, /showGoogleDriveLoginPopup/);
+  assert.match(ensureDrive, /signInWithGoogleDriveAccess/);
+  assert.match(ensureDrive, /ensureFirebaseAuth/);
+  const firebaseClient = await readFile(
+    new URL("../lib/firebase-client.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(firebaseClient, /ensureFirebaseWebConfig/);
+  assert.match(firebaseClient, /\/api\/firebase-web-config/);
+  assert.match(firebaseClient, /__ESAD_FIREBASE_CONFIG__/);
+  const firebaseApi = await readFile(
+    new URL("../app/api/firebase-web-config/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(firebaseApi, /readFirebaseWebConfigFromEnv/);
+  const firebaseWebConfig = await readFile(
+    new URL("../lib/firebase-web-config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(firebaseWebConfig, /FIREBASE_WEB_CONFIG/);
+  assert.match(firebaseWebConfig, /NEXT_PUBLIC_FIREBASE_API_KEY/);
+  const viteConfig = await readFile(
+    new URL("../vite.config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(viteConfig, /NEXT_PUBLIC_FIREBASE_API_KEY/);
+  assert.match(viteConfig, /FIREBASE_WEB_CONFIG/);
+  const layoutSource = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(layoutSource, /__ESAD_FIREBASE_CONFIG__/);
+  assert.match(layoutSource, /readFirebaseWebConfigFromEnv/);
   assert.match(listSource, /listAdminConfigDriveFiles/);
   assert.match(listSource, /exportAdminConfigDriveFilePlainText/);
   assert.match(listSource, /ADMIN_CONFIG_DRIVE_FOLDER_ID/);
@@ -112,7 +158,9 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
   assert.doesNotMatch(globalsCss, /\.config-window-save(?!d)/);
   assert.match(globalsCss, /\.drive-file-picker\b/);
+  assert.match(globalsCss, /\.drive-login-modal\b/);
   assert.match(globalsCss, /\.drive-file-picker-backdrop[\s\S]*z-index:\s*120/);
+  assert.match(globalsCss, /\.drive-login-backdrop[\s\S]*z-index:\s*130/);
   assert.match(packageJson, /"build": "node \.\/scripts\/build\.mjs"/);
   assert.match(packageJson, /"dev": "vinext dev"/);
   assert.match(packageJson, /"build:vinext": "vinext build"/);

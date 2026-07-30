@@ -186,8 +186,8 @@ export function DriveFilePickerModal({
                 onClick={() => void handleGrantDriveAccess()}
               >
                 {grantBusy
-                  ? "Requesting Google access…"
-                  : "Grant Google Drive access"}
+                  ? "Opening Google Drive login…"
+                  : "Sign in with Google Drive"}
               </button>
             </div>
           ) : null}

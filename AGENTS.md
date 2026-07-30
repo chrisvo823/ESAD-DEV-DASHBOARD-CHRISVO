@@ -22,13 +22,19 @@ Cloud agent environment (`.cursor/environment.json`):
 - A shared terminal starts `npm run dev` (dashboard at `http://localhost:3000/`).
 - Optional secret: `SMARTSHEET_ACCESS_TOKEN` enables live Smartsheet schedule/tests; without it,
   those tests skip and the app still builds and runs.
+- Firebase Auth (company Google sign-in + Drive login popup): set
+  `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `APP_ID`
+  (optional messaging/storage), **or** a single `FIREBASE_WEB_CONFIG` JSON.
+  These are forwarded into the vinext worker and exposed via layout inject +
+  `GET /api/firebase-web-config`. Without them the dashboard runs in preview mode.
 - Optional secrets for shared Dashboard Configuration Google Doc + Admin Drive folder:
   `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or `GOOGLE_DOCS_ACCESS_TOKEN`.
   Share the Doc **and** the Admin config Drive folder
   (`1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks`) with the service account (Viewer to
   list/load; Editor to save Dashboard Configuration). Without server credentials,
-  Admin Load Config can still work after Google sign-in grants Docs/Drive scopes;
-  host cache / defaults are used for anonymous loads and Admin save fails.
+  Admin Load Config opens a Google Drive login popup (Firebase Google sign-in
+  with Docs/Drive scopes); host cache / defaults are used for anonymous loads
+  and Admin save fails.
 
 Non-obvious caveats:
 

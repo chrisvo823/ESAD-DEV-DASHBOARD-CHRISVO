@@ -2,47 +2,92 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
+import {
+  isFirebaseWebConfig,
+  readFirebaseWebConfigFromEnv,
+  type FirebaseWebConfig,
+} from "./firebase-web-config";
 
-export type FirebaseWebConfig = {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  appId: string;
-  messagingSenderId?: string;
-  storageBucket?: string;
-};
+export type { FirebaseWebConfig };
 
-function readFirebaseWebConfig(): FirebaseWebConfig | null {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim();
-  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
-  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim();
-
-  if (!apiKey || !authDomain || !projectId || !appId) {
-    return null;
+declare global {
+  interface Window {
+    __ESAD_FIREBASE_CONFIG__?: FirebaseWebConfig | null;
   }
-
-  return {
-    apiKey,
-    authDomain,
-    projectId,
-    appId,
-    messagingSenderId:
-      process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim() || undefined,
-    storageBucket:
-      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim() || undefined,
-  };
 }
 
+let runtimeConfig: FirebaseWebConfig | null | undefined;
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
+let hydratePromise: Promise<FirebaseWebConfig | null> | null = null;
+
+function readInjectedWindowConfig(): FirebaseWebConfig | null {
+  if (typeof window === "undefined") return null;
+  const injected = window.__ESAD_FIREBASE_CONFIG__;
+  return isFirebaseWebConfig(injected) ? injected : null;
+}
+
+/** Apply config discovered at runtime (layout inject / API). */
+export function configureFirebaseWebConfig(
+  config: FirebaseWebConfig | null | undefined,
+): void {
+  if (!isFirebaseWebConfig(config)) return;
+  runtimeConfig = config;
+  if (typeof window !== "undefined") {
+    window.__ESAD_FIREBASE_CONFIG__ = config;
+  }
+  // Reset app/auth so the next getFirebaseAuth() uses the new config.
+  app = null;
+  auth = null;
+}
 
 export function getFirebaseWebConfig(): FirebaseWebConfig | null {
-  return readFirebaseWebConfig();
+  if (runtimeConfig !== undefined) return runtimeConfig;
+  const injected = readInjectedWindowConfig();
+  if (injected) {
+    runtimeConfig = injected;
+    return injected;
+  }
+  const fromEnv = readFirebaseWebConfigFromEnv();
+  runtimeConfig = fromEnv;
+  return fromEnv;
+}
+
+/**
+ * Ensure Firebase web config is available (env → window inject → public API).
+ * Call before sign-in when build-time NEXT_PUBLIC_* may be missing.
+ */
+export async function ensureFirebaseWebConfig(): Promise<FirebaseWebConfig | null> {
+  const existing = getFirebaseWebConfig();
+  if (existing) return existing;
+  if (typeof window === "undefined") return null;
+  if (!hydratePromise) {
+    hydratePromise = (async () => {
+      try {
+        const response = await fetch("/api/firebase-web-config", {
+          cache: "no-store",
+        });
+        if (!response.ok) return null;
+        const payload = (await response.json()) as {
+          config?: FirebaseWebConfig | null;
+        };
+        if (isFirebaseWebConfig(payload.config)) {
+          configureFirebaseWebConfig(payload.config);
+          return payload.config;
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    })().finally(() => {
+      hydratePromise = null;
+    });
+  }
+  return hydratePromise;
 }
 
 export function getFirebaseAuth(): Auth | null {
-  const config = readFirebaseWebConfig();
+  const config = getFirebaseWebConfig();
   if (!config) return null;
 
   if (!app) {
@@ -52,4 +97,10 @@ export function getFirebaseAuth(): Auth | null {
     auth = getAuth(app);
   }
   return auth;
+}
+
+/** Resolve Auth after hydrating runtime Firebase config if needed. */
+export async function ensureFirebaseAuth(): Promise<Auth | null> {
+  await ensureFirebaseWebConfig();
+  return getFirebaseAuth();
 }

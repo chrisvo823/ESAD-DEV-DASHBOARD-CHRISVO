@@ -542,6 +542,7 @@ a.config-window-load[aria-disabled="true"] {
 
 .config-window-saved { color: #8fe0b0; padding-bottom: 14px; }
 
+.drive-login-backdrop,
 .drive-file-picker-backdrop {
   position: fixed;
   inset: 0;
@@ -552,6 +553,74 @@ a.config-window-load[aria-disabled="true"] {
   padding: 24px;
   background: rgba(2, 8, 16, .72);
   backdrop-filter: blur(2px);
+}
+
+.drive-login-backdrop {
+  z-index: 130;
+}
+
+.drive-login-modal {
+  width: min(440px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2f5f88;
+  background: rgba(6, 16, 28, .98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+}
+
+.drive-login-header,
+.drive-login-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.drive-login-header {
+  border-bottom: 1px solid rgba(47, 95, 136, .55);
+}
+
+.drive-login-footer {
+  border-top: 1px solid rgba(47, 95, 136, .55);
+  justify-content: flex-end;
+}
+
+.drive-login-kicker {
+  margin: 0 0 4px;
+  color: #7eb6e8;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.drive-login-modal h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+
+.drive-login-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px 8px;
+  color: #c5d7eb;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.drive-login-body p { margin: 0; }
+
+.drive-login-meta { color: #8eb8e0; font-size: 0.88rem; }
+
+.drive-login-error {
+  margin: 0;
+  color: #ff8f8f;
+}
+
+.drive-login-error code {
+  font-size: 0.85em;
+  color: #ffc9c9;
 }
 
 .drive-file-picker {
