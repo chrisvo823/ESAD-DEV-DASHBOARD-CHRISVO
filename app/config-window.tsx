@@ -8,10 +8,7 @@ import { syncCustomCardConfig } from "./custom-cards-store";
 import { writeDashboardConfig } from "./dashboard-config-store";
 import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
 import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
-import {
-  openAdminConfigDriveFolder,
-  pickAdminConfigDriveFile,
-} from "./open-admin-config-drive";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import {
   formatDashboardConfigText,
@@ -51,18 +48,14 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   }
 
   async function handleLoadConfigFile(base: DashboardConfig = config) {
-    // Open Drive folder synchronously in the click path (popup-safe).
-    openAdminConfigDriveFolder();
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
-      const picked = await pickAdminConfigDriveFile("card", {
-        folderAlreadyOpen: true,
-      });
+      const picked = await pickAdminConfigDriveFile("card");
       if (!picked) {
         setLoadError(
-          "A Card Configuration file is required. The Google Drive folder was opened — select a file (or paste its Doc URL) to continue.",
+          "A Card Configuration file is required. Use Load Config and select a file from the popup.",
         );
         return;
       }
@@ -162,8 +155,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Read-only view of this card&apos;s Configuration.{" "}
-                  <strong>Load Config</strong> opens the shared Google Drive
-                  folder (
+                  <strong>Load Config</strong> opens a file-selection popup for
+                  the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -171,7 +164,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ) and requires selecting a Card Configuration file. After both
+                  ). Select a Card Configuration file to continue. After both
                   Dashboard and Card Configuration files are loaded, the
                   combined config is deployed to all users. Each value must be
                   inside quotes, e.g. Board Name: &quot;Digital Safety

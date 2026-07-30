@@ -1,0 +1,230 @@
+"use client";
+
+import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
+import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
+import { getAdminSessionPassword } from "./admin-auth";
+import { getGoogleAccessToken } from "./google-access-token";
+import type {
+  AdminConfigDriveKind,
+  PickedDriveFile,
+} from "./open-admin-config-drive";
+
+type ListedFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string | null;
+};
+
+type DriveFilePickerModalProps = {
+  kind: AdminConfigDriveKind;
+  onSelect: (file: PickedDriveFile) => void;
+  onCancel: () => void;
+};
+
+function kindLabel(kind: AdminConfigDriveKind): string {
+  return kind === "dashboard"
+    ? "Dashboard Configuration"
+    : "Card Configuration";
+}
+
+export function DriveFilePickerModal({
+  kind,
+  onSelect,
+  onCancel,
+}: DriveFilePickerModalProps) {
+  const titleId = useId();
+  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<ListedFile[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFiles() {
+      setLoading(true);
+      setError(null);
+      try {
+        const password = getAdminSessionPassword();
+        if (!password) {
+          throw new Error("Admin session required to select a Drive file.");
+        }
+        const headers: Record<string, string> = {
+          "x-esad-admin-password": password,
+        };
+        const googleToken = getGoogleAccessToken();
+        if (googleToken) {
+          headers["x-esad-google-access-token"] = googleToken;
+        }
+        const response = await fetch("/api/admin-config-drive-files", {
+          headers,
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as {
+          files?: ListedFile[];
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            payload.error?.trim() ||
+              `Failed to load Drive files (${response.status}).`,
+          );
+        }
+        if (!cancelled) {
+          setFiles(Array.isArray(payload.files) ? payload.files : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load Drive folder files.",
+          );
+          setFiles([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadFiles();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
+  if (!mounted) return null;
+
+  const selected = files.find((file) => file.id === selectedId) ?? null;
+
+  return createPortal(
+    <div
+      className="drive-file-picker-backdrop"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div
+        className="drive-file-picker"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header className="drive-file-picker-header">
+          <div>
+            <p className="drive-file-picker-kicker">Select file</p>
+            <h3 id={titleId}>Choose a {kindLabel(kind)} file</h3>
+          </div>
+          <button
+            type="button"
+            className="config-window-close"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </header>
+        <p className="drive-file-picker-help">
+          Files from the shared Admin Google Drive folder. Select one, then
+          confirm.{" "}
+          <a
+            href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open folder
+          </a>
+        </p>
+        <div className="drive-file-picker-body">
+          {loading ? (
+            <p className="drive-file-picker-status">Loading files…</p>
+          ) : null}
+          {!loading && error ? (
+            <p className="drive-file-picker-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {!loading && !error && files.length === 0 ? (
+            <p className="drive-file-picker-status">
+              No files found in the shared config folder.
+            </p>
+          ) : null}
+          {!loading && !error && files.length > 0 ? (
+            <ul className="drive-file-picker-list" role="listbox">
+              {files.map((file) => {
+                const selectedFile = file.id === selectedId;
+                return (
+                  <li key={file.id}>
+                    <button
+                      type="button"
+                      className={`drive-file-picker-item${
+                        selectedFile ? " drive-file-picker-item--selected" : ""
+                      }`}
+                      role="option"
+                      aria-selected={selectedFile}
+                      onClick={() => setSelectedId(file.id)}
+                      onDoubleClick={() =>
+                        onSelect({
+                          id: file.id,
+                          name: file.name,
+                          mimeType: file.mimeType,
+                        })
+                      }
+                    >
+                      <span className="drive-file-picker-item-name">
+                        {file.name}
+                      </span>
+                      <span className="drive-file-picker-item-meta">
+                        {file.mimeType.includes("document")
+                          ? "Google Doc"
+                          : file.mimeType}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
+        <footer className="drive-file-picker-footer">
+          <button
+            type="button"
+            className="config-window-close"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="config-window-load"
+            disabled={!selected}
+            onClick={() => {
+              if (!selected) return;
+              onSelect({
+                id: selected.id,
+                name: selected.name,
+                mimeType: selected.mimeType,
+              });
+            }}
+          >
+            Select file
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}

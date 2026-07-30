@@ -6,10 +6,7 @@ import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
 import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
-import {
-  openAdminConfigDriveFolder,
-  pickAdminConfigDriveFile,
-} from "./open-admin-config-drive";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import { writeProgramConfig } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
 import {
@@ -64,18 +61,14 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   }
 
   async function handleLoadConfigFile() {
-    // Open Drive folder synchronously in the click path (popup-safe).
-    openAdminConfigDriveFolder();
     setLoading(true);
     setLoadError(null);
     setLoaded(false);
     try {
-      const picked = await pickAdminConfigDriveFile("dashboard", {
-        folderAlreadyOpen: true,
-      });
+      const picked = await pickAdminConfigDriveFile("dashboard");
       if (!picked) {
         setLoadError(
-          "A Dashboard Configuration file is required. The Google Drive folder was opened — select a file (or paste its Doc URL) to continue.",
+          "A Dashboard Configuration file is required. Use Load Config File… and select a file from the popup.",
         );
         return;
       }
@@ -175,8 +168,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Read-only view of the active Dashboard Configuration.{" "}
-                  <strong>Load Config File…</strong> opens the shared Google
-                  Drive folder (
+                  <strong>Load Config File…</strong> opens a file-selection
+                  popup for the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -184,10 +177,10 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ) and requires selecting a Dashboard Configuration file.
-                  After both Dashboard and Card Configuration files are loaded,
-                  the combined config is deployed to all users. Themes stay in
-                  this browser. Each value must be inside quotes.
+                  ). Select a Dashboard Configuration file to continue. After
+                  both Dashboard and Card Configuration files are loaded, the
+                  combined config is deployed to all users. Themes stay in this
+                  browser. Each value must be inside quotes.
                   Open Tasks, Over Due, Current Task, and Next Task set the
                   card metric label text. Card status LED thresholds use Over
                   Due counts: Green: &quot;1&quot; lights green when overdue is

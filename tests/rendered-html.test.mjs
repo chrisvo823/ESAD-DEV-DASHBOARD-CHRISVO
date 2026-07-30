@@ -579,8 +579,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /Open Tasks, Over/);
   assert.match(programConfigWindow, /Load Config File/);
   assert.match(programConfigWindow, /Load Config File…/);
-  assert.match(programConfigWindow, /openAdminConfigDriveFolder/);
-  assert.match(programConfigWindow, /requires selecting a Dashboard Configuration file/);
+  assert.match(programConfigWindow, /file-selection[\s\n]+popup/);
   assert.match(programConfigWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
@@ -609,13 +608,18 @@ test("keeps dashboard metadata and project data in source", async () => {
   );
   assert.match(openAdminConfigDriveSource, /pickAdminConfigDriveFile/);
   assert.match(openAdminConfigDriveSource, /openAdminConfigDriveFolder/);
+  assert.match(openAdminConfigDriveSource, /showDriveFilePickerPopup/);
+  assert.match(openAdminConfigDriveSource, /DriveFilePickerModal/);
   assert.match(openAdminConfigDriveSource, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
-  assert.match(openAdminConfigDriveSource, /createElement\("a"\)/);
   assert.match(openAdminConfigDriveSource, /setParent/);
-  assert.match(
-    openAdminConfigDriveSource,
-    /A file must be selected from the Google Drive folder/,
+  assert.doesNotMatch(openAdminConfigDriveSource, /window\.prompt/);
+  assert.doesNotMatch(openAdminConfigDriveSource, /promptForDriveFile/);
+  const driveFilePickerModal = await readFile(
+    new URL("../app/drive-file-picker-modal.tsx", import.meta.url),
+    "utf8",
   );
+  assert.match(driveFilePickerModal, /\/api\/admin-config-drive-files/);
+  assert.match(driveFilePickerModal, /Select file/);
   const programConfigStoreSource = await readFile(
     new URL("../app/program-config-store.ts", import.meta.url),
     "utf8",
@@ -629,8 +633,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigSource, /nextTaskLabel/);
   assert.match(programConfigSource, /Open Tasks: "/);
   assert.match(programConfigSource, /Current Task: "/);
-  assert.match(configWindow, /openAdminConfigDriveFolder/);
-  assert.match(configWindow, /requires selecting a Card Configuration file/);
+  assert.match(configWindow, /file-selection[\s\n]+popup/);
   assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
