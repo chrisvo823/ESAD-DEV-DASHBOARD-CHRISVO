@@ -65,6 +65,28 @@ for (const key of googleDocsEnvKeys) {
   }
 }
 
+// Public Firebase web config — needed at runtime in the worker (layout inject /
+// /api/firebase-web-config) and for vinext NEXT_PUBLIC_* inlining.
+const firebaseEnvKeys = [
+  "FIREBASE_WEB_CONFIG",
+  "NEXT_PUBLIC_FIREBASE_WEB_CONFIG",
+  "NEXT_PUBLIC_FIREBASE_API_KEY",
+  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+  "NEXT_PUBLIC_FIREBASE_APP_ID",
+  "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  "NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN",
+] as const;
+const firebaseVars: Record<string, string> = {};
+for (const key of firebaseEnvKeys) {
+  const value = process.env[key] ?? readEnvFileValue(key);
+  if (value) {
+    process.env[key] = value;
+    firebaseVars[key] = value;
+  }
+}
+
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
@@ -78,6 +100,7 @@ const localBindingConfig = {
     ...googleSheetVars,
     ...adminVars,
     ...googleDocsVars,
+    ...firebaseVars,
   },
   d1_databases: d1
     ? [

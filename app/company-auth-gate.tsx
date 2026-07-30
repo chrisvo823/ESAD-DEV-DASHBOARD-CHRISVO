@@ -12,7 +12,12 @@ import {
   getAllowedEmailDomain,
   isAllowedCompanyEmail,
 } from "../lib/allowed-email";
-import { getFirebaseAuth, getFirebaseWebConfig } from "../lib/firebase-client";
+import {
+  ensureFirebaseAuth,
+  ensureFirebaseWebConfig,
+  getFirebaseAuth,
+  getFirebaseWebConfig,
+} from "../lib/firebase-client";
 import { recordDashboardLogin } from "../lib/record-dashboard-login";
 import { setGoogleAccessToken } from "./google-access-token";
 import { refreshSiteConfigFromHost } from "./site-config-client";
@@ -34,56 +39,68 @@ export function CompanyAuthGate({
   children,
   dashboardName,
 }: CompanyAuthGateProps) {
-  const auth = useMemo(() => getFirebaseAuth(), []);
-  const config = useMemo(() => getFirebaseWebConfig(), []);
   const allowedDomain = useMemo(() => getAllowedEmailDomain(), []);
   const signInTitle = dashboardName?.trim() || "Engineering Dashboard";
-  const [state, setState] = useState<GateState>(() =>
-    config ? { status: "loading" } : { status: "missing-config" },
-  );
+  const [state, setState] = useState<GateState>({ status: "loading" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!auth) {
-      setState({ status: "missing-config" });
-      return;
-    }
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
 
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setError(null);
-      if (!user) {
-        setState({ status: "signed-out" });
+    void (async () => {
+      await ensureFirebaseWebConfig();
+      if (cancelled) return;
+      const auth = await ensureFirebaseAuth();
+      if (cancelled) return;
+      if (!auth || !getFirebaseWebConfig()) {
+        setState({ status: "missing-config" });
         return;
       }
 
-      if (!isAllowedCompanyEmail(user.email, allowedDomain)) {
-        setState({ status: "blocked", email: user.email ?? "(no email)" });
-        await signOut(auth);
-        return;
-      }
+      unsub = onAuthStateChanged(auth, async (user) => {
+        setError(null);
+        if (!user) {
+          setState({ status: "signed-out" });
+          return;
+        }
 
-      setState({ status: "ready", user });
-      void recordDashboardLogin(user.email);
-      // Pull Dashboard Configuration from the shared Google Doc for this session.
-      void refreshSiteConfigFromHost();
-    });
+        if (!isAllowedCompanyEmail(user.email, allowedDomain)) {
+          setState({ status: "blocked", email: user.email ?? "(no email)" });
+          await signOut(auth);
+          return;
+        }
 
-    return () => unsub();
-  }, [auth, allowedDomain]);
+        setState({ status: "ready", user });
+        void recordDashboardLogin(user.email);
+        void refreshSiteConfigFromHost();
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [allowedDomain]);
 
   async function handleGoogleSignIn() {
-    if (!auth) return;
     setBusy(true);
     setError(null);
     try {
+      const auth = (await ensureFirebaseAuth()) ?? getFirebaseAuth();
+      if (!auth) {
+        setState({ status: "missing-config" });
+        return;
+      }
       const provider = new GoogleAuthProvider();
-      // Docs scope lets Admin save + users load Dashboard Configuration from Drive.
+      // Docs + Drive scopes let Admin list/load configuration files from Drive.
       provider.addScope("https://www.googleapis.com/auth/documents");
       provider.addScope("https://www.googleapis.com/auth/drive.readonly");
       provider.setCustomParameters({
         hd: allowedDomain,
-        prompt: "select_account",
+        // Consent ensures Drive scopes are granted (not only Firebase Auth).
+        prompt: "consent select_account",
       });
       const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -110,6 +127,7 @@ export function CompanyAuthGate({
   }
 
   async function handleSignOut() {
+    const auth = getFirebaseAuth();
     if (!auth) return;
     setBusy(true);
     try {

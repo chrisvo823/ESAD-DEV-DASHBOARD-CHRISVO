@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import { readFirebaseWebConfigFromEnv } from "../lib/firebase-web-config";
 import { loadSiteAdminConfig } from "../lib/site-config-store";
 import "./globals.css";
 
@@ -65,9 +66,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const firebaseConfig = readFirebaseWebConfigFromEnv();
+  const firebaseBootstrap = firebaseConfig
+    ? `window.__ESAD_FIREBASE_CONFIG__=${JSON.stringify(firebaseConfig)};`
+    : "";
+
   return (
     <html lang="en" data-theme="default" suppressHydrationWarning>
       <head>
+        {firebaseBootstrap ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: firebaseBootstrap,
+            }}
+          />
+        ) : null}
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => { try { const allowed = new Set(["default","light","dark","futuristic","lucky-brass","lucky-ember","lucky-slate","lucky-forest","lucky-sand"]); let s = localStorage.getItem("esad-dashboard-theme-resolved") || localStorage.getItem("esad-dashboard-theme") || "default"; if (s === "lucky") s = "lucky-brass"; const theme = allowed.has(s) ? s : "default"; const apply = () => { document.documentElement.dataset.theme = theme; if (document.body) document.body.dataset.theme = theme; }; apply(); document.addEventListener("DOMContentLoaded", apply); } catch (_) {} })();`,

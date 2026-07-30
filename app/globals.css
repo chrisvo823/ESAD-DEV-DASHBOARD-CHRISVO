@@ -542,6 +542,210 @@ a.config-window-load[aria-disabled="true"] {
 
 .config-window-saved { color: #8fe0b0; padding-bottom: 14px; }
 
+.drive-login-backdrop,
+.drive-file-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above .config-window-backdrop (80) so Load Config popup stacks correctly. */
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 8, 16, .72);
+  backdrop-filter: blur(2px);
+}
+
+.drive-login-backdrop {
+  z-index: 130;
+}
+
+.drive-login-modal {
+  width: min(440px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2f5f88;
+  background: rgba(6, 16, 28, .98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+}
+
+.drive-login-header,
+.drive-login-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.drive-login-header {
+  border-bottom: 1px solid rgba(47, 95, 136, .55);
+}
+
+.drive-login-footer {
+  border-top: 1px solid rgba(47, 95, 136, .55);
+  justify-content: flex-end;
+}
+
+.drive-login-kicker {
+  margin: 0 0 4px;
+  color: #7eb6e8;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.drive-login-modal h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+
+.drive-login-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px 8px;
+  color: #c5d7eb;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.drive-login-body p { margin: 0; }
+
+.drive-login-meta { color: #8eb8e0; font-size: 0.88rem; }
+
+.drive-login-error {
+  margin: 0;
+  color: #ff8f8f;
+}
+
+.drive-login-error code {
+  font-size: 0.85em;
+  color: #ffc9c9;
+}
+
+.drive-file-picker {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(72vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2f5f88;
+  background: rgba(6, 16, 28, .98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+}
+
+.drive-file-picker-header,
+.drive-file-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.drive-file-picker-header {
+  border-bottom: 1px solid rgba(63, 114, 158, .45);
+}
+
+.drive-file-picker-footer {
+  border-top: 1px solid rgba(63, 114, 158, .45);
+}
+
+.drive-file-picker-kicker {
+  margin: 0 0 4px;
+  color: #7eb6e8;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.drive-file-picker h3 {
+  margin: 0;
+  color: #e7f4ff;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.drive-file-picker-help {
+  margin: 0;
+  padding: 10px 16px 0;
+  color: #7eb6e8;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .62rem;
+  letter-spacing: .04em;
+}
+
+.drive-file-picker-help a {
+  color: #9fd0ff;
+}
+
+.drive-file-picker-body {
+  flex: 1;
+  min-height: 180px;
+  overflow: auto;
+  padding: 12px 16px 8px;
+}
+
+.drive-file-picker-error-block {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.drive-file-picker-status,
+.drive-file-picker-error {
+  margin: 8px 0;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .72rem;
+}
+
+.drive-file-picker-status { color: #8eb8e0; }
+.drive-file-picker-error { color: #ff8f8f; }
+
+.drive-file-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.drive-file-picker-item {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #2f5f88;
+  background: rgba(8, 22, 36, .95);
+  color: #d7ecff;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.drive-file-picker-item:hover {
+  border-color: #74b7ff;
+  background: rgba(14, 36, 56, .98);
+}
+
+.drive-file-picker-item--selected {
+  border-color: #3d9a6a;
+  box-shadow: inset 0 0 0 1px rgba(61, 154, 106, .55);
+  background: rgba(12, 40, 28, .9);
+}
+
+.drive-file-picker-item-name {
+  font-size: .78rem;
+  font-weight: 650;
+}
+
+.drive-file-picker-item-meta {
+  color: #7eb6e8;
+  font-size: .62rem;
+  letter-spacing: .04em;
+}
+
 .admin-login-panel {
   width: min(280px, calc(100vw - 36px));
   display: grid;

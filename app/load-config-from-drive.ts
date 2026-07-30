@@ -8,30 +8,45 @@ import {
   parseProgramConfigText,
   type ProgramConfig,
 } from "../lib/program-config";
+import { getAdminSessionPassword } from "./admin-auth";
 import { getGoogleAccessToken } from "./google-access-token";
 
 async function exportGoogleDocPlainText(fileId: string): Promise<string> {
-  const token = getGoogleAccessToken();
-  if (!token) {
-    throw new Error(
-      "Sign in with Google (Docs access) to load the selected Drive file.",
-    );
+  const password = getAdminSessionPassword();
+  if (!password) {
+    throw new Error("Admin session required to load a Drive configuration file.");
+  }
+
+  const headers: Record<string, string> = {
+    "x-esad-admin-password": password,
+  };
+  const googleToken = getGoogleAccessToken();
+  if (googleToken) {
+    headers["x-esad-google-access-token"] = googleToken;
   }
 
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=text/plain`,
+    `/api/admin-config-drive-files/${encodeURIComponent(fileId)}`,
     {
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
       cache: "no-store",
     },
   );
+  const payload = (await response.json()) as {
+    text?: string;
+    error?: string;
+  };
   if (!response.ok) {
-    const body = await response.text();
     throw new Error(
-      `Failed to read Drive file (${response.status}): ${body.slice(0, 240)}`,
+      payload.error?.trim() ||
+        `Failed to read Drive file (${response.status}).`,
     );
   }
-  return response.text();
+  const text = typeof payload.text === "string" ? payload.text : "";
+  if (!text.trim()) {
+    throw new Error("Selected Drive file was empty.");
+  }
+  return text;
 }
 
 /** Load and parse a Dashboard Configuration Google Doc selected from Drive. */
