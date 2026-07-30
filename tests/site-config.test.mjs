@@ -331,6 +331,70 @@ test("Dashboard Configuration saves to and loads from the shared Google Doc", as
   assert.equal(loaded.programConfig.ledRedAtLeast, 6);
 });
 
+test("every Dashboard Configuration save writes and verifies the host file", async () => {
+  const { getHostSiteConfigPath } = await import("../lib/site-config-store.ts");
+  const hostPath = getHostSiteConfigPath();
+  assert.equal(
+    hostPath,
+    path.join(tempRoot, ".data", "admin-site-config.json"),
+  );
+
+  const first = await updateSiteAdminConfig({
+    programConfig: {
+      dashboardName: "Save Writes Host File",
+      programLead: "Save Lead",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    },
+  });
+  const rawFirst = await readFile(hostPath, "utf8");
+  const parsedFirst = JSON.parse(rawFirst);
+  assert.equal(parsedFirst.programConfig.dashboardName, "Save Writes Host File");
+  assert.equal(parsedFirst.programConfig.programLead, "Save Lead");
+  assert.equal(parsedFirst.updatedAt, first.updatedAt);
+
+  const second = await updateSiteAdminConfig({
+    programConfig: {
+      dashboardName: "Second Save Survives",
+      programLead: "Second Lead",
+      openTasksLabel: "Open Work",
+      overDueLabel: "Past Due",
+      currentTaskLabel: "Active Task",
+      nextTaskLabel: "Upcoming Task",
+      ledGreenAtMost: 2,
+      ledYellowAtLeast: 4,
+      ledRedAtLeast: 6,
+    },
+  });
+  const rawSecond = await readFile(hostPath, "utf8");
+  const parsedSecond = JSON.parse(rawSecond);
+  assert.equal(parsedSecond.programConfig.dashboardName, "Second Save Survives");
+  assert.equal(parsedSecond.programConfig.programLead, "Second Lead");
+  assert.equal(parsedSecond.updatedAt, second.updatedAt);
+  assert.match(rawSecond, /Second Save Survives/);
+  assert.doesNotMatch(rawSecond, /Save Writes Host File/);
+
+  // Card-only save must not wipe Dashboard Configuration identity.
+  await updateSiteAdminConfig({
+    dashboardConfig: {
+      dashboardId: "1",
+      responsibleEngineer: "Keep Identity",
+      boardName: "Digital Safety Board",
+      boardNickname: "DSB",
+      googleDriveLink: "",
+      smartsheetLink: "",
+    },
+  });
+  const afterCard = JSON.parse(await readFile(hostPath, "utf8"));
+  assert.equal(afterCard.programConfig.dashboardName, "Second Save Survives");
+  assert.equal(afterCard.dashboardConfigs["1"]?.responsibleEngineer, "Keep Identity");
+});
+
 test("forceGoogleDocRefresh bypasses TTL so live Hero stays Doc-sourced", async () => {
   mockGoogleDocText = formatProgramConfigText({
     dashboardName: "Cached Doc Name",

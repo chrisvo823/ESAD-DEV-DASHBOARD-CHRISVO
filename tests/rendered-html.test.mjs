@@ -357,13 +357,25 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigRoute, /updateSiteAdminConfig/);
   assert.match(siteConfigRoute, /x-esad-google-access-token/);
   assert.match(siteConfigRoute, /googleDocWritten/);
+  assert.match(siteConfigRoute, /hostFileWritten:\s*true/);
+  assert.match(siteConfigRoute, /getHostSiteConfigPath/);
   assert.match(siteConfigRoute, /forceGoogleDocRefresh:\s*true/);
   assert.match(siteConfigRoute, /dashboardConfigSource/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
+  assert.match(siteConfigClient, /hostFetchGeneration/);
+  assert.match(siteConfigClient, /preferNewerConfig/);
+  assert.match(siteConfigClient, /hostFileWritten !== true/);
   assert.match(siteConfigClient, /x-esad-google-access-token/);
   assert.match(siteConfigClient, /\/api\/site-config/);
+  const siteConfigStore = await readFile(
+    new URL("../lib/site-config-store.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(siteConfigStore, /writePersistedConfig/);
+  assert.match(siteConfigStore, /rename\(DATA_FILE_TMP,\s*DATA_FILE\)/);
+  assert.match(siteConfigStore, /read-back did not match/);
   const companyAuthGate = await readFile(
     new URL("../app/company-auth-gate.tsx", import.meta.url),
     "utf8",

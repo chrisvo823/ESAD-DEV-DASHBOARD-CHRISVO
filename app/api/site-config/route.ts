@@ -1,8 +1,10 @@
+import { access } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import type { SiteConfigPatch } from "../../../lib/site-config";
 import {
   getDashboardConfigGoogleDocUrl,
   getHostAdminPassword,
+  getHostSiteConfigPath,
   getPublicSiteConfig,
   isAuthorizedSiteAdmin,
   updateSiteAdminConfig,
@@ -55,10 +57,14 @@ export async function PUT(request: Request) {
     const updated = await updateSiteAdminConfig(patch, {
       googleAccessToken: readGoogleAccessToken(request),
     });
+    const hostPath = getHostSiteConfigPath();
+    await access(hostPath);
     return NextResponse.json({
       ...toPublicSiteConfig(updated),
       googleDocUrl: getDashboardConfigGoogleDocUrl(),
       googleDocWritten: Boolean(patch.programConfig),
+      hostFileWritten: true,
+      hostFilePath: hostPath,
     });
   } catch (err) {
     const message =
@@ -70,6 +76,7 @@ export async function PUT(request: Request) {
         error: message,
         googleDocUrl: getDashboardConfigGoogleDocUrl(),
         googleDocWritten: false,
+        hostFileWritten: false,
       },
       { status: 500 },
     );
