@@ -611,15 +611,17 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(openAdminConfigDriveSource, /showDriveFilePickerPopup/);
   assert.match(openAdminConfigDriveSource, /DriveFilePickerModal/);
   assert.match(openAdminConfigDriveSource, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
-  assert.match(openAdminConfigDriveSource, /setParent/);
   assert.doesNotMatch(openAdminConfigDriveSource, /window\.prompt/);
   assert.doesNotMatch(openAdminConfigDriveSource, /promptForDriveFile/);
+  assert.doesNotMatch(openAdminConfigDriveSource, /PickerBuilder/);
+  assert.doesNotMatch(openAdminConfigDriveSource, /google\.picker/);
   const driveFilePickerModal = await readFile(
     new URL("../app/drive-file-picker-modal.tsx", import.meta.url),
     "utf8",
   );
   assert.match(driveFilePickerModal, /\/api\/admin-config-drive-files/);
   assert.match(driveFilePickerModal, /Select file/);
+  assert.match(driveFilePickerModal, /admin-config-drive-types/);
   const programConfigStoreSource = await readFile(
     new URL("../app/program-config-store.ts", import.meta.url),
     "utf8",

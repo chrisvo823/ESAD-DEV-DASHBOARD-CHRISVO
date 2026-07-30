@@ -545,7 +545,8 @@ a.config-window-load[aria-disabled="true"] {
 .drive-file-picker-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* Above .config-window-backdrop (80) so Load Config popup stacks correctly. */
+  z-index: 120;
   display: grid;
   place-items: center;
   padding: 24px;

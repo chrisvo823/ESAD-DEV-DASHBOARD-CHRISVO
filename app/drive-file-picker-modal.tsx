@@ -8,7 +8,7 @@ import { getGoogleAccessToken } from "./google-access-token";
 import type {
   AdminConfigDriveKind,
   PickedDriveFile,
-} from "./open-admin-config-drive";
+} from "./admin-config-drive-types";
 
 type ListedFile = {
   id: string;
@@ -100,10 +100,14 @@ export function DriveFilePickerModal({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onCancel();
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // Capture so the parent config window does not also close on Escape.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onCancel]);
 
   if (!mounted) return null;

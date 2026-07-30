@@ -39,34 +39,59 @@ export async function listAdminConfigDriveFiles(options?: {
   const query = [
     `'${ADMIN_CONFIG_DRIVE_FOLDER_ID}' in parents`,
     "trashed = false",
+    `mimeType = '${GOOGLE_DOC_MIME}'`,
   ].join(" and ");
 
-  const params = new URLSearchParams({
-    q: query,
-    pageSize: "100",
-    orderBy: "modifiedTime desc",
-    fields: "files(id,name,mimeType,modifiedTime)",
-    supportsAllDrives: "true",
-    includeItemsFromAllDrives: "true",
-  });
-
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
+  async function fetchPage(token: string): Promise<DriveFilesListResponse> {
+    const params = new URLSearchParams({
+      q: query,
+      pageSize: "100",
+      orderBy: "modifiedTime desc",
+      fields: "files(id,name,mimeType,modifiedTime)",
+      supportsAllDrives: "true",
+      includeItemsFromAllDrives: "true",
+    });
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-  );
-
-  const payload = (await response.json()) as DriveFilesListResponse;
-  if (!response.ok) {
-    throw new Error(
-      payload.error?.message?.trim() ||
-        `Failed to list Drive folder files (${response.status}).`,
     );
+    const payload = (await response.json()) as DriveFilesListResponse;
+    if (!response.ok) {
+      const message =
+        payload.error?.message?.trim() ||
+        `Failed to list Drive folder files (${response.status}).`;
+      const err = new Error(message) as Error & { status?: number };
+      err.status = response.status;
+      throw err;
+    }
+    return payload;
+  }
+
+  let payload: DriveFilesListResponse;
+  try {
+    payload = await fetchPage(accessToken);
+  } catch (err) {
+    const status =
+      err && typeof err === "object" && "status" in err
+        ? Number((err as { status?: number }).status)
+        : 0;
+    // Expired client OAuth tokens should not block the service-account fallback.
+    if (
+      (status === 401 || status === 403) &&
+      options?.accessToken?.trim()
+    ) {
+      const fallback = await resolveGoogleDocsAccessToken(null);
+      if (!fallback || fallback === accessToken) throw err;
+      payload = await fetchPage(fallback);
+    } else {
+      throw err;
+    }
   }
 
   const files = Array.isArray(payload.files) ? payload.files : [];
@@ -78,20 +103,11 @@ export async function listAdminConfigDriveFiles(options?: {
       return {
         id,
         name,
-        mimeType:
-          typeof file.mimeType === "string" && file.mimeType.trim()
-            ? file.mimeType.trim()
-            : GOOGLE_DOC_MIME,
+        mimeType: GOOGLE_DOC_MIME,
         modifiedTime:
           typeof file.modifiedTime === "string" ? file.modifiedTime : null,
       } satisfies AdminConfigDriveListedFile;
     })
     .filter((file): file is AdminConfigDriveListedFile => file != null)
-    .sort((a, b) => {
-      // Prefer Google Docs first, then name.
-      const aDoc = a.mimeType === GOOGLE_DOC_MIME ? 0 : 1;
-      const bDoc = b.mimeType === GOOGLE_DOC_MIME ? 0 : 1;
-      if (aDoc !== bDoc) return aDoc - bDoc;
-      return a.name.localeCompare(b.name);
-    });
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

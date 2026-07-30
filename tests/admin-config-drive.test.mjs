@@ -35,15 +35,20 @@ test("uses a file-selection popup instead of paste-URL prompt", async () => {
   assert.match(pickerSource, /export function openAdminConfigDriveFolder/);
   assert.match(pickerSource, /showDriveFilePickerPopup/);
   assert.match(pickerSource, /DriveFilePickerModal/);
+  // In-app modal is the sole selection UI (no paste prompt / Google Picker gate).
   assert.doesNotMatch(pickerSource, /window\.prompt/);
   assert.doesNotMatch(pickerSource, /promptForDriveFile/);
   assert.doesNotMatch(pickerSource, /Paste the/);
+  assert.doesNotMatch(pickerSource, /google\.picker/);
+  assert.doesNotMatch(pickerSource, /PickerBuilder/);
   assert.match(modalSource, /drive-file-picker/);
   assert.match(modalSource, /\/api\/admin-config-drive-files/);
   assert.match(modalSource, /Select file/);
+  assert.match(modalSource, /admin-config-drive-types/);
   assert.match(listSource, /listAdminConfigDriveFiles/);
   assert.match(listSource, /ADMIN_CONFIG_DRIVE_FOLDER_ID/);
   assert.match(listSource, /drive\/v3\/files/);
+  assert.match(listSource, /application\/vnd\.google-apps\.document/);
   assert.match(apiSource, /listAdminConfigDriveFiles/);
   assert.match(apiSource, /isAuthorizedSiteAdmin/);
 });
@@ -94,6 +99,7 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
   assert.doesNotMatch(globalsCss, /\.config-window-save(?!d)/);
   assert.match(globalsCss, /\.drive-file-picker\b/);
+  assert.match(globalsCss, /\.drive-file-picker-backdrop[\s\S]*z-index:\s*120/);
   assert.match(packageJson, /"build": "node \.\/scripts\/build\.mjs"/);
   assert.match(packageJson, /"dev": "vinext dev"/);
   assert.match(packageJson, /"build:vinext": "vinext build"/);
