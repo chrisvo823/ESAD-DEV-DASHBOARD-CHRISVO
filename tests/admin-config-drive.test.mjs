@@ -46,11 +46,24 @@ test("uses a file-selection popup instead of paste-URL prompt", async () => {
   assert.match(modalSource, /Select file/);
   assert.match(modalSource, /admin-config-drive-types/);
   assert.match(listSource, /listAdminConfigDriveFiles/);
+  assert.match(listSource, /exportAdminConfigDriveFilePlainText/);
   assert.match(listSource, /ADMIN_CONFIG_DRIVE_FOLDER_ID/);
   assert.match(listSource, /drive\/v3\/files/);
   assert.match(listSource, /application\/vnd\.google-apps\.document/);
   assert.match(apiSource, /listAdminConfigDriveFiles/);
   assert.match(apiSource, /isAuthorizedSiteAdmin/);
+  const exportApiSource = await readFile(
+    new URL("../app/api/admin-config-drive-files/[fileId]/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(exportApiSource, /exportAdminConfigDriveFilePlainText/);
+  assert.match(exportApiSource, /isAuthorizedSiteAdmin/);
+  const credentialsSource = await readFile(
+    new URL("../lib/google-drive-credentials.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(credentialsSource, /GOOGLE_SERVICE_ACCOUNT_JSON/);
+  assert.match(credentialsSource, /googleDriveCredentialsMissingMessage/);
 });
 
 test("Load Config and Card Configuration wire to the Drive folder picker", async () => {
@@ -111,6 +124,7 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(buildScript, /NEXT_PRIVATE_STANDALONE/);
   assert.match(buildScript, /vinext/);
   assert.match(buildScript, /next/);
-  assert.match(loadFromDrive, /drive\/v3\/files\//);
-  assert.match(loadFromDrive, /export\?mimeType=text\/plain/);
+  assert.match(loadFromDrive, /\/api\/admin-config-drive-files\//);
+  assert.match(loadFromDrive, /x-esad-admin-password/);
+  assert.match(loadFromDrive, /getGoogleAccessToken/);
 });

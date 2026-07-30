@@ -22,10 +22,13 @@ Cloud agent environment (`.cursor/environment.json`):
 - A shared terminal starts `npm run dev` (dashboard at `http://localhost:3000/`).
 - Optional secret: `SMARTSHEET_ACCESS_TOKEN` enables live Smartsheet schedule/tests; without it,
   those tests skip and the app still builds and runs.
-- Optional secrets for shared Dashboard Configuration Google Doc:
+- Optional secrets for shared Dashboard Configuration Google Doc + Admin Drive folder:
   `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or `GOOGLE_DOCS_ACCESS_TOKEN`.
-  Share the Doc with the service account as Editor. Without credentials, load falls
-  back to the host cache / defaults and Admin Dashboard Configuration save fails.
+  Share the Doc **and** the Admin config Drive folder
+  (`1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks`) with the service account (Viewer to
+  list/load; Editor to save Dashboard Configuration). Without server credentials,
+  Admin Load Config can still work after Google sign-in grants Docs/Drive scopes;
+  host cache / defaults are used for anonymous loads and Admin save fails.
 
 Non-obvious caveats:
 

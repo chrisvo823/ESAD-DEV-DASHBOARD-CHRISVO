@@ -78,12 +78,13 @@ export function CompanyAuthGate({
     setError(null);
     try {
       const provider = new GoogleAuthProvider();
-      // Docs scope lets Admin save + users load Dashboard Configuration from Drive.
+      // Docs + Drive scopes let Admin list/load configuration files from Drive.
       provider.addScope("https://www.googleapis.com/auth/documents");
       provider.addScope("https://www.googleapis.com/auth/drive.readonly");
       provider.setCustomParameters({
         hd: allowedDomain,
-        prompt: "select_account",
+        // Consent ensures Drive scopes are granted (not only Firebase Auth).
+        prompt: "consent select_account",
       });
       const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);

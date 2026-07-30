@@ -618,6 +618,12 @@ a.config-window-load[aria-disabled="true"] {
   padding: 12px 16px 8px;
 }
 
+.drive-file-picker-error-block {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
 .drive-file-picker-status,
 .drive-file-picker-error {
   margin: 8px 0;

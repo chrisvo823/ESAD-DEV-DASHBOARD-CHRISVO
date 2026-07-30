@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { getAdminSessionPassword } from "./admin-auth";
+import { ensureGoogleDriveAccessToken } from "./ensure-google-drive-access";
 import { getGoogleAccessToken } from "./google-access-token";
 import type {
   AdminConfigDriveKind,
@@ -40,6 +41,8 @@ export function DriveFilePickerModal({
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<ListedFile[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [grantBusy, setGrantBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -96,7 +99,24 @@ export function DriveFilePickerModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  async function handleGrantDriveAccess() {
+    setGrantBusy(true);
+    setError(null);
+    try {
+      await ensureGoogleDriveAccessToken();
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to grant Google Drive access.",
+      );
+    } finally {
+      setGrantBusy(false);
+    }
+  }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -157,9 +177,19 @@ export function DriveFilePickerModal({
             <p className="drive-file-picker-status">Loading files…</p>
           ) : null}
           {!loading && error ? (
-            <p className="drive-file-picker-error" role="alert">
-              {error}
-            </p>
+            <div className="drive-file-picker-error-block" role="alert">
+              <p className="drive-file-picker-error">{error}</p>
+              <button
+                type="button"
+                className="config-window-load"
+                disabled={grantBusy}
+                onClick={() => void handleGrantDriveAccess()}
+              >
+                {grantBusy
+                  ? "Requesting Google access…"
+                  : "Grant Google Drive access"}
+              </button>
+            </div>
           ) : null}
           {!loading && !error && files.length === 0 ? (
             <p className="drive-file-picker-status">

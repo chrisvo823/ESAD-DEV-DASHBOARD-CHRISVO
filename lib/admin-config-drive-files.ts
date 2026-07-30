@@ -2,6 +2,7 @@ import {
   ADMIN_CONFIG_DRIVE_FOLDER_ID,
 } from "./admin-config-drive";
 import { resolveGoogleDocsAccessToken } from "./google-doc-dashboard-config";
+import { googleDriveCredentialsMissingMessage } from "./google-drive-credentials";
 
 export type AdminConfigDriveListedFile = {
   id: string;
@@ -22,20 +23,47 @@ type DriveFilesListResponse = {
 
 const GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
 
+type DriveAuthError = Error & { status?: number };
+
+async function resolveDriveAccessToken(
+  overrideToken?: string | null,
+): Promise<string> {
+  const accessToken = await resolveGoogleDocsAccessToken(overrideToken);
+  if (!accessToken) {
+    throw new Error(googleDriveCredentialsMissingMessage());
+  }
+  return accessToken;
+}
+
+async function withDriveTokenFallback<T>(
+  overrideToken: string | null | undefined,
+  run: (token: string) => Promise<T>,
+): Promise<T> {
+  const accessToken = await resolveDriveAccessToken(overrideToken);
+  try {
+    return await run(accessToken);
+  } catch (err) {
+    const status =
+      err && typeof err === "object" && "status" in err
+        ? Number((err as { status?: number }).status)
+        : 0;
+    // Expired client OAuth tokens should not block the service-account fallback.
+    if ((status === 401 || status === 403) && overrideToken?.trim()) {
+      const fallback = await resolveGoogleDocsAccessToken(null);
+      if (!fallback || fallback === accessToken) throw err;
+      return run(fallback);
+    }
+    throw err;
+  }
+}
+
 /**
- * List Google Docs (and other files) in the shared Admin config Drive folder.
+ * List Google Docs in the shared Admin config Drive folder.
  * Uses the caller token when provided, otherwise service-account / env credentials.
  */
 export async function listAdminConfigDriveFiles(options?: {
   accessToken?: string | null;
 }): Promise<AdminConfigDriveListedFile[]> {
-  const accessToken = await resolveGoogleDocsAccessToken(options?.accessToken);
-  if (!accessToken) {
-    throw new Error(
-      "Google Drive credentials are not configured. Set GOOGLE_SERVICE_ACCOUNT_JSON or sign in with Google.",
-    );
-  }
-
   const query = [
     `'${ADMIN_CONFIG_DRIVE_FOLDER_ID}' in parents`,
     "trashed = false",
@@ -66,33 +94,17 @@ export async function listAdminConfigDriveFiles(options?: {
       const message =
         payload.error?.message?.trim() ||
         `Failed to list Drive folder files (${response.status}).`;
-      const err = new Error(message) as Error & { status?: number };
+      const err = new Error(message) as DriveAuthError;
       err.status = response.status;
       throw err;
     }
     return payload;
   }
 
-  let payload: DriveFilesListResponse;
-  try {
-    payload = await fetchPage(accessToken);
-  } catch (err) {
-    const status =
-      err && typeof err === "object" && "status" in err
-        ? Number((err as { status?: number }).status)
-        : 0;
-    // Expired client OAuth tokens should not block the service-account fallback.
-    if (
-      (status === 401 || status === 403) &&
-      options?.accessToken?.trim()
-    ) {
-      const fallback = await resolveGoogleDocsAccessToken(null);
-      if (!fallback || fallback === accessToken) throw err;
-      payload = await fetchPage(fallback);
-    } else {
-      throw err;
-    }
-  }
+  const payload = await withDriveTokenFallback(
+    options?.accessToken,
+    fetchPage,
+  );
 
   const files = Array.isArray(payload.files) ? payload.files : [];
   return files
@@ -110,4 +122,40 @@ export async function listAdminConfigDriveFiles(options?: {
     })
     .filter((file): file is AdminConfigDriveListedFile => file != null)
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Export a Google Doc from the Admin config folder as plain text.
+ * Uses the same credential resolution as listing (client token → env → SA).
+ */
+export async function exportAdminConfigDriveFilePlainText(
+  fileId: string,
+  options?: { accessToken?: string | null },
+): Promise<string> {
+  const id = fileId.trim();
+  if (!id) {
+    throw new Error("A Drive file id is required.");
+  }
+
+  return withDriveTokenFallback(options?.accessToken, async (token) => {
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}/export?mimeType=text/plain`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "text/plain",
+        },
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      const err = new Error(
+        `Failed to read Drive file (${response.status}): ${body.slice(0, 240)}`,
+      ) as DriveAuthError;
+      err.status = response.status;
+      throw err;
+    }
+    return response.text();
+  });
 }
