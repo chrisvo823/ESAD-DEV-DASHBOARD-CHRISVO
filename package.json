@@ -7,12 +7,13 @@
   },
   "scripts": {
     "dev": "vinext dev",
-    "build": "vinext build",
+    "build": "node ./scripts/build.mjs",
     "start": "vinext start",
     "dev:next": "next dev",
     "build:next": "next build",
+    "build:vinext": "vinext build",
     "start:next": "next start",
-    "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
+    "test": "npm run build:vinext && node --experimental-strip-types --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

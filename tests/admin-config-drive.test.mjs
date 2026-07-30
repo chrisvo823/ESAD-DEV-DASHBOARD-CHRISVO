@@ -61,9 +61,19 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
   assert.doesNotMatch(globalsCss, /\.config-window-save(?!d)/);
-  // Sites / Cloudflare Workers deploy via `npm run build` → vinext, not next.
-  assert.match(packageJson, /"build": "vinext build"/);
+  // Sites / Cloudflare Workers stay on vinext; Firebase adapter sets
+  // NEXT_PRIVATE_STANDALONE and scripts/build.mjs switches to next build.
+  assert.match(packageJson, /"build": "node \.\/scripts\/build\.mjs"/);
   assert.match(packageJson, /"dev": "vinext dev"/);
+  assert.match(packageJson, /"build:vinext": "vinext build"/);
+  assert.match(packageJson, /"build:next": "next build"/);
+  const buildScript = await readFile(
+    new URL("../scripts/build.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(buildScript, /NEXT_PRIVATE_STANDALONE/);
+  assert.match(buildScript, /vinext/);
+  assert.match(buildScript, /next/);
   assert.match(loadFromDrive, /drive\/v3\/files\//);
   assert.match(loadFromDrive, /export\?mimeType=text\/plain/);
 });

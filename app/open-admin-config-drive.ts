@@ -8,6 +8,25 @@ import { getGoogleAccessToken } from "@/app/google-access-token";
 
 export type AdminConfigDriveKind = "dashboard" | "card";
 
+type GooglePickerDocsView = {
+  setParent: (folderId: string) => GooglePickerDocsView;
+  setIncludeFolders: (include: boolean) => GooglePickerDocsView;
+  setSelectFolderEnabled: (enabled: boolean) => GooglePickerDocsView;
+  setMode: (mode: string) => GooglePickerDocsView;
+};
+
+type GooglePickerBuilder = {
+  addView: (view: GooglePickerDocsView) => GooglePickerBuilder;
+  setOAuthToken: (token: string) => GooglePickerBuilder;
+  setDeveloperKey: (key: string) => GooglePickerBuilder;
+  setCallback: (
+    cb: (data: Record<string, unknown>) => void,
+  ) => GooglePickerBuilder;
+  enableFeature: (feature: string) => GooglePickerBuilder;
+  setTitle: (title: string) => GooglePickerBuilder;
+  build: () => { setVisible: (visible: boolean) => void };
+};
+
 declare global {
   interface Window {
     google?: {
@@ -16,21 +35,8 @@ declare global {
         DocsViewMode: { LIST: string };
         Feature: { NAV_HIDDEN: string };
         ViewId: { DOCS: string };
-        DocsView: new (viewId?: string) => {
-          setParent: (folderId: string) => unknown;
-          setIncludeFolders: (include: boolean) => unknown;
-          setSelectFolderEnabled: (enabled: boolean) => unknown;
-          setMode: (mode: string) => unknown;
-        };
-        PickerBuilder: new () => {
-          addView: (view: unknown) => unknown;
-          setOAuthToken: (token: string) => unknown;
-          setDeveloperKey: (key: string) => unknown;
-          setCallback: (cb: (data: Record<string, unknown>) => void) => unknown;
-          enableFeature: (feature: string) => unknown;
-          setTitle: (title: string) => unknown;
-          build: () => { setVisible: (visible: boolean) => void };
-        };
+        DocsView: new (viewId?: string) => GooglePickerDocsView;
+        PickerBuilder: new () => GooglePickerBuilder;
       };
     };
     gapi?: {
