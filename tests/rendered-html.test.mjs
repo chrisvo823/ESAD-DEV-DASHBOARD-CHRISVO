@@ -543,6 +543,25 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(sourceLinks, /METRIC_SOURCE_EMPTY = "Empty"/);
   assert.match(sourceLinks, /METRIC_SOURCE_ERROR = "Error"/);
   assert.match(sourceLinks, /METRIC_SOURCE_UNAVAILABLE = "Unavailable"/);
+  const dsbTasksSource = await readFile(
+    new URL("../lib/dsb-tasks.ts", import.meta.url),
+    "utf8",
+  );
+  // Client components import dsb-tasks — must stay free of node:crypto.
+  assert.doesNotMatch(dsbTasksSource, /google-doc-dashboard-config/);
+  assert.doesNotMatch(dsbTasksSource, /node:crypto/);
+  const dsbTasksServer = await readFile(
+    new URL("../lib/dsb-tasks-server.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(dsbTasksServer, /resolveGoogleDocsAccessToken/);
+  assert.match(dsbTasksServer, /fetchAllProjectTaskStatsServer/);
+  const pageSource = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(pageSource, /fetchAllProjectTaskStatsServer/);
+  assert.doesNotMatch(pageSource, /fetchAllProjectTaskStats\(/);
   assert.match(sourceLinks, /resolveGoogleDriveSource/);
   assert.match(sourceLinks, /resolveSmartsheetSource/);
   assert.match(sourceLinks, /smartsheetHrefFromConfig/);

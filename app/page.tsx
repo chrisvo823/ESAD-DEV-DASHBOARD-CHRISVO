@@ -31,12 +31,12 @@ import {
 } from "../lib/dsb-schedule";
 import {
   aggregateProgramTaskStats,
-  fetchAllProjectTaskStats,
   formatProgramPercent,
   statusFromOverdueCount,
   type DsbTaskStats,
   type ProgramTaskTotals,
 } from "../lib/dsb-tasks";
+import { fetchAllProjectTaskStatsServer } from "../lib/dsb-tasks-server";
 import {
   scheduleMetricsForSourceStatus,
   taskMetricsForSourceStatus,
@@ -957,7 +957,7 @@ export default async function Home() {
       DASHBOARD_CONFIGS["4"].googleDriveLink,
   };
   const [taskStatsByCode, scheduleStatsByCode] = await Promise.all([
-    fetchAllProjectTaskStats(fetch, googleDriveLinksByCode),
+    fetchAllProjectTaskStatsServer(fetch, googleDriveLinksByCode),
     fetchAllProjectScheduleStats(),
   ]);
   const dashboardProjects = applyLiveProjectStats(
