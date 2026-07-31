@@ -311,7 +311,8 @@ const cpldIndependentScheduleFallbackRevisions: DsbScheduleRevision[] = [
 
 const projects: Project[] = [
   {
-    name: "Digital Safety Board",
+    // Board names come from Google Drive Card Configuration (via host Doc cache).
+    name: "",
     code: "DSB",
     config: DASHBOARD_CONFIGS["1"],
     // Fallback overdue count is 1 → On Track with default LED thresholds.
@@ -391,7 +392,7 @@ const projects: Project[] = [
     updated: "Jul 15, 2026",
   },
   {
-    name: "High Voltage Fireset Board",
+    name: "",
     code: "HVFB",
     config: DASHBOARD_CONFIGS["2"],
     // Fallback overdue count is 5 → At Risk with default LED thresholds.
@@ -455,7 +456,7 @@ const projects: Project[] = [
     updated: "Jul 21, 2026",
   },
   {
-    name: "CPLD - Primary",
+    name: "",
     code: "PRI",
     config: DASHBOARD_CONFIGS["3"],
     // Fallback overdue count is 0 → On Track.
@@ -512,7 +513,7 @@ const projects: Project[] = [
     updated: "Jun 23, 2026",
   },
   {
-    name: "CPLD - Independent",
+    name: "",
     code: "IND",
     config: DASHBOARD_CONFIGS["4"],
     // Fallback overdue count is 1 → On Track with default LED thresholds.
@@ -919,23 +920,29 @@ function applyLiveProjectStats(
   });
 }
 
-/** Overlay host/Google-Doc card Configuration onto the static project slots. */
+/** Overlay Google Drive Card Configuration (via host Doc cache) onto project slots. */
 function withHostCardConfigs(
   projectList: Project[],
   hostConfigs: Record<string, DashboardConfig>,
 ): Project[] {
-  return projectList.map((project) => ({
-    ...project,
-    config: resolveHostDashboardConfig(
+  return projectList.map((project) => {
+    const config = resolveHostDashboardConfig(
       project.config.dashboardId,
       hostConfigs,
       project.config,
-    ),
-  }));
+    );
+    return {
+      ...project,
+      // Board name comes only from Google Drive Card Configuration — never from
+      // compiled page shell copy.
+      name: config.boardName.trim(),
+      config,
+    };
+  });
 }
 
 export default async function Home() {
-  // Live Hero + identity always load from the shared Google Doc Dashboard Configuration.
+  // Live Hero + cards load from Google Docs (host file is Doc cache only).
   const siteConfig = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
   const publicSiteConfig = toPublicSiteConfig(siteConfig);
   const hostProjects = withHostCardConfigs(
@@ -943,18 +950,10 @@ export default async function Home() {
     siteConfig.dashboardConfigs,
   );
   const googleDriveLinksByCode: Record<EsadProjectCode, string> = {
-    DSB:
-      siteConfig.dashboardConfigs["1"]?.googleDriveLink ??
-      DASHBOARD_CONFIGS["1"].googleDriveLink,
-    HVFB:
-      siteConfig.dashboardConfigs["2"]?.googleDriveLink ??
-      DASHBOARD_CONFIGS["2"].googleDriveLink,
-    PRI:
-      siteConfig.dashboardConfigs["3"]?.googleDriveLink ??
-      DASHBOARD_CONFIGS["3"].googleDriveLink,
-    IND:
-      siteConfig.dashboardConfigs["4"]?.googleDriveLink ??
-      DASHBOARD_CONFIGS["4"].googleDriveLink,
+    DSB: siteConfig.dashboardConfigs["1"]?.googleDriveLink?.trim() ?? "",
+    HVFB: siteConfig.dashboardConfigs["2"]?.googleDriveLink?.trim() ?? "",
+    PRI: siteConfig.dashboardConfigs["3"]?.googleDriveLink?.trim() ?? "",
+    IND: siteConfig.dashboardConfigs["4"]?.googleDriveLink?.trim() ?? "",
   };
   const [taskStatsByCode, scheduleStatsByCode] = await Promise.all([
     fetchAllProjectTaskStatsServer(fetch, googleDriveLinksByCode),

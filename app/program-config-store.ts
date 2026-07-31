@@ -6,6 +6,7 @@ import {
   withDefaultProgramLedThresholds,
   type ProgramConfig,
 } from "../lib/program-config";
+import { requireAdminSessionForDriveWrite } from "./admin-auth";
 import {
   hydrateSiteConfigFromHost,
   persistSiteConfigPatch,
@@ -53,6 +54,7 @@ export async function writeProgramConfig(
   config: ProgramConfig,
   options?: WriteProgramConfigOptions,
 ): Promise<ProgramConfig> {
+  requireAdminSessionForDriveWrite();
   const lead = config.programLead.trimStart();
   const next = withDefaultProgramLedThresholds({
     dashboardName: config.dashboardName.trim(),

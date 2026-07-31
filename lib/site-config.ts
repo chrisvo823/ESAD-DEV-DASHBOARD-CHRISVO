@@ -20,13 +20,13 @@ export type SiteAdminConfig = {
   /**
    * Selected Dashboard Configuration Google Doc id.
    * When set, that Doc is the source of truth for Hero / metric / LED fields
-   * (host values are cache). Empty means the compiled shared Doc id.
+   * (host values are a write-through cache of the Doc). Empty means the shared default Doc id.
    */
   dashboardConfigDocumentId: string;
   dashboardConfigs: Record<string, DashboardConfig>;
   /**
    * Selected Card Configuration Google Doc id per dashboard/card id.
-   * When set, that Doc is the source of truth for card fields (host values are cache).
+   * When set, that Doc is the source of truth for card fields (host values are Doc cache).
    */
   cardConfigDocumentIds: Record<string, string>;
   customCards: CustomCardRecord[];
@@ -161,8 +161,8 @@ export function sanitizeProgramConfig(raw: unknown): ProgramConfig {
     : "";
 
   return withDefaultProgramLedThresholds({
-    dashboardName: dashboardName || DEFAULT_PROGRAM_CONFIG.dashboardName,
-    programLead: programLead || DEFAULT_PROGRAM_CONFIG.programLead,
+    dashboardName,
+    programLead,
     openTasksLabel: stored.openTasksLabel,
     overDueLabel: stored.overDueLabel,
     currentTaskLabel: stored.currentTaskLabel,
@@ -317,8 +317,8 @@ export function toPublicSiteConfig(config: SiteAdminConfig): SiteConfigPublic {
 }
 
 /**
- * Prefer live/host card config (already overlaid from the selected Google Doc
- * when a document id is mapped); fall back to the compiled default slot.
+ * Prefer live card config already overlaid from the selected Google Drive Doc
+ * (host values are Doc cache); fall back to the empty compiled slot.
  */
 export function resolveHostDashboardConfig(
   dashboardId: DashboardId,

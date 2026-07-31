@@ -12,7 +12,7 @@ import {
   sanitizeDashboardConfigs,
   sanitizeProgramConfig,
 } from "../lib/site-config";
-import { getAdminSessionPassword } from "./admin-auth";
+import { getAdminSessionPassword, requireAdminSessionForDriveWrite } from "./admin-auth";
 import { getGoogleAccessToken } from "./google-access-token";
 
 function siteConfigRequestHeaders(
@@ -297,10 +297,8 @@ export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
 export async function persistSiteConfigPatch(
   patch: SiteConfigPatch,
 ): Promise<SiteConfigCache> {
-  const password = getAdminSessionPassword();
-  if (!password) {
-    throw new Error("Admin session required to save host configuration.");
-  }
+  // Google Drive + host config writes are Admin-mode only.
+  const password = requireAdminSessionForDriveWrite();
 
   // Invalidate any in-flight GET so it cannot overwrite this save.
   hostFetchGeneration += 1;

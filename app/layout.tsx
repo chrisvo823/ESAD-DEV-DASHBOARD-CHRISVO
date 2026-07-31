@@ -26,10 +26,10 @@ export async function generateMetadata(): Promise<Metadata> {
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
 
-  // Title / identity always come from the shared Google Doc Dashboard Configuration.
+  // Title / identity come from the Google Drive Dashboard Configuration Doc
+  // (host file is only a cache of the last successful Doc pull).
   const siteConfig = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
-  const title =
-    siteConfig.programConfig.dashboardName.trim() || "Engineering Dashboard";
+  const title = siteConfig.programConfig.dashboardName.trim() || "Dashboard";
   const lead = siteConfig.programConfig.programLead.trim();
   const description = lead
     ? `${lead} — engineering project health, progress, and work tracking.`
