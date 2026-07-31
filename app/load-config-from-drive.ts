@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  parseDashboardConfigText,
+  parseAllDashboardConfigsFromText,
   type DashboardConfig,
 } from "../lib/dashboard-config";
 import {
@@ -69,13 +69,27 @@ export async function loadCardConfigFromDriveFile(
   fileId: string,
   base: DashboardConfig,
 ): Promise<DashboardConfig> {
+  const configs = await loadAllCardConfigsFromDriveFile(fileId);
+  return (
+    configs.find((config) => config.dashboardId === base.dashboardId) ??
+    configs[0]!
+  );
+}
+
+/**
+ * Load every Card # section from a Card Configuration Google Doc.
+ * Each section configures the matching card by Card # id.
+ */
+export async function loadAllCardConfigsFromDriveFile(
+  fileId: string,
+): Promise<DashboardConfig[]> {
   const text = await exportGoogleDocPlainText(fileId);
-  const parsed = parseDashboardConfigText(text, base);
+  const parsed = parseAllDashboardConfigsFromText(text);
   if ("error" in parsed) {
     throw new Error(
       parsed.errors[0] ??
         "Selected file is not a valid Card Configuration document.",
     );
   }
-  return parsed.config;
+  return parsed.configs;
 }

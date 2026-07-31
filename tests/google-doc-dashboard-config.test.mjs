@@ -100,8 +100,8 @@ test("exposes Card Configuration Google Doc read/write helpers", async () => {
   ]);
   assert.match(dashboardSource, /export async function writePlainTextToGoogleDoc/);
   assert.match(dashboardSource, /export async function readGoogleDocPlainText/);
-  assert.match(cardSource, /export async function readCardConfigFromGoogleDoc/);
+  assert.match(cardSource, /export async function readAllCardConfigsFromGoogleDoc/);
   assert.match(cardSource, /export async function writeCardConfigToGoogleDoc/);
   assert.match(cardSource, /formatDashboardConfigText/);
-  assert.match(cardSource, /parseDashboardConfigText/);
+  assert.match(cardSource, /parseAllDashboardConfigsFromText/);
 });

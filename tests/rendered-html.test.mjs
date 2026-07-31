@@ -86,6 +86,10 @@ test("server-renders the host-configured dashboard", async () => {
   assert.match(html, /data-dashboard-id="2"/);
   assert.match(html, /data-dashboard-id="3"/);
   assert.match(html, /data-dashboard-id="4"/);
+  assert.match(html, /Card #1/);
+  assert.match(html, /Card #2/);
+  assert.match(html, /Card #3/);
+  assert.match(html, /Card #4/);
   assert.match(html, /Program status/);
   assert.match(html, /Completed Tasks/);
   assert.match(html, /Open Tasks/);
@@ -322,6 +326,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   );
   assert.match(heroHeader, /AdminLogin/);
   assert.match(heroHeader, /ProgramConfigWindow/);
+  assert.match(heroHeader, /ConfigWindow/);
+  assert.match(heroHeader, /ProgramConfigWindow[\s\S]*ConfigWindow/);
   assert.match(heroHeader, /ThemePicker/);
   assert.match(heroHeader, /AdminLoginsPanel/);
   assert.match(heroHeader, /AdminAccountPanel/);
@@ -388,8 +394,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigStore, /writePersistedConfig/);
   assert.match(siteConfigStore, /applyGoogleDocCardConfigs/);
   assert.match(siteConfigStore, /writeCardConfigToGoogleDoc/);
-  assert.match(siteConfigStore, /readCardConfigFromGoogleDoc/);
+  assert.match(siteConfigStore, /readAllCardConfigsFromGoogleDoc/);
   assert.match(siteConfigStore, /cardConfigDocumentIds/);
+  assert.match(siteConfigStore, /Card #/);
   assert.match(siteConfigStore, /rename\(DATA_FILE_TMP,\s*DATA_FILE\)/);
   assert.match(siteConfigStore, /read-back did not match/);
   const companyAuthGate = await readFile(
@@ -494,7 +501,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(projectPanel, /responsible-engineer/);
   assert.match(projectPanel, /config\.boardName/);
   assert.match(projectPanel, /config\.boardNickname/);
-  assert.match(projectPanel, /ConfigWindow/);
+  assert.doesNotMatch(projectPanel, /ConfigWindow/);
+  assert.match(projectPanel, /formatCardNumberLabel/);
+  assert.match(projectPanel, /panel-card-number/);
   assert.match(projectPanel, /layout = "fixed"/);
   assert.match(projectPanel, /project-panel--custom/);
   assert.match(projectPanel, /panel-status-block/);
@@ -666,11 +675,13 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /file-selection[\s\n]+popup/);
   assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
-  assert.match(configWindow, /loadCardConfigFromDriveFile/);
-  assert.match(configWindow, /bindCardConfigGoogleDoc/);
+  assert.match(configWindow, /loadAllCardConfigsFromDriveFile/);
+  assert.match(configWindow, /bindAllCardConfigsGoogleDoc/);
   assert.doesNotMatch(configWindow, /saveCardConfigToGoogleDoc/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
+  assert.match(configWindow, /Card Configuration/);
+  assert.match(configWindow, /Card #:/);
   assert.match(configWindow, /saved for all users/i);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
@@ -685,7 +696,11 @@ test("keeps dashboard metadata and project data in source", async () => {
   );
   assert.match(
     configWindow,
-    /<button\s+type="button"\s+className="config-window-trigger"/,
+    /<button\s+type="button"\s+className="config-window-trigger"[\s\S]*>\s*Card Configuration\s*<\/button>/,
+  );
+  assert.match(
+    await readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    /\.panel-card-number\b/,
   );
   const drivePickerModal = await readFile(
     new URL("../app/drive-file-picker-modal.tsx", import.meta.url),

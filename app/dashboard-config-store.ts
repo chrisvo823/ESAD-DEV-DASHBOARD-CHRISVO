@@ -65,22 +65,39 @@ export function readDashboardConfigs(): ConfigMap {
 }
 
 /**
- * Bind a Card Configuration Google Doc as the source of truth for this card.
+ * Bind a Card Configuration Google Doc as the source of truth for one card.
  * Host values are only a cache; all users read from the selected Doc.
  */
 export async function bindCardConfigGoogleDoc(options: {
   config: DashboardConfig;
   documentId: string;
 }): Promise<ConfigMap> {
-  const { config, documentId } = options;
-  const next = {
-    ...readDashboardConfigs(),
-    [config.dashboardId]: { ...config, dashboardId: config.dashboardId },
-  };
-  emitLegacyConfigEvent(next[config.dashboardId]!);
+  return bindAllCardConfigsGoogleDoc({
+    configs: [options.config],
+    documentId: options.documentId,
+  });
+}
+
+/**
+ * Bind one Google Doc for one or more Card # sections and publish for all users.
+ */
+export async function bindAllCardConfigsGoogleDoc(options: {
+  configs: DashboardConfig[];
+  documentId: string;
+}): Promise<ConfigMap> {
+  const { configs, documentId } = options;
+  const next = { ...readDashboardConfigs() };
+  const cardConfigDocumentIds: Record<string, string> = {};
+  for (const config of configs) {
+    next[config.dashboardId] = { ...config, dashboardId: config.dashboardId };
+    cardConfigDocumentIds[config.dashboardId] = documentId;
+    emitLegacyConfigEvent(next[config.dashboardId]!);
+  }
   await persistSiteConfigPatch({
-    dashboardConfig: next[config.dashboardId]!,
-    cardConfigDocumentIds: { [config.dashboardId]: documentId },
+    dashboardConfigs: {
+      ...next,
+    },
+    cardConfigDocumentIds,
   });
   return next;
 }

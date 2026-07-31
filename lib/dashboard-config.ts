@@ -23,7 +23,10 @@ export function isFixedDashboardId(id: string): id is FixedDashboardId {
 }
 
 export type DashboardConfig = {
-  /** Internal slot/card id — not shown in the editable Configuration Window text. */
+  /**
+   * Card slot id — also the Card # value in Configuration text for fixed cards
+   * ("1"–"4").
+   */
   dashboardId: DashboardId;
   responsibleEngineer: string;
   boardName: string;
@@ -104,6 +107,7 @@ export const DASHBOARD_ID_BY_CODE: Record<EsadProjectCode, FixedDashboardId> = {
 };
 
 export const CONFIG_FIELD_LABELS = [
+  "Card #",
   "Responsible Engineer",
   "Board Name",
   "Board Nickname",
@@ -113,15 +117,39 @@ export const CONFIG_FIELD_LABELS = [
 
 export type ConfigFieldLabel = (typeof CONFIG_FIELD_LABELS)[number];
 
-/** Text-based configuration content shown/edited in the Configuration Window. */
+/** Display label shown on the card chrome, e.g. "Card #1". */
+export function formatCardNumberLabel(dashboardId: DashboardId): string {
+  return `Card #${dashboardId}`;
+}
+
+/**
+ * Normalize Card # text values like "1", "Card #2", or "#3" to a dashboard id.
+ */
+export function normalizeCardNumber(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(?:card\s*#\s*|\#\s*)?(\d+)$/i);
+  if (!match?.[1]) return null;
+  return match[1];
+}
+
+/** Text-based configuration content shown in the Configuration Window. */
 export function formatDashboardConfigText(config: DashboardConfig): string {
   return [
+    `Card #: "${config.dashboardId}"`,
     `Responsible Engineer: "${config.responsibleEngineer}"`,
     `Board Name: "${config.boardName}"`,
     `Board Nickname: "${config.boardNickname}"`,
     `Google Drive Link: "${config.googleDriveLink}"`,
     `Smartsheet Link: "${config.smartsheetLink}"`,
   ].join("\n");
+}
+
+/** Join multiple card config blocks for the top-level Card Configuration view. */
+export function formatAllDashboardConfigsText(
+  configs: readonly DashboardConfig[],
+): string {
+  return configs.map((config) => formatDashboardConfigText(config)).join("\n\n");
 }
 
 function escapeRegExp(value: string): string {
@@ -200,27 +228,61 @@ function readQuotedField(text: string, label: ConfigFieldLabel): string | null {
   return match ? match[1] : null;
 }
 
+const EMPTY_BASE_CONFIG: DashboardConfig = {
+  dashboardId: "1",
+  responsibleEngineer: "",
+  boardName: "New Board",
+  boardNickname: "NEW",
+  googleDriveLink: "",
+  smartsheetLink: "",
+};
+
 /**
- * Parse editable Configuration Window text back into a config object.
- * Dash Board ID is not part of the editable text and is preserved from `base`.
+ * Split a Card Configuration document into one block per Card # section.
+ */
+export function splitCardConfigBlocks(text: string): string[] {
+  const lines = text.split(/\r?\n/);
+  const blocks: string[] = [];
+  let current: string[] = [];
+  const cardLine = /^\s*Card #\s*:/i;
+
+  for (const line of lines) {
+    if (cardLine.test(line) && current.some((entry) => entry.trim())) {
+      blocks.push(current.join("\n"));
+      current = [line];
+      continue;
+    }
+    current.push(line);
+  }
+  if (current.some((entry) => entry.trim())) {
+    blocks.push(current.join("\n"));
+  }
+  return blocks;
+}
+
+/**
+ * Parse Configuration Window text into a config object.
+ * Card # is the card id (e.g. "1" for Card #1). When missing, `base.dashboardId`
+ * is preserved for backward compatibility.
  */
 export function parseDashboardConfigText(
   text: string,
-  base: DashboardConfig,
+  base: DashboardConfig = EMPTY_BASE_CONFIG,
 ): { config: DashboardConfig } | { error: string; errors: string[] } {
   const syntaxErrors = validateDashboardConfigSyntax(text);
   if (syntaxErrors.length > 0) {
     return { error: syntaxErrors[0] ?? "Syntax error", errors: syntaxErrors };
   }
 
+  const cardNumberRaw = readQuotedField(text, "Card #");
   const responsibleEngineer = readQuotedField(text, "Responsible Engineer");
   const boardName = readQuotedField(text, "Board Name");
   const boardNickname = readQuotedField(text, "Board Nickname");
   const googleDriveLink = readQuotedField(text, "Google Drive Link");
   const smartsheetLink = readQuotedField(text, "Smartsheet Link");
 
-  // validateDashboardConfigSyntax already guarantees quoted fields exist.
   if (
+    cardNumberRaw == null ||
     responsibleEngineer == null ||
     boardName == null ||
     boardNickname == null ||
@@ -234,6 +296,12 @@ export function parseDashboardConfigText(
   }
 
   const valueErrors: string[] = [];
+  const cardNumber = normalizeCardNumber(cardNumberRaw);
+  if (!cardNumber) {
+    valueErrors.push('Card # must be a number like "1".');
+  } else if (!isFixedDashboardId(cardNumber)) {
+    valueErrors.push('Card # must be "1", "2", "3", or "4".');
+  }
   if (!boardName.trim()) {
     valueErrors.push("Board Name cannot be empty.");
   }
@@ -246,7 +314,7 @@ export function parseDashboardConfigText(
 
   return {
     config: {
-      dashboardId: base.dashboardId,
+      dashboardId: cardNumber ?? base.dashboardId,
       responsibleEngineer: responsibleEngineer.trim(),
       boardName: boardName.trim(),
       boardNickname: boardNickname.trim(),
@@ -254,6 +322,55 @@ export function parseDashboardConfigText(
       smartsheetLink: smartsheetLink.trim(),
     },
   };
+}
+
+/**
+ * Parse a Card Configuration Google Doc that may contain one or more Card #
+ * sections. Each section configures the matching card by Card # id.
+ */
+export function parseAllDashboardConfigsFromText(
+  text: string,
+): { configs: DashboardConfig[] } | { error: string; errors: string[] } {
+  const blocks = splitCardConfigBlocks(text);
+  if (blocks.length === 0) {
+    return {
+      error: 'Syntax error: missing Card #: "value"',
+      errors: ['Syntax error: missing Card #: "value"'],
+    };
+  }
+
+  const configs: DashboardConfig[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  for (const block of blocks) {
+    const parsed = parseDashboardConfigText(block);
+    if ("error" in parsed) {
+      errors.push(...parsed.errors);
+      continue;
+    }
+    if (seen.has(parsed.config.dashboardId)) {
+      errors.push(
+        `Syntax error: duplicate Card #: "${parsed.config.dashboardId}".`,
+      );
+      continue;
+    }
+    seen.add(parsed.config.dashboardId);
+    configs.push(parsed.config);
+  }
+
+  if (configs.length === 0) {
+    return {
+      error: errors[0] ?? "Selected file is not a valid Card Configuration document.",
+      errors:
+        errors.length > 0
+          ? errors
+          : ["Selected file is not a valid Card Configuration document."],
+    };
+  }
+
+  // Prefer successful card parses even when a later block has errors.
+  return { configs };
 }
 
 export function getDashboardConfigForCode(

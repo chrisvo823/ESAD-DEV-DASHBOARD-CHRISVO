@@ -820,6 +820,21 @@ a.config-window-load[aria-disabled="true"] {
   gap: 10px;
 }
 
+.panel-card-number {
+  margin: 0;
+  color: #9ec9ef;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .panel-card-number {
+  color: #1c6fbf;
+}
+
 .panel-status-block {
   display: inline-flex;
   flex-direction: column;

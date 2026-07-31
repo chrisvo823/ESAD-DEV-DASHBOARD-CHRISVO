@@ -4,6 +4,7 @@ import { AdminAccountPanel } from "./admin-account-panel";
 import { AdminLogin } from "./admin-login";
 import { AdminLoginsPanel } from "./admin-logins-panel";
 import { useAdminSessionPassword } from "./admin-auth";
+import { ConfigWindow } from "./config-window";
 import { ProgramConfigWindow } from "./program-config-window";
 import { ThemePicker } from "./theme-picker";
 import type { ProgramConfig } from "../lib/program-config";
@@ -32,6 +33,7 @@ export function HeroHeader({
       <div className="admin-toolbar">
         <ThemePicker />
         <ProgramConfigWindow config={programConfig} />
+        <ConfigWindow />
         <AdminLoginsPanel
           adminPassword={sessionPassword || adminPassword}
         />
