@@ -123,10 +123,19 @@ export function formatCardNumberLabel(dashboardId: DashboardId): string {
 }
 
 /**
- * Normalize Card # text values like "1", "Card #2", or "#3" to a dashboard id.
+ * Normalize Card # text values like "1", '2', "Card #3", or "#4" to a dashboard id.
+ * Strips surrounding quotes so Google Doc / pasted Label: "N" values parse cleanly.
  */
 export function normalizeCardNumber(raw: string): string | null {
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Strip one layer of matching quotes (ASCII or already-normalized smart quotes).
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2)
+  ) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
   if (!trimmed) return null;
   const match = trimmed.match(/^(?:card\s*#\s*|\#\s*)?(\d+)$/i);
   if (!match?.[1]) return null;
@@ -172,9 +181,16 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Strip common list/bullet prefixes Google Docs adds before Card # lines. */
+function stripCardNumberLinePrefix(line: string): string {
+  return line.replace(/^(?:[-*•]|\d+[.)])\s+/, "").trim();
+}
+
 /** True when a line starts a Card # section (several Google Doc styles). */
 export function isCardNumberSectionLine(line: string): boolean {
-  const normalized = normalizeConfigDocText(line).trim();
+  const normalized = stripCardNumberLinePrefix(
+    normalizeConfigDocText(line).trim(),
+  );
   return (
     /^Card\s*#\s*:/i.test(normalized) ||
     /^Card\s*#\s*\d+\s*:?\s*$/i.test(normalized) ||
@@ -184,14 +200,28 @@ export function isCardNumberSectionLine(line: string): boolean {
 
 /** Extract the card id from a Card # section/header/value line. */
 export function readCardNumberFromLine(line: string): string | null {
-  const normalized = normalizeConfigDocText(line).trim();
-  const withLabel = normalized.match(
-    /^Card\s*#\s*:\s*"?([^"]*?)"?\s*$/i,
+  const normalized = stripCardNumberLinePrefix(
+    normalizeConfigDocText(line).trim(),
   );
+
+  // Card #: "1" | Card #: '1' | Card #: 1 | Card #: "1".
+  const withLabel = normalized.match(/^Card\s*#\s*:\s*(.+?)\s*\.?$/i);
   if (withLabel?.[1] != null) {
-    return normalizeCardNumber(withLabel[1]);
+    const raw = withLabel[1].trim();
+    if (raw.startsWith('"')) {
+      const quoted = raw.match(/^"([^"]*)"\s*\.?$/);
+      if (quoted) return normalizeCardNumber(quoted[1] ?? "");
+      return null;
+    }
+    if (raw.startsWith("'")) {
+      const quoted = raw.match(/^'([^']*)'\s*\.?$/);
+      if (quoted) return normalizeCardNumber(quoted[1] ?? "");
+      return null;
+    }
+    return normalizeCardNumber(raw.replace(/\.$/, ""));
   }
-  const header = normalized.match(/^Card\s*#\s*(\d+)\s*:?\s*$/i);
+
+  const header = normalized.match(/^Card\s*#\s*(\d+)\s*:?\s*\.?$/i);
   if (header?.[1]) return normalizeCardNumber(header[1]);
   const headerWithRest = normalized.match(/^Card\s*#\s*(\d+)\s*:/i);
   if (headerWithRest?.[1]) return normalizeCardNumber(headerWithRest[1]);
