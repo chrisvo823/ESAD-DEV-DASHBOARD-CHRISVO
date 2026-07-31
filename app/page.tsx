@@ -109,9 +109,10 @@ const dsbScheduleFallbackRevisions: DsbScheduleRevision[] = [
       scheduleTask(
         2594825670494084,
         "Schematic",
+        // Smartsheet Current Task: Start 07/24/26, Finish 08/06/26, % Complete 10%
         "2026-07-24T08:00:00",
-        "2026-08-20T16:59:59",
-        45,
+        "2026-08-06T16:59:59",
+        10,
       ),
       // Next after Schematic on the Rev A schedule (not Rev B Requirements).
       scheduleTask(
@@ -172,8 +173,8 @@ const hvfbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         2735936781604996,
         "Schematic",
         "2026-07-24T08:00:00",
-        "2026-08-20T16:59:59",
-        45,
+        "2026-08-06T16:59:59",
+        10,
       ),
       scheduleTask(
         3847047892716212,
@@ -368,9 +369,9 @@ const projects: Project[] = [
         valueDateLabel:
           formatScheduleDateRange(
             "2026-07-24T08:00:00",
-            "2026-08-20T16:59:59",
+            "2026-08-06T16:59:59",
           ) ?? undefined,
-        valuePercentLabel: "45%",
+        valuePercentLabel: "10%",
         valueHref: smartsheetRowUrl(2594825670494084),
         focusTaskId: 2594825670494084,
         hideValueBar: true,
@@ -436,9 +437,9 @@ const projects: Project[] = [
         valueDateLabel:
           formatScheduleDateRange(
             "2026-07-24T08:00:00",
-            "2026-08-20T16:59:59",
+            "2026-08-06T16:59:59",
           ) ?? undefined,
-        valuePercentLabel: "45%",
+        valuePercentLabel: "10%",
         valueHref: smartsheetRowUrl(2735936781604996),
         focusTaskId: 2735936781604996,
         hideValueBar: true,

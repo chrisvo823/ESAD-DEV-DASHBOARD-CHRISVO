@@ -206,7 +206,8 @@ test("server-renders the Google Drive–configured dashboard", async () => {
   );
   // Today (late Jul 2026): Schematic is Current; Layout is Next (not Rev B Requirements).
   assert.match(html, /Schematic/);
-  assert.match(html, /Jul 24 – Aug 20, 2026/);
+  assert.match(html, /Jul 24 – Aug 6, 2026/);
+  assert.match(html, /metric-task-percent[\s\S]*?10%/);
   assert.match(html, /Layout/);
   assert.match(html, /Aug 21 – Sep 29, 2026/);
   // DSB Block Diagram + Review must keep Smartsheet Start/Finish (07/17–07/23).
