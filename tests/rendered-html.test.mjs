@@ -621,6 +621,10 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /pickAdminConfigDriveFile/);
   assert.match(programConfigWindow, /loadProgramConfigFromDriveFile/);
   assert.match(programConfigWindow, /writeProgramConfig/);
+  assert.match(programConfigWindow, /documentId:\s*picked\.id/);
+  assert.match(programConfigWindow, /documentId/);
+  assert.match(programConfigWindow, /refreshSiteConfigFromHost/);
+  assert.match(programConfigWindow, /Updated the Google Drive/);
   assert.match(programConfigWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(programConfigWindow, /config-window-save/);
@@ -667,6 +671,8 @@ test("keeps dashboard metadata and project data in source", async () => {
   );
   assert.match(programConfigStoreSource, /reloadProgramConfigFromGoogleDoc/);
   assert.match(programConfigStoreSource, /refreshSiteConfigFromHost/);
+  assert.match(programConfigStoreSource, /dashboardConfigDocumentId/);
+  assert.match(programConfigStoreSource, /documentId/);
   assert.match(projectPanel, /metricDisplayLabel/);
   assert.match(programConfigSource, /openTasksLabel/);
   assert.match(programConfigSource, /overDueLabel/);

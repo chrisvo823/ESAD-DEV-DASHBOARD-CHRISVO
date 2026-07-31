@@ -8,6 +8,7 @@ import {
   cloneDefaultDashboardConfigs,
   sanitizeCardConfigDocumentIds,
   sanitizeCustomCards,
+  sanitizeDashboardConfigDocumentId,
   sanitizeDashboardConfigs,
   sanitizeProgramConfig,
 } from "../lib/site-config";
@@ -79,6 +80,7 @@ function setCache(next: SiteConfigCache, emit = true): SiteConfigCache {
 function defaultPublicConfig(): SiteConfigCache {
   return {
     programConfig: sanitizeProgramConfig(null),
+    dashboardConfigDocumentId: "",
     dashboardConfigs: cloneDefaultDashboardConfigs(),
     cardConfigDocumentIds: {},
     customCards: [],
@@ -212,6 +214,9 @@ export function seedSiteConfigFromServer(initial: SiteConfigPublic): void {
   setCache(
     {
       programConfig: sanitizeProgramConfig(initial.programConfig),
+      dashboardConfigDocumentId: sanitizeDashboardConfigDocumentId(
+        initial.dashboardConfigDocumentId,
+      ),
       dashboardConfigs: sanitizeDashboardConfigs(initial.dashboardConfigs),
       cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
         initial.cardConfigDocumentIds,
@@ -249,6 +254,9 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
       const host = (await response.json()) as SiteConfigCache;
       const maybeMigrated = await migrateLegacyIfNeeded({
         programConfig: sanitizeProgramConfig(host.programConfig),
+        dashboardConfigDocumentId: sanitizeDashboardConfigDocumentId(
+          host.dashboardConfigDocumentId,
+        ),
         dashboardConfigs: sanitizeDashboardConfigs(host.dashboardConfigs),
         cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
           host.cardConfigDocumentIds,
@@ -305,6 +313,10 @@ export async function persistSiteConfigPatch(
     programConfig: patch.programConfig
       ? sanitizeProgramConfig(patch.programConfig)
       : current.programConfig,
+    dashboardConfigDocumentId:
+      patch.dashboardConfigDocumentId !== undefined
+        ? sanitizeDashboardConfigDocumentId(patch.dashboardConfigDocumentId)
+        : current.dashboardConfigDocumentId,
     dashboardConfigs: patch.dashboardConfigs
       ? sanitizeDashboardConfigs(patch.dashboardConfigs)
       : patch.dashboardConfig
@@ -386,6 +398,9 @@ export async function persistSiteConfigPatch(
 
   const saved: SiteConfigCache = {
     programConfig: sanitizeProgramConfig(payload.programConfig),
+    dashboardConfigDocumentId: sanitizeDashboardConfigDocumentId(
+      payload.dashboardConfigDocumentId,
+    ),
     dashboardConfigs: sanitizeDashboardConfigs(payload.dashboardConfigs),
     cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
       payload.cardConfigDocumentIds,
@@ -407,6 +422,10 @@ export async function persistSiteConfigPatch(
 
 export function readCachedProgramConfig(): ProgramConfig {
   return getCachedSiteConfig().programConfig;
+}
+
+export function readCachedDashboardConfigDocumentId(): string {
+  return getCachedSiteConfig().dashboardConfigDocumentId;
 }
 
 export function readCachedDashboardConfigs(): Record<string, DashboardConfig> {

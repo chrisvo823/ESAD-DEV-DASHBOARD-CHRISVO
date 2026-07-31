@@ -9,6 +9,10 @@ import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
 import { ensureGoogleDriveAccessToken } from "./ensure-google-drive-access";
 import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import { writeProgramConfig } from "./program-config-store";
+import {
+  getCachedSiteConfig,
+  refreshSiteConfigFromHost,
+} from "./site-config-client";
 import type { ProgramConfig } from "../lib/program-config";
 import {
   combineProgramConfigEditors,
@@ -99,7 +103,8 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
         return;
       }
       const next = await loadProgramConfigFromDriveFile(picked.id);
-      await writeProgramConfig(next);
+      await writeProgramConfig(next, { documentId: picked.id });
+      await refreshSiteConfigFromHost();
       applyConfig(next);
       const deploy = await noteConfigLoadedAndDeployIfReady({
         dashboard: next,
@@ -136,15 +141,31 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
       }
       setErrors([]);
 
-      await ensureGoogleDriveAccessToken({
-        reason:
-          "Sign in with Google Drive so Dashboard Configuration can be saved to the shared Doc.",
-      });
+      let documentId = getCachedSiteConfig().dashboardConfigDocumentId?.trim() ?? "";
+      if (!documentId) {
+        const picked = await pickAdminConfigDriveFile("dashboard");
+        if (!picked) {
+          return;
+        }
+        documentId = picked.id;
+      }
 
-      const saved = await writeProgramConfig(parsed.config);
+      // Prefer a user OAuth token when available; server can still write via
+      // service account / env token if Firebase client auth is unavailable.
+      try {
+        await ensureGoogleDriveAccessToken({
+          reason:
+            "Sign in with Google Drive so Dashboard Configuration can be saved to the selected Doc.",
+        });
+      } catch {
+        // Continue — host credentials may still publish the Doc immediately.
+      }
+
+      const saved = await writeProgramConfig(parsed.config, { documentId });
+      await refreshSiteConfigFromHost();
       applyConfig(saved);
       setStatusMessage(
-        "Saved Dashboard Configuration to Google Drive for all users. Dashboards refresh every 3 minutes.",
+        "Updated the Google Drive Dashboard Configuration file immediately for all users.",
       );
     } catch (err) {
       setStatusMessage(null);
@@ -243,9 +264,10 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </header>
                 <p className="config-window-help">
                   Edit Dashboard Configuration text, then{" "}
-                  <strong>Save</strong> to write it back to the shared Google
-                  Config Doc for all users. <strong>Load Config</strong> opens
-                  a file-selection popup for the shared Google Drive folder (
+                  <strong>Save</strong> to update the selected Google Drive
+                  file immediately for all users. <strong>Load Config</strong>{" "}
+                  opens a file-selection popup for the shared Google Drive
+                  folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
