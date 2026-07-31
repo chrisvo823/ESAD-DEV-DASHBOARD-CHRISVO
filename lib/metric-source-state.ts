@@ -131,3 +131,27 @@ export function scheduleMetricsForSourceStatus(
   };
   return { current: { ...stub }, next: { ...stub } };
 }
+
+/**
+ * Valid Configuration Smartsheet Link whose live schedule could not be loaded
+ * (missing API token, network failure, empty sheet response).
+ * Dashboard never substitutes compiled offline schedule fallbacks.
+ */
+export function scheduleMetricsForUnavailableSheet(
+  href?: string,
+): { current: ScheduleMetricPatch; next: ScheduleMetricPatch } {
+  const stub: ScheduleMetricPatch = {
+    value: 0,
+    valueText: METRIC_SOURCE_UNAVAILABLE,
+    hideValueBar: true,
+    barPercent: undefined,
+    barLabel: undefined,
+    href,
+    valueHref: undefined,
+    valueDateLabel: undefined,
+    valuePercentLabel: undefined,
+    scheduleRevisions: undefined,
+    focusTaskId: undefined,
+  };
+  return { current: { ...stub }, next: { ...stub } };
+}
