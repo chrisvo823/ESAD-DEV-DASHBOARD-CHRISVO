@@ -20,6 +20,7 @@ import {
 import {
   scheduleMetricsForSourceStatus,
   taskMetricsForSourceStatus,
+  scheduleMetricsForUnavailableSheet,
   taskMetricsForUnavailableSheet,
 } from "../lib/metric-source-state.ts";
 
@@ -141,4 +142,18 @@ test("builds Empty, Error, and Unavailable metric stubs", () => {
     unavailable.open.href,
     "https://docs.google.com/spreadsheets/d/abc/edit",
   );
+
+  const unavailableSchedule = scheduleMetricsForUnavailableSheet(
+    "https://app.smartsheet.com/sheets/abc",
+  );
+  assert.equal(
+    unavailableSchedule.current.valueText,
+    METRIC_SOURCE_UNAVAILABLE,
+  );
+  assert.equal(unavailableSchedule.next.valueText, METRIC_SOURCE_UNAVAILABLE);
+  assert.equal(
+    unavailableSchedule.current.href,
+    "https://app.smartsheet.com/sheets/abc",
+  );
+  assert.equal(unavailableSchedule.current.scheduleRevisions, undefined);
 });

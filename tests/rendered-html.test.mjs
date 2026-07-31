@@ -36,10 +36,24 @@ async function readHostProgramIdentity() {
   }
 }
 
+async function loadSmartsheetAccessToken() {
+  if (process.env.SMARTSHEET_ACCESS_TOKEN?.trim()) {
+    return process.env.SMARTSHEET_ACCESS_TOKEN.trim();
+  }
+  try {
+    const envText = await readFile(new URL("../.env", import.meta.url), "utf8");
+    const match = envText.match(/^\s*SMARTSHEET_ACCESS_TOKEN\s*=\s*(.+)\s*$/m);
+    return match?.[1]?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
+  const smartsheetAccessToken = await loadSmartsheetAccessToken();
 
   return worker.fetch(
     new Request("http://localhost/", {
@@ -49,6 +63,9 @@ async function render() {
       ASSETS: {
         fetch: async () => new Response("Not found", { status: 404 }),
       },
+      ...(smartsheetAccessToken
+        ? { SMARTSHEET_ACCESS_TOKEN: smartsheetAccessToken }
+        : {}),
     },
     {
       waitUntil() {},
@@ -193,8 +210,7 @@ test("server-renders the Google Drive–configured dashboard", async () => {
   assert.match(html, /metric-task-date/);
   assert.match(html, /Current Task[\s\S]*?metric-task-date[\s\S]*?Next Task/);
   assert.match(html, /Current Task[\s\S]*?Next Task/);
-  // Without SMARTSHEET_ACCESS_TOKEN, schedule falls back to static revisions —
-  // never wipe Current/Next Task into an unlinked Error state.
+  // Current/Next Task come only from live Smartsheet — never compiled fallbacks.
   // Current/Next Task must not themselves render the Error flag.
   assert.doesNotMatch(
     html,
@@ -204,37 +220,43 @@ test("server-renders the Google Drive–configured dashboard", async () => {
     html,
     /task-hover-trigger--next[\s\S]*?metric-task-name metric-source-flag--error/,
   );
-  // Today (late Jul 2026): Schematic is Current; Schematic Review is Next.
-  assert.match(html, /Schematic/);
-  assert.match(html, /Jul 24 – Aug 6, 2026/);
-  // Current Task Completion % from Smartsheet (value can change live).
-  assert.match(
-    html,
-    /task-hover-trigger--current[\s\S]*?metric-task-percent">\d+(?:\.\d+)?%</,
-  );
-  assert.match(html, /Schematic Review/);
-  assert.match(html, /Aug 7, 2026/);
-  // Next Task blank Smartsheet % Complete displays as 0%.
-  assert.match(
-    html,
-    /Schematic Review[\s\S]*?metric-task-date[\s\S]*?Aug 7, 2026[\s\S]*?metric-task-percent[\s\S]*?0%/,
-  );
-  // DSB Block Diagram + Review must keep Smartsheet Start/Finish (07/17–07/23).
-  assert.match(html, /Block Diagram \+ Review/);
-  assert.match(html, /2026-07-17T08:00:00/);
-  assert.match(html, /2026-07-23T16:59:59/);
-  assert.doesNotMatch(html, /2026-07-22T16:59:59/);
-  // Next Task Schematic Review Start/Finish (08/07/26) appears in schedule payload.
-  assert.match(html, /2026-08-07T08:00:00/);
-  assert.match(html, /2026-08-07T16:59:59/);
+  const smartsheetToken = await loadSmartsheetAccessToken();
+  if (smartsheetToken) {
+    // Live Avionics Master Schedule: Schematic current / Schematic Review next.
+    assert.match(html, /Schematic/);
+    assert.match(html, /Jul 24 – Aug 6, 2026/);
+    // Current Task Completion % from Smartsheet (value can change live).
+    assert.match(
+      html,
+      /task-hover-trigger--current[\s\S]*?metric-task-percent">\d+(?:\.\d+)?%</,
+    );
+    assert.match(html, /Schematic Review/);
+    assert.match(html, /Aug 7, 2026/);
+    // Next Task blank Smartsheet % Complete displays as 0%.
+    assert.match(
+      html,
+      /Schematic Review[\s\S]*?metric-task-date[\s\S]*?Aug 7, 2026[\s\S]*?metric-task-percent[\s\S]*?0%/,
+    );
+    // Live schedule hover payload includes historical task Start/Finish.
+    assert.match(html, /Block Diagram \+ Review/);
+    assert.match(html, /2026-07-17T08:00:00/);
+    assert.match(html, /2026-07-23T16:59:59/);
+    assert.doesNotMatch(html, /2026-07-22T16:59:59/);
+    assert.match(html, /2026-08-07T08:00:00/);
+    assert.match(html, /2026-08-07T16:59:59/);
+    assert.match(
+      html,
+      /href="https:\/\/app\.smartsheet\.com\/sheets\/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1\?rowId=\d+"/,
+    );
+  } else {
+    // Without a token, Current/Next Task show Unavailable (no offline schedule).
+    assert.match(html, /Unavailable/);
+    assert.doesNotMatch(html, /Schematic Review/);
+  }
   assert.doesNotMatch(html, />Schedule</);
   assert.doesNotMatch(
     html,
     /metric-task-name[\s\S]*?Digital Safety Board \(DSB\)/,
-  );
-  assert.match(
-    html,
-    /href="https:\/\/app\.smartsheet\.com\/sheets\/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1\?rowId=\d+"/,
   );
   assert.match(html, /Over Due/);
   assert.match(
@@ -283,10 +305,6 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /formatScheduleDateRange/);
   assert.match(page, /current\?\.start,\s*current\?\.finish/);
   assert.match(page, /next\?\.start,\s*next\?\.finish/);
-  assert.match(
-    page,
-    /"Block Diagram \+ Review",\s*(?:\/\/[^\n]*\n\s*)*"2026-07-17T08:00:00",\s*(?:\/\/[^\n]*\n\s*)*"2026-07-23T16:59:59"/,
-  );
   assert.match(page, /focusTaskId: current\?\.id/);
   assert.match(page, /focusTaskId: next\?\.id/);
   assert.match(page, /current\?\.permalink/);
@@ -302,9 +320,11 @@ test("keeps dashboard metadata and project data in source", async () => {
     page,
     /Blank Smartsheet cells display as 0% \(same as Current Task\)/,
   );
-  assert.match(page, /fallbackScheduleFromMetrics/);
-  assert.match(page, /findCurrentScheduleTask/);
-  assert.match(page, /findNextScheduleTask/);
+  // Live Smartsheet only — no compiled offline schedule fallbacks.
+  assert.doesNotMatch(page, /fallbackScheduleFromMetrics/);
+  assert.doesNotMatch(page, /ScheduleFallbackRevisions/);
+  assert.match(page, /scheduleMetricsForUnavailableSheet/);
+  assert.match(page, /Live Smartsheet only/);
   assert.match(page, /isSchedulePlaceholder/);
   assert.match(page, /hideValueBar: true/);
   assert.match(
