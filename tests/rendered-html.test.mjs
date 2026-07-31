@@ -668,17 +668,17 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /bindCardConfigGoogleDoc/);
-  assert.match(configWindow, /saveCardConfigToGoogleDoc/);
+  assert.doesNotMatch(configWindow, /saveCardConfigToGoogleDoc/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
-  assert.match(configWindow, /Editable card fields/);
-  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
-  assert.match(configWindow, /config-window-save/);
+  assert.match(configWindow, /saved for all users/i);
+  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.doesNotMatch(configWindow, /Saved on the host/);
   assert.match(configWindow, /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/);
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
-  assert.doesNotMatch(configWindow, /readOnly/);
+  assert.match(configWindow, /readOnly/);
   assert.doesNotMatch(
     configWindow,
     /<a[\s\S]*className="config-window-trigger"/,
@@ -686,6 +686,14 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(
     configWindow,
     /<button\s+type="button"\s+className="config-window-trigger"/,
+  );
+  const drivePickerModal = await readFile(
+    new URL("../app/drive-file-picker-modal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    [...drivePickerModal.matchAll(/>\s*Cancel\s*</g)].length,
+    1,
   );
   assert.match(adminLoginsPanel, /running list of unique Google sign-ins/);
   assert.match(adminLoginsPanel, /summary\?\.users/);

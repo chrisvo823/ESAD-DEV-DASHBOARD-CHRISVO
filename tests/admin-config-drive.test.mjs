@@ -144,7 +144,6 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
   assert.match(configWindow, /bindCardConfigGoogleDoc/);
-  assert.match(configWindow, /saveCardConfigToGoogleDoc/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
   assert.match(configWindow, /file-selection[\s\n]+popup/);
   assert.match(configWindow, /User cancelled the file picker/);
@@ -164,12 +163,32 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
     configWindow,
     /<a[\s\S]*className="config-window-trigger"/,
   );
-  assert.match(configWindow, /Editable card fields/);
-  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
-  assert.match(configWindow, /config-window-save/);
-  assert.match(globalsCss, /\.config-window-save\b/);
+  assert.match(configWindow, /saved for all users/i);
+  assert.doesNotMatch(configWindow, /saveCardConfigToGoogleDoc/);
+  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
-  assert.doesNotMatch(configWindow, /readOnly/);
+  assert.match(configWindow, /readOnly/);
+  const drivePicker = await readFile(
+    new URL("../app/drive-file-picker-modal.tsx", import.meta.url),
+    "utf8",
+  );
+  // Single Cancel in the footer — not duplicated in the header.
+  assert.equal(
+    [...drivePicker.matchAll(/>\s*Cancel\s*</g)].length,
+    1,
+  );
+  assert.match(
+    drivePicker,
+    /drive-file-picker-footer[\s\S]*?>\s*Cancel\s*</,
+  );
+  const headerEnd = drivePicker.indexOf('className="drive-file-picker-header"');
+  const footerStart = drivePicker.indexOf('className="drive-file-picker-footer"');
+  assert.ok(headerEnd >= 0 && footerStart > headerEnd);
+  assert.doesNotMatch(
+    drivePicker.slice(headerEnd, footerStart),
+    />\s*Cancel\s*</,
+  );
   assert.match(globalsCss, /\.drive-file-picker\b/);
   assert.match(globalsCss, /\.drive-login-modal\b/);
   assert.match(globalsCss, /\.drive-file-picker-backdrop[\s\S]*z-index:\s*120/);
