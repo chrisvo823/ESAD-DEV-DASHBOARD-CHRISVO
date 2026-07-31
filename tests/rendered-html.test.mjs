@@ -496,6 +496,18 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(viteConfigSource, /host:\s*"0\.0\.0\.0"/);
   assert.match(viteConfigSource, /esad-seed-local-site-config/);
   assert.match(viteConfigSource, /seedWorkerSiteConfigFromRepo/);
+  assert.match(viteConfigSource, /nodejs_compat_populate_process_env/);
+  const workerEntry = await readFile(
+    new URL("../worker/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(workerEntry, /mirrorEnvBindingsToProcessEnv/);
+  assert.match(workerEntry, /SMARTSHEET_ACCESS_TOKEN/);
+  const smartsheetSource = await readFile(
+    new URL("../lib/smartsheet.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(smartsheetSource, /mirrorEnvBindingsToProcessEnv/);
   const companyAuthGate = await readFile(
     new URL("../app/company-auth-gate.tsx", import.meta.url),
     "utf8",

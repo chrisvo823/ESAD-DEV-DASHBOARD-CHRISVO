@@ -159,7 +159,9 @@ ensureLocalEnvKey(
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
+  // populate_process_env mirrors Site/Wrangler secrets onto process.env so
+  // SMARTSHEET_ACCESS_TOKEN (and other bindings) work in app server code.
+  compatibility_flags: ["nodejs_compat", "nodejs_compat_populate_process_env"],
   vars: {
     ESAD_SITE_CONFIG_DIR: localSiteConfigDir,
     ...(smartsheetAccessToken
