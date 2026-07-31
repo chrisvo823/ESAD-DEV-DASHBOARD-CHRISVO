@@ -186,9 +186,9 @@ export function ConfigWindow() {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ). Each Card #: &quot;1&quot;–&quot;4&quot; section configures
-                  the matching card immediately for all users. Example: Card #:
-                  &quot;1&quot; updates Card #1.
+                  ). Each Card #1–#4 section configures the matching card
+                  immediately for all users. Accepted forms include Card #:
+                  &quot;1&quot;, Card #: 1, or Card #1.
                 </p>
                 <textarea
                   className={`config-window-editor config-window-editor--readonly${

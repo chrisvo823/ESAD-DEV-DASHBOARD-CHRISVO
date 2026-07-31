@@ -133,6 +133,22 @@ export function normalizeCardNumber(raw: string): string | null {
   return match[1];
 }
 
+/**
+ * Normalize Google Doc / pasted Card Configuration text before parsing.
+ * Handles BOM, smart quotes, and non-breaking spaces that otherwise make
+ * valid Card # lines look "missing".
+ */
+export function normalizeConfigDocText(text: string): string {
+  return text
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u00AB\u00BB]/g, '"')
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/\u00A0/g, " ")
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+}
+
 /** Text-based configuration content shown in the Configuration Window. */
 export function formatDashboardConfigText(config: DashboardConfig): string {
   return [
@@ -156,11 +172,48 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** True when a line starts a Card # section (several Google Doc styles). */
+export function isCardNumberSectionLine(line: string): boolean {
+  const normalized = normalizeConfigDocText(line).trim();
+  return (
+    /^Card\s*#\s*:/i.test(normalized) ||
+    /^Card\s*#\s*\d+\s*:?\s*$/i.test(normalized) ||
+    /^Card\s*#\s*\d+\s*:/i.test(normalized)
+  );
+}
+
+/** Extract the card id from a Card # section/header/value line. */
+export function readCardNumberFromLine(line: string): string | null {
+  const normalized = normalizeConfigDocText(line).trim();
+  const withLabel = normalized.match(
+    /^Card\s*#\s*:\s*"?([^"]*?)"?\s*$/i,
+  );
+  if (withLabel?.[1] != null) {
+    return normalizeCardNumber(withLabel[1]);
+  }
+  const header = normalized.match(/^Card\s*#\s*(\d+)\s*:?\s*$/i);
+  if (header?.[1]) return normalizeCardNumber(header[1]);
+  const headerWithRest = normalized.match(/^Card\s*#\s*(\d+)\s*:/i);
+  if (headerWithRest?.[1]) return normalizeCardNumber(headerWithRest[1]);
+  return null;
+}
+
 function findFieldLine(
   text: string,
   label: ConfigFieldLabel,
 ): { line: string; lineNumber: number } | null {
-  const lines = text.split(/\r?\n/);
+  const lines = normalizeConfigDocText(text).split("\n");
+  // Card # supports "Card #: 1" and heading-only "Card #1" forms.
+  if (label === "Card #") {
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index] ?? "";
+      if (isCardNumberSectionLine(line) && readCardNumberFromLine(line)) {
+        return { line, lineNumber: index + 1 };
+      }
+    }
+    return null;
+  }
+
   const pattern = new RegExp(`^\\s*${escapeRegExp(label)}\\s*:`, "i");
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
@@ -171,61 +224,87 @@ function findFieldLine(
   return null;
 }
 
+type FieldValueRead =
+  | { ok: true; value: string }
+  | { ok: false; reason: "missing" | "unclosed_quote" | "empty_label_line" };
+
 /**
- * Validate that each configuration value is wrapped in double quotes.
- * Returns one syntax-error message per invalid/missing field.
+ * Read a field value from Label: "value", Label: value, or smart-quoted forms.
+ * If a value starts with `"`, a matching closing quote is required.
+ */
+function readFieldValueDetailed(
+  text: string,
+  label: ConfigFieldLabel,
+): FieldValueRead {
+  if (label === "Card #") {
+    const found = findFieldLine(text, label);
+    if (!found) return { ok: false, reason: "missing" };
+    const value = readCardNumberFromLine(found.line);
+    if (value == null) return { ok: false, reason: "empty_label_line" };
+    return { ok: true, value };
+  }
+
+  const found = findFieldLine(text, label);
+  if (!found) return { ok: false, reason: "missing" };
+
+  const match = found.line.match(
+    new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*(.*)$`, "i"),
+  );
+  if (!match) return { ok: false, reason: "missing" };
+
+  const raw = (match[1] ?? "").trim();
+  if (raw.startsWith('"')) {
+    const quoted = raw.match(/^"([^"]*)"\s*$/);
+    if (!quoted) return { ok: false, reason: "unclosed_quote" };
+    return { ok: true, value: quoted[1] ?? "" };
+  }
+
+  return { ok: true, value: raw };
+}
+
+function readFieldValue(text: string, label: ConfigFieldLabel): string | null {
+  const result = readFieldValueDetailed(text, label);
+  return result.ok ? result.value : null;
+}
+
+/**
+ * Validate Card Configuration field presence/shape.
+ * Accepts quoted values (preferred) and bare values from Google Docs exports.
  */
 export function validateDashboardConfigSyntax(text: string): string[] {
   const errors: string[] = [];
+  const normalized = normalizeConfigDocText(text);
 
   for (const label of CONFIG_FIELD_LABELS) {
-    const found = findFieldLine(text, label);
-    if (!found) {
-      errors.push(`Syntax error: missing ${label}: "value"`);
-      continue;
-    }
+    const result = readFieldValueDetailed(normalized, label);
+    if (result.ok) continue;
 
-    const { line, lineNumber } = found;
-    const quoted = line.match(
-      new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*"([^"]*)"\\s*$`, "i"),
-    );
-    if (quoted) continue;
-
-    const opensQuote = line.match(
-      new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*"`, "i"),
-    );
-    if (opensQuote) {
+    if (result.reason === "missing") {
       errors.push(
-        `Syntax error on line ${lineNumber}: ${label} is missing a closing "`,
+        label === "Card #"
+          ? 'Syntax error: missing Card #: "value" (also accepts Card #: 1 or Card #1)'
+          : `Syntax error: missing ${label}: "value"`,
       );
       continue;
     }
 
-    const bareValue = line.match(
-      new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*(.+)\\s*$`, "i"),
-    );
-    if (bareValue && bareValue[1].trim() !== "") {
+    if (result.reason === "unclosed_quote") {
+      const found = findFieldLine(normalized, label);
       errors.push(
-        `Syntax error on line ${lineNumber}: ${label} value must be inside " "`,
+        `Syntax error on line ${found?.lineNumber ?? "?"}: ${label} is missing a closing "`,
       );
       continue;
     }
 
-    errors.push(
-      `Syntax error on line ${lineNumber}: ${label} must use ${label}: "value"`,
-    );
+    if (label === "Card #") {
+      const found = findFieldLine(normalized, label);
+      errors.push(
+        `Syntax error on line ${found?.lineNumber ?? "?"}: Card # must be a number like "1"`,
+      );
+    }
   }
 
   return errors;
-}
-
-function readQuotedField(text: string, label: ConfigFieldLabel): string | null {
-  const found = findFieldLine(text, label);
-  if (!found) return null;
-  const match = found.line.match(
-    new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*"([^"]*)"\\s*$`, "i"),
-  );
-  return match ? match[1] : null;
 }
 
 const EMPTY_BASE_CONFIG: DashboardConfig = {
@@ -239,15 +318,15 @@ const EMPTY_BASE_CONFIG: DashboardConfig = {
 
 /**
  * Split a Card Configuration document into one block per Card # section.
+ * Accepts `Card #: "1"`, `Card #: 1`, `Card #1`, and smart-quoted Google Doc text.
  */
 export function splitCardConfigBlocks(text: string): string[] {
-  const lines = text.split(/\r?\n/);
+  const lines = normalizeConfigDocText(text).split("\n");
   const blocks: string[] = [];
   let current: string[] = [];
-  const cardLine = /^\s*Card #\s*:/i;
 
   for (const line of lines) {
-    if (cardLine.test(line) && current.some((entry) => entry.trim())) {
+    if (isCardNumberSectionLine(line) && current.some((entry) => entry.trim())) {
       blocks.push(current.join("\n"));
       current = [line];
       continue;
@@ -262,24 +341,24 @@ export function splitCardConfigBlocks(text: string): string[] {
 
 /**
  * Parse Configuration Window text into a config object.
- * Card # is the card id (e.g. "1" for Card #1). When missing, `base.dashboardId`
- * is preserved for backward compatibility.
+ * Card # is the card id (e.g. "1" for Card #1).
  */
 export function parseDashboardConfigText(
   text: string,
   base: DashboardConfig = EMPTY_BASE_CONFIG,
 ): { config: DashboardConfig } | { error: string; errors: string[] } {
-  const syntaxErrors = validateDashboardConfigSyntax(text);
+  const normalized = normalizeConfigDocText(text);
+  const syntaxErrors = validateDashboardConfigSyntax(normalized);
   if (syntaxErrors.length > 0) {
     return { error: syntaxErrors[0] ?? "Syntax error", errors: syntaxErrors };
   }
 
-  const cardNumberRaw = readQuotedField(text, "Card #");
-  const responsibleEngineer = readQuotedField(text, "Responsible Engineer");
-  const boardName = readQuotedField(text, "Board Name");
-  const boardNickname = readQuotedField(text, "Board Nickname");
-  const googleDriveLink = readQuotedField(text, "Google Drive Link");
-  const smartsheetLink = readQuotedField(text, "Smartsheet Link");
+  const cardNumberRaw = readFieldValue(normalized, "Card #");
+  const responsibleEngineer = readFieldValue(normalized, "Responsible Engineer");
+  const boardName = readFieldValue(normalized, "Board Name");
+  const boardNickname = readFieldValue(normalized, "Board Nickname");
+  const googleDriveLink = readFieldValue(normalized, "Google Drive Link");
+  const smartsheetLink = readFieldValue(normalized, "Smartsheet Link");
 
   if (
     cardNumberRaw == null ||
@@ -331,11 +410,15 @@ export function parseDashboardConfigText(
 export function parseAllDashboardConfigsFromText(
   text: string,
 ): { configs: DashboardConfig[] } | { error: string; errors: string[] } {
-  const blocks = splitCardConfigBlocks(text);
+  const normalized = normalizeConfigDocText(text);
+  const blocks = splitCardConfigBlocks(normalized);
   if (blocks.length === 0) {
     return {
-      error: 'Syntax error: missing Card #: "value"',
-      errors: ['Syntax error: missing Card #: "value"'],
+      error:
+        'Syntax error: missing Card #: "value". Each card section must start with Card #: "1" (or Card #1).',
+      errors: [
+        'Syntax error: missing Card #: "value". Each card section must start with Card #: "1" (or Card #1).',
+      ],
     };
   }
 
