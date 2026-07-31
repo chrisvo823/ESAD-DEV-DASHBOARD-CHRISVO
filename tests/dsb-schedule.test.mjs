@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import {
   DSB_SCHEDULE_TASK_NAME,
+  DEFAULT_SCHEDULE_COLUMNS,
   buildDsbScheduleStats,
   buildScheduleStats,
   fetchDsbScheduleStats,
@@ -12,6 +13,8 @@ import {
   formatScheduleDateRange,
   formatSchedulePercentComplete,
   parsePercentCompleteCell,
+  resolveScheduleColumns,
+  selectBoardRow,
 } from "../lib/dsb-schedule.ts";
 
 const fixtureSheet = {
@@ -363,8 +366,8 @@ test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by
           id: 20,
           name: "Schematic",
           start: "2026-07-24T08:00:00",
-          finish: "2026-08-20T16:59:59",
-          percentComplete: null,
+          finish: "2026-08-06T16:59:59",
+          percentComplete: 10,
           status: null,
           assignee: null,
           permalink: "https://example.test/schematic",
@@ -505,6 +508,140 @@ const flatCpldFixture = {
     },
   ],
 };
+
+test("resolves Start/Finish/% Complete column ids from sheet titles", () => {
+  const columns = resolveScheduleColumns([
+    { id: 10, title: "Primary Column", primary: true },
+    { id: 20, title: "Task Name" },
+    { id: 30, title: "Start" },
+    { id: 40, title: "Finish" },
+    { id: 50, title: "% Complete" },
+    { id: 60, title: "Status" },
+    { id: 70, title: "Assigned To" },
+  ]);
+  assert.deepEqual(columns, {
+    taskName: 20,
+    start: 30,
+    finish: 40,
+    percentComplete: 50,
+    status: 60,
+    assignee: 70,
+  });
+  assert.deepEqual(resolveScheduleColumns(undefined), DEFAULT_SCHEDULE_COLUMNS);
+});
+
+test("prefers the later DSB board row when Task Name is duplicated", () => {
+  const taskNameCol = DEFAULT_SCHEDULE_COLUMNS.taskName;
+  const startCol = DEFAULT_SCHEDULE_COLUMNS.start;
+  const finishCol = DEFAULT_SCHEDULE_COLUMNS.finish;
+  const percentCol = DEFAULT_SCHEDULE_COLUMNS.percentComplete;
+
+  const sheet = {
+    permalink:
+      "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1",
+    rows: [
+      {
+        id: 100,
+        rowNumber: 400,
+        cells: [
+          { columnId: taskNameCol, value: "Digital Safety Board (DSB)" },
+          { columnId: startCol, value: "2026-01-01T08:00:00" },
+          { columnId: finishCol, value: "2026-08-20T16:59:59" },
+        ],
+      },
+      {
+        id: 101,
+        parentId: 100,
+        rowNumber: 401,
+        cells: [{ columnId: taskNameCol, value: "Rev A" }],
+      },
+      {
+        id: 102,
+        parentId: 101,
+        rowNumber: 402,
+        cells: [
+          { columnId: taskNameCol, value: "Schematic" },
+          { columnId: startCol, value: "2026-07-24T08:00:00" },
+          { columnId: finishCol, value: "2026-08-20T16:59:59" },
+          { columnId: percentCol, value: 0.45, displayValue: "45%" },
+        ],
+      },
+      // Live DSB near sheet line 2313 — must win over the stale earlier copy.
+      {
+        id: 200,
+        rowNumber: 2313,
+        cells: [
+          { columnId: taskNameCol, value: "Digital Safety Board (DSB)" },
+          { columnId: startCol, value: "2026-07-02T08:00:00" },
+          { columnId: finishCol, value: "2026-11-27T16:59:59" },
+        ],
+      },
+      {
+        id: 201,
+        parentId: 200,
+        rowNumber: 2314,
+        cells: [{ columnId: taskNameCol, value: "Rev A" }],
+      },
+      {
+        id: 202,
+        parentId: 201,
+        rowNumber: 2320,
+        cells: [
+          { columnId: taskNameCol, value: "Schematic" },
+          { columnId: startCol, value: "2026-07-24T08:00:00" },
+          { columnId: finishCol, value: "2026-08-06T16:59:59" },
+          { columnId: percentCol, value: 0.1, displayValue: "10%" },
+        ],
+      },
+      {
+        id: 203,
+        parentId: 201,
+        rowNumber: 2321,
+        cells: [
+          { columnId: taskNameCol, value: "Layout" },
+          { columnId: startCol, value: "2026-08-07T08:00:00" },
+          { columnId: finishCol, value: "2026-09-04T16:59:59" },
+        ],
+      },
+    ],
+  };
+
+  const childrenByParent = new Map();
+  for (const row of sheet.rows) {
+    if (row.parentId == null) continue;
+    const list = childrenByParent.get(row.parentId) ?? [];
+    list.push(row);
+    childrenByParent.set(row.parentId, list);
+  }
+  const matches = sheet.rows.filter(
+    (row) =>
+      row.cells?.some(
+        (cell) =>
+          cell.columnId === taskNameCol &&
+          cell.value === "Digital Safety Board (DSB)",
+      ),
+  );
+  assert.equal(
+    selectBoardRow(matches, childrenByParent, DEFAULT_SCHEDULE_COLUMNS)?.id,
+    200,
+  );
+
+  const stats = buildScheduleStats(
+    sheet,
+    "Digital Safety Board (DSB)",
+    new Date("2026-07-27T20:00:00Z"),
+  );
+  assert.ok(stats);
+  assert.equal(stats.currentTask?.name, "Schematic");
+  assert.equal(stats.currentTask?.finish, "2026-08-06T16:59:59");
+  assert.equal(stats.currentTask?.percentComplete, 10);
+  assert.equal(
+    formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
+    "Jul 24 – Aug 6, 2026",
+  );
+  assert.equal(formatSchedulePercentComplete(stats.currentTask?.percentComplete), "10%");
+  assert.equal(stats.nextTask?.name, "Layout");
+});
 
 test("builds a flat schedule for CPLD boards without Rev A/B", () => {
   const stats = buildScheduleStats(

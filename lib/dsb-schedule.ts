@@ -12,7 +12,8 @@ export { AVIONICS_MASTER_SCHEDULE_SHEET_ID, resolveSmartsheetSheetIdFromLink };
 export const DSB_SCHEDULE_TASK_NAME =
   ESAD_PROJECT_INTEGRATIONS.DSB.smartsheetTaskName;
 
-const COLUMN = {
+/** Fallback column ids when sheet column titles cannot be resolved. */
+export const DEFAULT_SCHEDULE_COLUMNS = {
   taskName: 5067326880960388,
   start: 7319126694645636,
   finish: 1689627160432516,
@@ -20,6 +21,69 @@ const COLUMN = {
   status: 4785851904249732,
   assignee: 3941426974117764,
 } as const;
+
+export type ScheduleColumnIds = {
+  taskName: number;
+  start: number;
+  finish: number;
+  percentComplete: number;
+  status: number;
+  assignee: number;
+};
+
+const COLUMN = DEFAULT_SCHEDULE_COLUMNS;
+
+type SmartsheetColumn = {
+  id?: number;
+  title?: string;
+  primary?: boolean;
+  type?: string;
+};
+
+function normalizeColumnTitle(title: string | undefined): string {
+  return (title ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Map Avionics Master Schedule columns by title so Start / Finish / % Complete
+ * stay correct even when column ids change. Falls back to known defaults.
+ */
+export function resolveScheduleColumns(
+  columns: SmartsheetColumn[] | undefined,
+): ScheduleColumnIds {
+  const list = columns ?? [];
+  const byTitle = new Map<string, number>();
+  for (const column of list) {
+    if (typeof column.id !== "number" || !Number.isFinite(column.id)) continue;
+    const title = normalizeColumnTitle(column.title);
+    if (!title) continue;
+    byTitle.set(title, column.id);
+  }
+
+  const pick = (...titles: string[]): number | null => {
+    for (const title of titles) {
+      const id = byTitle.get(normalizeColumnTitle(title));
+      if (id != null) return id;
+    }
+    return null;
+  };
+
+  const primary = list.find((column) => column.primary)?.id;
+
+  return {
+    taskName:
+      pick("Task Name", "Task") ??
+      (typeof primary === "number" ? primary : null) ??
+      COLUMN.taskName,
+    start: pick("Start", "Start Date") ?? COLUMN.start,
+    finish: pick("Finish", "Finish Date", "End Date", "End") ?? COLUMN.finish,
+    percentComplete:
+      pick("% Complete", "Percent Complete", "%Complete", "% complete") ??
+      COLUMN.percentComplete,
+    status: pick("Status") ?? COLUMN.status,
+    assignee: pick("Assigned To", "Assignee", "Owner") ?? COLUMN.assignee,
+  };
+}
 
 export type DsbScheduleTask = {
   id: number;
@@ -297,17 +361,18 @@ function rowPermalink(sheetPermalink: string, rowId: number, existing?: string) 
 function toScheduleTask(
   row: SmartsheetRow,
   sheetPermalink: string,
+  columns: ScheduleColumnIds,
 ): DsbScheduleTask {
   return {
     id: row.id,
-    name: cellValue(row, COLUMN.taskName) ?? "Untitled task",
-    start: cellDateValue(row, COLUMN.start, "start"),
-    finish: cellDateValue(row, COLUMN.finish, "finish"),
+    name: cellValue(row, columns.taskName) ?? "Untitled task",
+    start: cellDateValue(row, columns.start, "start"),
+    finish: cellDateValue(row, columns.finish, "finish"),
     percentComplete: parsePercentCompleteCell(
-      cellById(row, COLUMN.percentComplete),
+      cellById(row, columns.percentComplete),
     ),
-    status: cellValue(row, COLUMN.status),
-    assignee: cellValue(row, COLUMN.assignee),
+    status: cellValue(row, columns.status),
+    assignee: cellValue(row, columns.assignee),
     permalink: rowPermalink(sheetPermalink, row.id, row.permalink),
   };
 }
@@ -315,6 +380,32 @@ function toScheduleTask(
 function isRevisionName(name: string | null): boolean {
   const normalized = (name ?? "").trim().toLowerCase();
   return normalized === "rev a" || normalized === "rev b";
+}
+
+/**
+ * Prefer the live ESAD board row when the sheet has duplicate Task Names.
+ * DSB lives near row ~2313; an earlier stale copy must not win.
+ */
+export function selectBoardRow(
+  matches: SmartsheetRow[],
+  childrenByParent: Map<number, SmartsheetRow[]>,
+  columns: ScheduleColumnIds,
+): SmartsheetRow | null {
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0] ?? null;
+
+  const withRevisions = matches.filter((board) => {
+    const kids = childrenByParent.get(board.id) ?? [];
+    return kids.some((row) =>
+      isRevisionName(cellValue(row, columns.taskName)),
+    );
+  });
+  const candidates = withRevisions.length > 0 ? withRevisions : matches;
+  return (
+    [...candidates].sort(
+      (a, b) => (b.rowNumber ?? 0) - (a.rowNumber ?? 0),
+    )[0] ?? null
+  );
 }
 
 /**
@@ -326,11 +417,14 @@ export function buildScheduleStats(
   sheet: {
     permalink?: string;
     rows?: SmartsheetRow[];
+    columns?: SmartsheetColumn[];
   },
   taskName: string,
   now: Date = new Date(),
+  columnIds?: ScheduleColumnIds,
 ): DsbScheduleStats | null {
   const rows = sheet.rows ?? [];
+  const columns = columnIds ?? resolveScheduleColumns(sheet.columns);
   const sheetPermalink =
     sheet.permalink ??
     "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1";
@@ -343,14 +437,15 @@ export function buildScheduleStats(
     childrenByParent.set(row.parentId, list);
   }
 
-  const boardRow = rows.find(
-    (row) => cellValue(row, COLUMN.taskName) === taskName,
+  const boardMatches = rows.filter(
+    (row) => cellValue(row, columns.taskName) === taskName,
   );
+  const boardRow = selectBoardRow(boardMatches, childrenByParent, columns);
   if (!boardRow) return null;
 
   const directChildren = childrenByParent.get(boardRow.id) ?? [];
   const revisionRows = directChildren.filter((row) =>
-    isRevisionName(cellValue(row, COLUMN.taskName)),
+    isRevisionName(cellValue(row, columns.taskName)),
   );
 
   let revisions: DsbScheduleRevision[];
@@ -358,14 +453,14 @@ export function buildScheduleStats(
   if (revisionRows.length > 0) {
     revisions = revisionRows.map((revisionRow) => {
       const tasks = (childrenByParent.get(revisionRow.id) ?? []).map((taskRow) =>
-        toScheduleTask(taskRow, sheetPermalink),
+        toScheduleTask(taskRow, sheetPermalink, columns),
       );
       return {
         id: revisionRow.id,
-        name: cellValue(revisionRow, COLUMN.taskName) ?? "Revision",
-        start: cellDateValue(revisionRow, COLUMN.start, "start"),
-        finish: cellDateValue(revisionRow, COLUMN.finish, "finish"),
-        assignee: cellValue(revisionRow, COLUMN.assignee),
+        name: cellValue(revisionRow, columns.taskName) ?? "Revision",
+        start: cellDateValue(revisionRow, columns.start, "start"),
+        finish: cellDateValue(revisionRow, columns.finish, "finish"),
+        assignee: cellValue(revisionRow, columns.assignee),
         permalink: rowPermalink(
           sheetPermalink,
           revisionRow.id,
@@ -382,19 +477,19 @@ export function buildScheduleStats(
       {
         id: boardRow.id,
         name: "Schedule",
-        start: cellDateValue(boardRow, COLUMN.start, "start"),
-        finish: cellDateValue(boardRow, COLUMN.finish, "finish"),
-        assignee: cellValue(boardRow, COLUMN.assignee),
+        start: cellDateValue(boardRow, columns.start, "start"),
+        finish: cellDateValue(boardRow, columns.finish, "finish"),
+        assignee: cellValue(boardRow, columns.assignee),
         permalink: rowPermalink(sheetPermalink, boardRow.id, boardRow.permalink),
         tasks: directChildren.map((taskRow) =>
-          toScheduleTask(taskRow, sheetPermalink),
+          toScheduleTask(taskRow, sheetPermalink, columns),
         ),
       },
     ];
   }
 
-  const boardStart = cellDateValue(boardRow, COLUMN.start, "start");
-  const boardFinish = cellDateValue(boardRow, COLUMN.finish, "finish");
+  const boardStart = cellDateValue(boardRow, columns.start, "start");
+  const boardFinish = cellDateValue(boardRow, columns.finish, "finish");
   const currentTask = findCurrentScheduleTask(revisions, now);
   const nextTask = findNextScheduleTask(revisions, now);
 
@@ -415,6 +510,7 @@ export function buildDsbScheduleStats(
   sheet: {
     permalink?: string;
     rows?: SmartsheetRow[];
+    columns?: SmartsheetColumn[];
   },
   now: Date = new Date(),
 ): DsbScheduleStats | null {
@@ -673,14 +769,36 @@ export function findNextScheduleTaskId(
 async function fetchScheduleSheetById(
   sheetId: number,
   token?: string,
-): Promise<{ permalink?: string; rows?: SmartsheetRow[] } | null> {
+): Promise<{
+  permalink?: string;
+  rows?: SmartsheetRow[];
+  columns?: SmartsheetColumn[];
+} | null> {
   try {
-    const columnIds = Object.values(COLUMN).join(",");
-    const sheet = await getSmartsheetSheet(
+    // Page of 1 still returns the full column catalog so we can resolve
+    // Start / Finish / % Complete by title before loading every row.
+    const meta = (await getSmartsheetSheet(
+      `${sheetId}?pageSize=1`,
+      token,
+    )) as {
+      permalink?: string;
+      columns?: SmartsheetColumn[];
+    };
+    const columns = resolveScheduleColumns(meta.columns);
+    const columnIds = Object.values(columns).join(",");
+    const sheet = (await getSmartsheetSheet(
       `${sheetId}?columnIds=${columnIds}`,
       token,
-    );
-    return sheet as { permalink?: string; rows?: SmartsheetRow[] };
+    )) as {
+      permalink?: string;
+      rows?: SmartsheetRow[];
+      columns?: SmartsheetColumn[];
+    };
+    return {
+      permalink: sheet.permalink ?? meta.permalink,
+      rows: sheet.rows,
+      columns: meta.columns ?? sheet.columns,
+    };
   } catch {
     return null;
   }
@@ -688,7 +806,11 @@ async function fetchScheduleSheetById(
 
 async function fetchAvionicsMasterScheduleSheet(
   token?: string,
-): Promise<{ permalink?: string; rows?: SmartsheetRow[] } | null> {
+): Promise<{
+  permalink?: string;
+  rows?: SmartsheetRow[];
+  columns?: SmartsheetColumn[];
+} | null> {
   return fetchScheduleSheetById(AVIONICS_MASTER_SCHEDULE_SHEET_ID, token);
 }
 
@@ -699,7 +821,12 @@ export async function fetchScheduleStats(
 ): Promise<DsbScheduleStats | null> {
   const sheet = await fetchAvionicsMasterScheduleSheet(token);
   if (!sheet) return null;
-  return buildScheduleStats(sheet, taskName, now);
+  return buildScheduleStats(
+    sheet,
+    taskName,
+    now,
+    resolveScheduleColumns(sheet.columns),
+  );
 }
 
 export async function fetchDsbScheduleStats(
@@ -717,9 +844,15 @@ export async function fetchAllProjectScheduleStats(
   const sheet = await fetchAvionicsMasterScheduleSheet(token);
   if (!sheet) return {};
 
+  const columns = resolveScheduleColumns(sheet.columns);
   const result: Partial<Record<EsadProjectCode, DsbScheduleStats>> = {};
   for (const project of Object.values(ESAD_PROJECT_INTEGRATIONS)) {
-    const stats = buildScheduleStats(sheet, project.smartsheetTaskName, now);
+    const stats = buildScheduleStats(
+      sheet,
+      project.smartsheetTaskName,
+      now,
+      columns,
+    );
     if (stats) result[project.code] = stats;
   }
   return result;
