@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
-import { bindAllCardConfigsGoogleDoc } from "./dashboard-config-store";
+import {
+  bindAllCardConfigsGoogleDoc,
+  saveAllCardConfigsToGoogleDoc,
+} from "./dashboard-config-store";
+import { ensureGoogleDriveAccessToken } from "./ensure-google-drive-access";
 import { loadAllCardConfigsFromDriveFile } from "./load-config-from-drive";
 import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import {
@@ -27,6 +31,20 @@ function readFixedCardConfigs(): DashboardConfig[] {
   );
 }
 
+/** Prefer a Doc id already bound by Load Config for any fixed card. */
+function resolveBoundCardConfigDocumentId(): string | null {
+  const ids = getCachedSiteConfig().cardConfigDocumentIds;
+  for (const id of FIXED_DASHBOARD_IDS) {
+    const documentId = ids[id]?.trim();
+    if (documentId) return documentId;
+  }
+  for (const documentId of Object.values(ids)) {
+    const trimmed = documentId?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
 /** Top-level Card Configuration control (admin toolbar). */
 export function ConfigWindow() {
   const authenticated = useAdminAuthenticated();
@@ -37,9 +55,10 @@ export function ConfigWindow() {
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const dirtyRef = useRef(false);
   const titleId = useId();
   const errorId = useId();
 
@@ -51,9 +70,19 @@ export function ConfigWindow() {
     if (!authenticated) setOpen(false);
   }, [authenticated]);
 
-  function applyConfigs(configs: DashboardConfig[]) {
+  function applyConfigs(configs: DashboardConfig[], options?: { dirty?: boolean }) {
     const nextDraft = formatAllDashboardConfigsText(configs);
     setDraft(nextDraft);
+    const parsed = parseAllDashboardConfigsFromText(nextDraft);
+    setErrors("error" in parsed ? parsed.errors : []);
+    dirtyRef.current = options?.dirty ?? false;
+  }
+
+  function handleDraftChange(nextDraft: string) {
+    dirtyRef.current = true;
+    setDraft(nextDraft);
+    setStatusMessage(null);
+    setActionError(null);
     const parsed = parseAllDashboardConfigsFromText(nextDraft);
     setErrors("error" in parsed ? parsed.errors : []);
   }
@@ -62,7 +91,6 @@ export function ConfigWindow() {
     setLoading(true);
     setActionError(null);
     setStatusMessage(null);
-    setLoaded(false);
     try {
       const picked = await pickAdminConfigDriveFile("card");
       if (!picked) {
@@ -77,7 +105,6 @@ export function ConfigWindow() {
       await refreshSiteConfigFromHost();
       const published = readFixedCardConfigs();
       applyConfigs(published);
-      setLoaded(true);
       const cardLabels = configs
         .map((config) => `Card #${config.dashboardId}`)
         .join(", ");
@@ -85,7 +112,6 @@ export function ConfigWindow() {
         `Loaded ${cardLabels} from Google Drive and saved for all users. Dashboards refresh every 3 minutes.`,
       );
     } catch (err) {
-      setLoaded(false);
       setStatusMessage(null);
       setActionError(
         err instanceof Error
@@ -97,10 +123,59 @@ export function ConfigWindow() {
     }
   }
 
+  async function handleSaveConfig() {
+    setSaving(true);
+    setActionError(null);
+    setStatusMessage(null);
+    try {
+      const parsed = parseAllDashboardConfigsFromText(draft);
+      if ("error" in parsed) {
+        setErrors(parsed.errors);
+        throw new Error(parsed.errors[0] ?? "Fix Card Configuration syntax before Saving.");
+      }
+      setErrors([]);
+
+      let documentId = resolveBoundCardConfigDocumentId();
+      if (!documentId) {
+        const picked = await pickAdminConfigDriveFile("card");
+        if (!picked) {
+          return;
+        }
+        documentId = picked.id;
+      }
+
+      await ensureGoogleDriveAccessToken({
+        reason:
+          "Sign in with Google Drive so Card Configuration can be saved to the selected Doc.",
+      });
+
+      await saveAllCardConfigsToGoogleDoc({
+        configs: parsed.configs,
+        documentId,
+      });
+      await refreshSiteConfigFromHost();
+      applyConfigs(readFixedCardConfigs());
+      const cardLabels = parsed.configs
+        .map((config) => `Card #${config.dashboardId}`)
+        .join(", ");
+      setStatusMessage(
+        `Saved ${cardLabels} to Google Drive for all users. Dashboards refresh every 3 minutes.`,
+      );
+    } catch (err) {
+      setStatusMessage(null);
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save Card Configuration to Google Drive.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
     applyConfigs(readFixedCardConfigs());
-    setLoaded(false);
     setStatusMessage(null);
     setActionError(null);
     const onKeyDown = (event: KeyboardEvent) => {
@@ -108,6 +183,7 @@ export function ConfigWindow() {
     };
     window.addEventListener("keydown", onKeyDown);
     const unsubscribe = subscribeSiteConfig(() => {
+      if (dirtyRef.current) return;
       applyConfigs(readFixedCardConfigs());
     });
     return () => {
@@ -119,6 +195,7 @@ export function ConfigWindow() {
   if (!authenticated) return null;
 
   const hasSyntaxErrors = errors.length > 0;
+  const busy = loading || saving;
 
   return (
     <>
@@ -158,12 +235,22 @@ export function ConfigWindow() {
                     <button
                       type="button"
                       className="config-window-load"
-                      disabled={loading}
+                      disabled={busy}
                       onClick={() => {
                         void handleLoadConfigFile();
                       }}
                     >
                       {loading ? "Loading…" : "Load Config"}
+                    </button>
+                    <button
+                      type="button"
+                      className="config-window-save"
+                      disabled={busy || hasSyntaxErrors}
+                      onClick={() => {
+                        void handleSaveConfig();
+                      }}
+                    >
+                      {saving ? "Saving…" : "Save"}
                     </button>
                     <button
                       type="button"
@@ -175,10 +262,10 @@ export function ConfigWindow() {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Read-only view of Card Configuration. Values come from the
-                  selected Google Config file — not from the host file.{" "}
-                  <strong>Load Config</strong> opens a file-selection popup for
-                  the shared Google Drive folder (
+                  Edit Card Configuration text, then <strong>Save</strong> to
+                  write it back to the selected Google Config file — not only
+                  the host cache. <strong>Load Config</strong> opens a
+                  file-selection popup for the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -186,18 +273,20 @@ export function ConfigWindow() {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ). Each Card #1–#4 section configures the matching card
-                  immediately for all users. Accepted forms include Card #:
-                  &quot;1&quot;, Card #: 1, or Card #1.
+                  ). If no Doc is bound yet, Save asks you to pick one. Each
+                  Card #1–#4 section configures the matching card for all
+                  users. Accepted forms include Card #: &quot;1&quot;, Card #:
+                  1, or Card #1.
                 </p>
                 <textarea
-                  className={`config-window-editor config-window-editor--readonly${
+                  className={`config-window-editor${
                     hasSyntaxErrors ? " config-window-editor--error" : ""
                   }`}
                   value={draft}
                   spellCheck={false}
-                  readOnly
-                  aria-readonly="true"
+                  onChange={(event) => {
+                    handleDraftChange(event.target.value);
+                  }}
                   aria-invalid={hasSyntaxErrors}
                   aria-label="Card Configuration for all cards"
                 />
@@ -217,7 +306,7 @@ export function ConfigWindow() {
                     {actionError}
                   </p>
                 ) : null}
-                {loaded && statusMessage && !hasSyntaxErrors && !actionError ? (
+                {statusMessage && !hasSyntaxErrors && !actionError ? (
                   <p className="config-window-saved">{statusMessage}</p>
                 ) : null}
               </div>

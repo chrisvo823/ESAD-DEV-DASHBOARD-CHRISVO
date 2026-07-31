@@ -165,11 +165,12 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   );
   assert.match(configWindow, /saved for all users/i);
   assert.match(configWindow, /Card #:/);
-  assert.doesNotMatch(configWindow, /saveCardConfigToGoogleDoc/);
-  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
-  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
+  assert.match(configWindow, /saveAllCardConfigsToGoogleDoc/);
+  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(configWindow, /config-window-save/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
-  assert.match(configWindow, /readOnly/);
+  assert.doesNotMatch(configWindow, /readOnly/);
+  assert.doesNotMatch(configWindow, /config-window-editor--readonly/);
   const heroHeader = await readFile(
     new URL("../app/hero-header.tsx", import.meta.url),
     "utf8",

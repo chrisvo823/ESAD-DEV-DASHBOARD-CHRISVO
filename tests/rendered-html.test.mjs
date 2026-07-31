@@ -677,19 +677,20 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadAllCardConfigsFromDriveFile/);
   assert.match(configWindow, /bindAllCardConfigsGoogleDoc/);
-  assert.doesNotMatch(configWindow, /saveCardConfigToGoogleDoc/);
+  assert.match(configWindow, /saveAllCardConfigsToGoogleDoc/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
   assert.match(configWindow, /Card Configuration/);
   assert.match(configWindow, /Card #:/);
   assert.match(configWindow, /saved for all users/i);
-  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
-  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
+  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(configWindow, /config-window-save/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.doesNotMatch(configWindow, /Saved on the host/);
   assert.match(configWindow, /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/);
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
-  assert.match(configWindow, /readOnly/);
+  assert.doesNotMatch(configWindow, /readOnly/);
+  assert.doesNotMatch(configWindow, /config-window-editor--readonly/);
   assert.doesNotMatch(
     configWindow,
     /<a[\s\S]*className="config-window-trigger"/,

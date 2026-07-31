@@ -124,6 +124,37 @@ export async function saveCardConfigToGoogleDoc(options: {
   return next;
 }
 
+/**
+ * Save every Card # section from the Card Configuration editor back to one
+ * Google Doc (full document replace) and publish for all users.
+ */
+export async function saveAllCardConfigsToGoogleDoc(options: {
+  configs: DashboardConfig[];
+  documentId: string;
+}): Promise<ConfigMap> {
+  const { configs, documentId } = options;
+  if (configs.length === 0) {
+    throw new Error("Nothing to save — add at least one Card # section.");
+  }
+  const next = { ...readDashboardConfigs() };
+  const cardConfigDocumentIds: Record<string, string> = {};
+  const published: DashboardConfig[] = [];
+  for (const config of configs) {
+    const saved = { ...config, dashboardId: config.dashboardId };
+    next[config.dashboardId] = saved;
+    cardConfigDocumentIds[config.dashboardId] = documentId;
+    published.push(saved);
+    emitLegacyConfigEvent(saved);
+  }
+  await persistSiteConfigPatch({
+    dashboardConfigs: next,
+    cardConfigDocumentIds,
+    publishCardConfigToGoogleDoc: true,
+    cardConfigsToPublish: published,
+  });
+  return next;
+}
+
 /** @deprecated Prefer bindCardConfigGoogleDoc / saveCardConfigToGoogleDoc. */
 export async function writeDashboardConfig(
   config: DashboardConfig,

@@ -65,7 +65,10 @@ export async function PUT(request: Request) {
       googleDocUrl: getDashboardConfigGoogleDocUrl(),
       googleDocWritten: Boolean(patch.programConfig),
       cardGoogleDocWritten: Boolean(
-        patch.publishCardConfigToGoogleDoc && patch.dashboardConfig,
+        patch.publishCardConfigToGoogleDoc &&
+          (Boolean(patch.dashboardConfig) ||
+            (Array.isArray(patch.cardConfigsToPublish) &&
+              patch.cardConfigsToPublish.length > 0)),
       ),
       hostFileWritten: true,
       hostFilePath: hostPath,
