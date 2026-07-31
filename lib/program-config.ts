@@ -2,6 +2,7 @@ import {
   DEFAULT_OVERDUE_LED_THRESHOLDS,
   type OverdueLedThresholds,
 } from "./dsb-tasks";
+import { normalizeConfigDocText } from "./dashboard-config";
 
 /** Stable metric ids used in card data / logic (not the editable display text). */
 export const METRIC_KEYS = {
@@ -235,7 +236,7 @@ function findFieldLine(
   text: string,
   label: ProgramConfigFieldLabel,
 ): { line: string; lineNumber: number } | null {
-  const lines = text.split(/\r?\n/);
+  const lines = normalizeConfigDocText(text).split("\n");
   const pattern = new RegExp(`^\\s*${escapeRegExp(label)}\\s*:`, "i");
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
@@ -258,89 +259,103 @@ export function parseLedThresholdCount(raw: string): number | null {
   return null;
 }
 
-/** Validate Dashboard Configuration quote syntax. */
+type FieldValueRead =
+  | { ok: true; value: string }
+  | { ok: false; reason: "missing" | "unclosed_quote" | "empty_label_line" };
+
+/**
+ * Read Label: "value", Label: value, or smart-quoted Google Doc forms.
+ * Opening `"` requires a matching closing quote.
+ */
+function readFieldValueDetailed(
+  text: string,
+  label: ProgramConfigFieldLabel,
+): FieldValueRead {
+  const found = findFieldLine(text, label);
+  if (!found) return { ok: false, reason: "missing" };
+
+  const match = found.line.match(
+    new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*(.*)$`, "i"),
+  );
+  if (!match) return { ok: false, reason: "missing" };
+
+  const raw = (match[1] ?? "").trim();
+  if (raw.startsWith('"')) {
+    const quoted = raw.match(/^"([^"]*)"\s*$/);
+    if (!quoted) return { ok: false, reason: "unclosed_quote" };
+    return { ok: true, value: quoted[1] ?? "" };
+  }
+  if (raw.startsWith("'")) {
+    const quoted = raw.match(/^'([^']*)'\s*$/);
+    if (!quoted) return { ok: false, reason: "unclosed_quote" };
+    return { ok: true, value: quoted[1] ?? "" };
+  }
+
+  return { ok: true, value: raw };
+}
+
+function readFieldValue(
+  text: string,
+  label: ProgramConfigFieldLabel,
+): string | null {
+  const result = readFieldValueDetailed(text, label);
+  return result.ok ? result.value : null;
+}
+
+/**
+ * Validate Dashboard Configuration field presence/shape.
+ * Accepts quoted values (preferred) and bare values from Google Docs exports.
+ */
 export function validateProgramConfigSyntax(text: string): string[] {
   const errors: string[] = [];
+  const normalized = normalizeConfigDocText(text);
 
   for (const label of PROGRAM_CONFIG_FIELD_LABELS) {
-    const found = findFieldLine(text, label);
-    if (!found) {
-      errors.push(`Syntax error: missing ${label}: "value"`);
-      continue;
-    }
-
-    const { line, lineNumber } = found;
-    const quoted = line.match(
-      new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*"([^"]*)"\\s*$`, "i"),
-    );
-    if (quoted) {
-      if (isLedFieldLabel(label)) {
-        if (parseLedThresholdCount(quoted[1] ?? "") == null) {
-          errors.push(
-            `Syntax error on line ${lineNumber}: ${label} must use ${label}: "N"`,
-          );
-        }
+    const result = readFieldValueDetailed(normalized, label);
+    if (result.ok) {
+      if (isLedFieldLabel(label) && parseLedThresholdCount(result.value) == null) {
+        const found = findFieldLine(normalized, label);
+        errors.push(
+          `Syntax error on line ${found?.lineNumber ?? "?"}: ${label} must use ${label}: "N"`,
+        );
       }
       continue;
     }
 
-    const opensQuote = line.match(
-      new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*"`, "i"),
-    );
-    if (opensQuote) {
-      errors.push(
-        `Syntax error on line ${lineNumber}: ${label} is missing a closing "`,
-      );
+    if (result.reason === "missing") {
+      errors.push(`Syntax error: missing ${label}: "value"`);
       continue;
     }
 
-    const bareValue = line.match(
-      new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*(.+)\\s*$`, "i"),
-    );
-    if (bareValue && bareValue[1].trim() !== "") {
+    if (result.reason === "unclosed_quote") {
+      const found = findFieldLine(normalized, label);
       errors.push(
-        `Syntax error on line ${lineNumber}: ${label} value must be inside " "`,
+        `Syntax error on line ${found?.lineNumber ?? "?"}: ${label} is missing a closing "`,
       );
-      continue;
     }
-
-    errors.push(
-      `Syntax error on line ${lineNumber}: ${label} must use ${label}: "value"`,
-    );
   }
 
   return errors;
 }
 
-function readQuotedField(
-  text: string,
-  label: ProgramConfigFieldLabel,
-): string | null {
-  const found = findFieldLine(text, label);
-  if (!found) return null;
-  const match = found.line.match(
-    new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*"([^"]*)"\\s*$`, "i"),
-  );
-  return match ? match[1] : null;
-}
-
 export function parseProgramConfigText(
   text: string,
 ): { config: ProgramConfig } | { error: string; errors: string[] } {
-  const syntaxErrors = validateProgramConfigSyntax(text);
+  const normalized = normalizeConfigDocText(text);
+  const syntaxErrors = validateProgramConfigSyntax(normalized);
   if (syntaxErrors.length > 0) {
     return { error: syntaxErrors[0] ?? "Syntax error", errors: syntaxErrors };
   }
 
-  const dashboardName = readQuotedField(text, "Dashboard Name");
-  const programLead = readQuotedField(text, "Program Lead");
-  const openTasksLabel = readQuotedField(text, "Open Tasks");
-  const overDueLabel = readQuotedField(text, "Over Due");
-  const currentTaskLabel = readQuotedField(text, "Current Task");
-  const nextTaskLabel = readQuotedField(text, "Next Task");
-  const greenRaw = readQuotedField(text, "Green");
-  const yellowRaw = readQuotedField(text, "Yellow");
-  const redRaw = readQuotedField(text, "Red");
+  const dashboardName = readFieldValue(normalized, "Dashboard Name");
+  const programLead = readFieldValue(normalized, "Program Lead");
+  const openTasksLabel = readFieldValue(normalized, "Open Tasks");
+  const overDueLabel = readFieldValue(normalized, "Over Due");
+  const currentTaskLabel = readFieldValue(normalized, "Current Task");
+  const nextTaskLabel = readFieldValue(normalized, "Next Task");
+  const greenRaw = readFieldValue(normalized, "Green");
+  const yellowRaw = readFieldValue(normalized, "Yellow");
+  const redRaw = readFieldValue(normalized, "Red");
   if (
     dashboardName == null ||
     programLead == null ||
