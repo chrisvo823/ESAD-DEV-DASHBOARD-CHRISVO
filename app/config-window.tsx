@@ -20,6 +20,7 @@ import {
   DASHBOARD_CONFIGS,
   FIXED_DASHBOARD_IDS,
   parseAllDashboardConfigsFromText,
+  resetCardConfigQuotedValues,
   type DashboardConfig,
 } from "../lib/dashboard-config";
 import { formatCardConfigDocumentText } from "../lib/google-doc-card-config";
@@ -95,6 +96,18 @@ export function ConfigWindow() {
     setActionError(null);
     const parsed = parseAllDashboardConfigsFromText(nextDraft);
     setErrors("error" in parsed ? parsed.errors : []);
+  }
+
+  function handleResetConfig() {
+    setActionError(null);
+    const resetDraft = resetCardConfigQuotedValues(draft);
+    dirtyRef.current = true;
+    setDraft(resetDraft);
+    const parsed = parseAllDashboardConfigsFromText(resetDraft);
+    setErrors("error" in parsed ? parsed.errors : []);
+    setStatusMessage(
+      'Cleared values inside " ". Save to publish the reset Card Configuration.',
+    );
   }
 
   async function handleLoadConfigFile() {
@@ -263,6 +276,16 @@ export function ConfigWindow() {
                     </button>
                     <button
                       type="button"
+                      className="config-window-reset"
+                      disabled={busy}
+                      onClick={() => {
+                        handleResetConfig();
+                      }}
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
                       className="config-window-close"
                       onClick={() => setOpen(false)}
                     >
@@ -273,8 +296,10 @@ export function ConfigWindow() {
                 <p className="config-window-help">
                   Edit Card Configuration text, then <strong>Save</strong> to
                   write it back to the selected Google Config file — not only
-                  the host cache. <strong>Load Config</strong> opens a
-                  file-selection popup for the shared Google Drive folder (
+                  the host cache. <strong>Reset</strong> clears everything
+                  inside &quot; &quot; (keeps Card #).{" "}
+                  <strong>Load Config</strong> opens a file-selection popup for
+                  the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -283,9 +308,9 @@ export function ConfigWindow() {
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
                   ). If no Doc is bound yet, Save asks you to pick one. Each
-                  Card #1–#4 section configures the matching card for all
-                  users. Accepted forms include Card #: &quot;1&quot;, Card #:
-                  1, or Card #1.
+                  Card # section configures the matching card for all users.
+                  Accepted forms include Card #: &quot;1&quot;, Card #: 1, or
+                  Card #1. New cards use empty fields as &quot; &quot;.
                 </p>
                 <textarea
                   className={`config-window-editor${
@@ -315,7 +340,7 @@ export function ConfigWindow() {
                     {actionError}
                   </p>
                 ) : null}
-                {statusMessage && !hasSyntaxErrors && !actionError ? (
+                {statusMessage && !actionError ? (
                   <p className="config-window-saved">{statusMessage}</p>
                 ) : null}
               </div>

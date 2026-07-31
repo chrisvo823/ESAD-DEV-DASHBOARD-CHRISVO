@@ -161,10 +161,19 @@ export function normalizeConfigDocText(text: string): string {
 /** Text-based configuration content shown in the Configuration Window. */
 export function formatDashboardConfigText(
   config: DashboardConfig,
-  options?: { quoted?: boolean },
+  options?: {
+    quoted?: boolean;
+    /** When quoted and the value is empty, render `" "` instead of `""`. */
+    emptyAsQuotedSpace?: boolean;
+  },
 ): string {
   const quoted = options?.quoted !== false;
-  const value = (raw: string) => (quoted ? `"${raw}"` : raw);
+  const emptyAsQuotedSpace = options?.emptyAsQuotedSpace === true;
+  const value = (raw: string) => {
+    if (!quoted) return raw;
+    if (!raw && emptyAsQuotedSpace) return `" "`;
+    return `"${raw}"`;
+  };
   return [
     `Card #: ${value(String(config.dashboardId))}`,
     `Responsible Engineer: ${value(config.responsibleEngineer)}`,
@@ -178,11 +187,39 @@ export function formatDashboardConfigText(
 /** Join multiple card config blocks for the top-level Card Configuration view. */
 export function formatAllDashboardConfigsText(
   configs: readonly DashboardConfig[],
-  options?: { quoted?: boolean },
+  options?: {
+    quoted?: boolean;
+    emptyAsQuotedSpace?: boolean;
+  },
 ): string {
   return configs
     .map((config) => formatDashboardConfigText(config, options))
     .join("\n\n");
+}
+
+/**
+ * Clear every quoted field value in Card Configuration text, keeping Card #
+ * lines intact. `Label: "value"` becomes `Label: ""`.
+ */
+export function resetCardConfigQuotedValues(text: string): string {
+  return normalizeConfigDocText(text)
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (/^Card\s*#/i.test(trimmed)) return line;
+      if (/^[^:]+:\s*".*"\s*$/.test(trimmed)) {
+        return line.replace(/:\s*"[^"]*"\s*$/, ': ""');
+      }
+      if (/^[^:]+:\s*.+\s*$/.test(trimmed)) {
+        return line.replace(/:\s*.+\s*$/, ': ""');
+      }
+      if (/^[^:]+:\s*$/.test(trimmed)) {
+        return line.replace(/:\s*$/, ': ""');
+      }
+      return line;
+    })
+    .join("\n");
 }
 
 function escapeRegExp(value: string): string {

@@ -10,8 +10,8 @@ import {
 } from "./google-doc-dashboard-config";
 
 /**
- * Format Card Configuration Doc text. Fixed cards keep quoted values;
- * added (custom) cards use bare values (no quotation marks).
+ * Format Card Configuration Doc text with quoted values.
+ * New/added cards use `" "` for empty fields (Responsible Engineer, links).
  */
 export function formatCardConfigDocumentText(
   configs: readonly DashboardConfig[],
@@ -19,7 +19,8 @@ export function formatCardConfigDocumentText(
   return configs
     .map((config) =>
       formatDashboardConfigText(config, {
-        quoted: !isCustomCardId(String(config.dashboardId)),
+        quoted: true,
+        emptyAsQuotedSpace: isCustomCardId(String(config.dashboardId)),
       }),
     )
     .join("\n\n");

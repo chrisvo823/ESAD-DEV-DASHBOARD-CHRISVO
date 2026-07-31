@@ -399,7 +399,8 @@ body {
 .config-window-trigger,
 .config-window-close,
 .config-window-load,
-.config-window-save {
+.config-window-save,
+.config-window-reset {
   border: 1px solid #3b79ae;
   background: rgba(10, 28, 46, .92);
   color: #d7ecff;
@@ -416,7 +417,8 @@ body {
 .config-window-trigger,
 .config-window-close,
 .config-window-load,
-.config-window-save {
+.config-window-save,
+.config-window-reset {
   padding: 8px 12px;
 }
 
@@ -425,7 +427,8 @@ body {
 .config-window-trigger:hover,
 .config-window-close:hover,
 .config-window-load:hover,
-.config-window-save:hover {
+.config-window-save:hover,
+.config-window-reset:hover {
   border-color: #74b7ff;
   background: rgba(18, 48, 74, .96);
   color: #fff;
@@ -439,6 +442,11 @@ body {
 .config-window-save {
   border-color: #c9a227;
   color: #ffe9a8;
+}
+
+.config-window-reset {
+  border-color: #9a6a3d;
+  color: #f0d8c8;
 }
 
 a.config-window-load,
@@ -544,7 +552,8 @@ a.config-window-load[aria-disabled="true"] {
 }
 
 .config-window-load:disabled,
-.config-window-save:disabled {
+.config-window-save:disabled,
+.config-window-reset:disabled {
   opacity: .45;
   cursor: not-allowed;
 }
@@ -2116,6 +2125,7 @@ a.config-window-load[aria-disabled="true"] {
 [data-theme="light"] .config-window-close,
 [data-theme="light"] .config-window-load,
 [data-theme="light"] .config-window-save,
+[data-theme="light"] .config-window-reset,
 [data-theme="light"] .admin-login-submit {
   background: rgba(255, 255, 255, .92);
   color: #17324d;

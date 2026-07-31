@@ -703,6 +703,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /saved for all users/i);
   assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(configWindow, /config-window-save/);
+  assert.match(configWindow, /config-window-reset/);
+  assert.match(configWindow, /handleResetConfig|Reset/);
+  assert.match(configWindow, /resetCardConfigQuotedValues/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.doesNotMatch(configWindow, /Saved on the host/);
   assert.match(configWindow, /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/);
