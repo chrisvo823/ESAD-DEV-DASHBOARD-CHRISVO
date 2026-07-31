@@ -56,6 +56,27 @@ function formatEditorDraft(configs: DashboardConfig[]): string {
   return formatCardConfigDocumentText(configs);
 }
 
+/**
+ * Merge Drive-loaded Card # sections onto the managed card list so Load always
+ * paints the parsed Doc values (never empty compiled placeholders).
+ */
+function mergeLoadedCardConfigs(
+  loaded: DashboardConfig[],
+): DashboardConfig[] {
+  const byId = new Map(
+    loaded.map((config) => [String(config.dashboardId), config] as const),
+  );
+  const merged = readAllManagedCardConfigs().map(
+    (slot) => byId.get(String(slot.dashboardId)) ?? slot,
+  );
+  for (const config of loaded) {
+    if (!merged.some((slot) => String(slot.dashboardId) === String(config.dashboardId))) {
+      merged.push(config);
+    }
+  }
+  return merged;
+}
+
 /** Top-level Card Configuration control (admin toolbar). */
 export function ConfigWindow() {
   const authenticated = useAdminAuthenticated();
@@ -125,8 +146,20 @@ export function ConfigWindow() {
         configs,
         documentId: picked.id,
       });
+      // Apply the parsed Doc immediately so the editor cannot flash empty if
+      // the follow-up host/Doc refresh briefly returns placeholder slots.
+      applyConfigs(mergeLoadedCardConfigs(configs));
       await refreshSiteConfigFromHost();
-      applyConfigs(readAllManagedCardConfigs());
+      const refreshed = readAllManagedCardConfigs();
+      const refreshedHasIdentity = refreshed.some(
+        (config) =>
+          config.boardName.trim() ||
+          config.responsibleEngineer.trim() ||
+          config.boardNickname.trim(),
+      );
+      applyConfigs(
+        refreshedHasIdentity ? refreshed : mergeLoadedCardConfigs(configs),
+      );
       const cardLabels = configs
         .map((config) => `Card #${config.dashboardId}`)
         .join(", ");

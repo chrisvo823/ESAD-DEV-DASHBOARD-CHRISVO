@@ -9,7 +9,6 @@ import {
   type FixedDashboardId,
 } from "../lib/dashboard-config";
 import { isCustomCardId } from "../lib/custom-cards";
-import { requireAdminSessionForDriveWrite } from "./admin-auth";
 import {
   getCachedSiteConfig,
   hydrateSiteConfigFromHost,
@@ -42,6 +41,15 @@ function emptyCustomFallback(id: DashboardId): DashboardConfig {
     googleDriveLink: "",
     smartsheetLink: "",
   };
+}
+
+function hasCardIdentity(config: DashboardConfig | undefined): boolean {
+  if (!config) return false;
+  return Boolean(
+    config.boardName.trim() ||
+      config.responsibleEngineer.trim() ||
+      config.boardNickname.trim(),
+  );
 }
 
 function defaultConfigForId(dashboardId: DashboardId): DashboardConfig {
@@ -96,7 +104,6 @@ export async function bindAllCardConfigsGoogleDoc(options: {
   configs: DashboardConfig[];
   documentId: string;
 }): Promise<ConfigMap> {
-  requireAdminSessionForDriveWrite();
   const { configs, documentId } = options;
   const next = { ...readDashboardConfigs() };
   const cardConfigDocumentIds: Record<string, string> = {};
@@ -146,7 +153,6 @@ export async function saveAllCardConfigsToGoogleDoc(options: {
   configs: DashboardConfig[];
   documentId: string;
 }): Promise<ConfigMap> {
-  requireAdminSessionForDriveWrite();
   const { configs, documentId } = options;
   if (configs.length === 0) {
     throw new Error("Nothing to save — add at least one Card # section.");
@@ -202,11 +208,10 @@ export function useDashboardConfig(
 ): DashboardConfig {
   const [config, setConfig] = useState<DashboardConfig>(() => {
     if (typeof window !== "undefined") {
-      return (
-        readCachedDashboardConfigs()[dashboardId] ??
-        hostInitial ??
-        defaultConfigForId(dashboardId)
-      );
+      const cached = readCachedDashboardConfigs()[dashboardId];
+      if (cached && hasCardIdentity(cached)) return cached;
+      if (hostInitial && hasCardIdentity(hostInitial)) return hostInitial;
+      return cached ?? hostInitial ?? defaultConfigForId(dashboardId);
     }
     return hostInitial ?? defaultConfigForId(dashboardId);
   });

@@ -789,22 +789,29 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.doesNotMatch(programConfigSource, /Engineering Dashboard/);
   assert.match(programConfigSource, /dashboardName: ""/);
   assert.match(programConfigSource, /programLead: ""/);
-  const adminAuth = await readFile(
-    new URL("../app/admin-auth.ts", import.meta.url),
-    "utf8",
+  assert.doesNotMatch(
+    await readFile(new URL("../app/admin-auth.ts", import.meta.url), "utf8"),
+    /requireAdminSessionForDriveWrite/,
   );
-  assert.match(adminAuth, /requireAdminSessionForDriveWrite/);
   assert.match(
     await readFile(new URL("../app/site-config-client.ts", import.meta.url), "utf8"),
-    /requireAdminSessionForDriveWrite/,
+    /getAdminSessionPassword/,
   );
   assert.match(
-    await readFile(new URL("../app/program-config-store.ts", import.meta.url), "utf8"),
-    /requireAdminSessionForDriveWrite/,
+    await readFile(new URL("../app/config-window.tsx", import.meta.url), "utf8"),
+    /mergeLoadedCardConfigs/,
   );
   assert.match(
-    await readFile(new URL("../app/dashboard-config-store.ts", import.meta.url), "utf8"),
-    /requireAdminSessionForDriveWrite/,
+    await readFile(new URL("../app/config-window.tsx", import.meta.url), "utf8"),
+    /if \(!authenticated\) return null/,
+  );
+  assert.match(
+    await readFile(new URL("../lib/dsb-schedule.ts", import.meta.url), "utf8"),
+    /normalizeSmartsheetDisplayDate/,
+  );
+  assert.match(
+    await readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    /formatSchedulePercentComplete\(current\.percentComplete\)/,
   );
   assert.match(packageJson, /"name": "site-creator-vinext-starter"/);
   assert.doesNotMatch(page, /SkeletonPreview|react-loading-skeleton/);

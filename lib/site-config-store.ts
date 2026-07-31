@@ -260,7 +260,20 @@ async function applyGoogleDocCardConfigs(
         }
         if (!configsById) return;
         for (const [dashboardId, config] of Object.entries(configsById)) {
-          nextConfigs[dashboardId] = { ...config, dashboardId };
+          const incoming = { ...config, dashboardId };
+          const existing = nextConfigs[dashboardId];
+          // Never let an empty Doc parse wipe a non-empty host/Load snapshot.
+          const incomingEmpty =
+            !incoming.boardName.trim() &&
+            !incoming.responsibleEngineer.trim() &&
+            !incoming.boardNickname.trim();
+          const existingFilled = Boolean(
+            existing?.boardName?.trim() ||
+              existing?.responsibleEngineer?.trim() ||
+              existing?.boardNickname?.trim(),
+          );
+          if (incomingEmpty && existingFilled) continue;
+          nextConfigs[dashboardId] = incoming;
           nextDocumentIds[dashboardId] = documentId;
           changed = true;
         }

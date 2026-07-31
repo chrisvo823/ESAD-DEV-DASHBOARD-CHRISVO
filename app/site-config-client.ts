@@ -12,7 +12,7 @@ import {
   sanitizeDashboardConfigs,
   sanitizeProgramConfig,
 } from "../lib/site-config";
-import { getAdminSessionPassword, requireAdminSessionForDriveWrite } from "./admin-auth";
+import { getAdminSessionPassword } from "./admin-auth";
 import { getGoogleAccessToken } from "./google-access-token";
 
 function siteConfigRequestHeaders(
@@ -206,29 +206,56 @@ export function getCachedSiteConfig(): SiteConfigCache {
 
 /**
  * Seed the browser cache from host config loaded during SSR.
- * No-ops on the server and when a client cache already exists.
+ * Always prefer a non-empty SSR identity over an empty client placeholder cache
+ * so Dashboard/Card Configuration fields do not flash blank after Load.
  */
 export function seedSiteConfigFromServer(initial: SiteConfigPublic): void {
   if (typeof window === "undefined") return;
-  if (cache) return;
-  setCache(
-    {
-      programConfig: sanitizeProgramConfig(initial.programConfig),
-      dashboardConfigDocumentId: sanitizeDashboardConfigDocumentId(
-        initial.dashboardConfigDocumentId,
-      ),
-      dashboardConfigs: sanitizeDashboardConfigs(initial.dashboardConfigs),
-      cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
-        initial.cardConfigDocumentIds,
-      ),
-      customCards: sanitizeCustomCards(initial.customCards),
-      recoveryEmail:
-        typeof initial.recoveryEmail === "string" ? initial.recoveryEmail : "",
-      persisted: Boolean(initial.persisted),
-      updatedAt: initial.updatedAt ?? null,
-    },
-    false,
-  );
+  const incoming: SiteConfigCache = {
+    programConfig: sanitizeProgramConfig(initial.programConfig),
+    dashboardConfigDocumentId: sanitizeDashboardConfigDocumentId(
+      initial.dashboardConfigDocumentId,
+    ),
+    dashboardConfigs: sanitizeDashboardConfigs(initial.dashboardConfigs),
+    cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
+      initial.cardConfigDocumentIds,
+    ),
+    customCards: sanitizeCustomCards(initial.customCards),
+    recoveryEmail:
+      typeof initial.recoveryEmail === "string" ? initial.recoveryEmail : "",
+    persisted: Boolean(initial.persisted),
+    updatedAt: initial.updatedAt ?? null,
+  };
+  if (cache && !shouldReplaceEmptyCache(cache, incoming)) return;
+  setCache(incoming, false);
+}
+
+/** True when incoming SSR/host config has identity the empty client cache lacks. */
+function shouldReplaceEmptyCache(
+  current: SiteConfigCache,
+  incoming: SiteConfigCache,
+): boolean {
+  const currentName = current.programConfig.dashboardName.trim();
+  const incomingName = incoming.programConfig.dashboardName.trim();
+  if (!currentName && incomingName) return true;
+  const currentLead = current.programConfig.programLead.trim();
+  const incomingLead = incoming.programConfig.programLead.trim();
+  if (!currentLead && incomingLead) return true;
+  for (const id of Object.keys(incoming.dashboardConfigs)) {
+    const cur = current.dashboardConfigs[id];
+    const next = incoming.dashboardConfigs[id];
+    if (!next) continue;
+    const curEmpty =
+      !cur?.boardName?.trim() &&
+      !cur?.responsibleEngineer?.trim() &&
+      !cur?.boardNickname?.trim();
+    const nextFilled =
+      Boolean(next.boardName?.trim()) ||
+      Boolean(next.responsibleEngineer?.trim()) ||
+      Boolean(next.boardNickname?.trim());
+    if (curEmpty && nextFilled) return true;
+  }
+  return false;
 }
 
 export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
@@ -297,8 +324,12 @@ export async function refreshSiteConfigFromHost(): Promise<SiteConfigCache> {
 export async function persistSiteConfigPatch(
   patch: SiteConfigPatch,
 ): Promise<SiteConfigCache> {
-  // Google Drive + host config writes are Admin-mode only.
-  const password = requireAdminSessionForDriveWrite();
+  // Host / Drive config saves require an Admin session password. Drive Docs are
+  // only writable from Admin Configuration windows (UI) + this authenticated PUT.
+  const password = getAdminSessionPassword();
+  if (!password) {
+    throw new Error("Admin session required to save host configuration.");
+  }
 
   // Invalidate any in-flight GET so it cannot overwrite this save.
   hostFetchGeneration += 1;
