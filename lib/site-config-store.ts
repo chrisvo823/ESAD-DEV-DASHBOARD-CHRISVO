@@ -1,6 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getAdminCredentials } from "./dashboard-config";
+import { getAdminCredentials, type DashboardConfig } from "./dashboard-config";
+import {
+  readCardConfigFromGoogleDoc,
+  writeCardConfigToGoogleDoc,
+} from "./google-doc-card-config";
 import {
   DASHBOARD_CONFIG_GOOGLE_DOC_URL,
   readProgramConfigFromGoogleDoc,
@@ -19,6 +23,7 @@ import {
 
 const GLOBAL_KEY = "__esadSiteAdminConfig__";
 const GOOGLE_DOC_CACHE_KEY = "__esadGoogleDocProgramConfigCache__";
+const GOOGLE_CARD_DOC_CACHE_KEY = "__esadGoogleDocCardConfigCache__";
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "admin-site-config.json");
 const DATA_FILE_TMP = path.join(DATA_DIR, "admin-site-config.json.tmp");
@@ -35,6 +40,19 @@ type GoogleDocProgramCache = {
 
 type GlobalGoogleDocCache = typeof globalThis & {
   [GOOGLE_DOC_CACHE_KEY]?: GoogleDocProgramCache;
+};
+
+type GoogleDocCardCacheEntry = {
+  config: DashboardConfig;
+  fetchedAtMs: number;
+};
+
+type GoogleDocCardCache = {
+  byDocumentId: Record<string, GoogleDocCardCacheEntry>;
+};
+
+type GlobalGoogleCardDocCache = typeof globalThis & {
+  [GOOGLE_CARD_DOC_CACHE_KEY]?: GoogleDocCardCache;
 };
 
 export type SiteConfigStoreOptions = {
@@ -175,16 +193,110 @@ async function applyGoogleDocProgramConfig(
 }
 
 /**
+ * Overlay Card Configuration from each selected Google Doc.
+ * When a card has a mapped document id, that Doc is the source of truth for
+ * every user. Host file values are only a cache / offline fallback.
+ */
+async function applyGoogleDocCardConfigs(
+  base: SiteAdminConfig,
+  options?: SiteConfigStoreOptions,
+): Promise<SiteAdminConfig> {
+  if (options?.skipGoogleDoc) return base;
+
+  const documentIds = base.cardConfigDocumentIds;
+  const entries = Object.entries(documentIds);
+  if (entries.length === 0) return base;
+
+  const cacheStore = globalThis as GlobalGoogleCardDocCache;
+  const cache = cacheStore[GOOGLE_CARD_DOC_CACHE_KEY] ?? { byDocumentId: {} };
+  const now = Date.now();
+  const nextConfigs = { ...base.dashboardConfigs };
+  let changed = false;
+
+  await Promise.all(
+    entries.map(async ([dashboardId, documentId]) => {
+      const cached = cache.byDocumentId[documentId];
+      const canUseCache =
+        !options?.forceGoogleDocRefresh &&
+        !options?.googleAccessToken?.trim() &&
+        cached != null &&
+        now - cached.fetchedAtMs < GOOGLE_DOC_CACHE_TTL_MS;
+
+      try {
+        let fromDoc = canUseCache ? cached.config : null;
+        if (!canUseCache) {
+          const fallback =
+            nextConfigs[dashboardId] ??
+            createDefaultSiteAdminConfig().dashboardConfigs[dashboardId] ??
+            ({
+              dashboardId,
+              responsibleEngineer: "",
+              boardName: "New Board",
+              boardNickname: "NEW",
+              googleDriveLink: "",
+              smartsheetLink: "",
+            } satisfies DashboardConfig);
+          fromDoc = await readCardConfigFromGoogleDoc(
+            { ...fallback, dashboardId },
+            {
+              documentId,
+              accessToken: options?.googleAccessToken,
+            },
+          );
+          if (fromDoc) {
+            cache.byDocumentId[documentId] = {
+              config: fromDoc,
+              fetchedAtMs: now,
+            };
+          } else {
+            delete cache.byDocumentId[documentId];
+          }
+        }
+        if (!fromDoc) return;
+        nextConfigs[dashboardId] = { ...fromDoc, dashboardId };
+        changed = true;
+      } catch {
+        // Keep host cache for this card when the Doc is briefly unreachable.
+      }
+    }),
+  );
+
+  cacheStore[GOOGLE_CARD_DOC_CACHE_KEY] = cache;
+  if (!changed) return base;
+
+  const next: SiteAdminConfig = {
+    ...base,
+    dashboardConfigs: nextConfigs,
+    customCards: base.customCards.map((card) => ({
+      id: card.id,
+      config: nextConfigs[card.id]
+        ? { ...nextConfigs[card.id]!, dashboardId: card.id }
+        : { ...card.config },
+    })),
+    updatedAt: base.updatedAt ?? new Date().toISOString(),
+  };
+
+  try {
+    await writePersistedConfig(next);
+  } catch {
+    // Cache write is best-effort.
+  }
+  return next;
+}
+
+/**
  * Load Admin config. Dashboard Configuration for the live Hero always comes
  * from the shared Google Doc for every user when the Doc is readable.
+ * Card Configuration comes from each card's selected Google Doc when mapped.
  */
 export async function loadSiteAdminConfig(
   options?: SiteConfigStoreOptions,
 ): Promise<SiteAdminConfig> {
   const base = await loadBaseSiteAdminConfig();
-  const withDoc = await applyGoogleDocProgramConfig(base, options);
-  setMemoryStore(withDoc);
-  return withDoc;
+  const withProgramDoc = await applyGoogleDocProgramConfig(base, options);
+  const withCardDocs = await applyGoogleDocCardConfigs(withProgramDoc, options);
+  setMemoryStore(withCardDocs);
+  return withCardDocs;
 }
 
 export async function getPublicSiteConfig(
@@ -230,6 +342,37 @@ export async function updateSiteAdminConfig(
       programConfig: next.programConfig,
       fetchedAtMs: Date.now(),
     };
+  }
+
+  if (patch.publishCardConfigToGoogleDoc && patch.dashboardConfig) {
+    const dashboardId = patch.dashboardConfig.dashboardId;
+    const documentId =
+      next.cardConfigDocumentIds[dashboardId]?.trim() ||
+      patch.cardConfigDocumentIds?.[dashboardId]?.trim() ||
+      "";
+    if (!documentId) {
+      throw new Error(
+        "Select a Card Configuration Google Doc with Load Config before Saving.",
+      );
+    }
+    const written = await writeCardConfigToGoogleDoc(
+      next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig,
+      documentId,
+      { accessToken: options?.googleAccessToken },
+    );
+    const cardCache = (globalThis as GlobalGoogleCardDocCache)[
+      GOOGLE_CARD_DOC_CACHE_KEY
+    ] ?? { byDocumentId: {} };
+    cardCache.byDocumentId[documentId] = {
+      config: {
+        ...(next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig),
+        dashboardId,
+      },
+      fetchedAtMs: Date.now(),
+    };
+    (globalThis as GlobalGoogleCardDocCache)[GOOGLE_CARD_DOC_CACHE_KEY] =
+      cardCache;
+    void written;
   }
 
   // Write + verify disk first, then memory — save never succeeds without a host file.

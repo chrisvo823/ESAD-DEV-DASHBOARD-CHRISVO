@@ -18,6 +18,11 @@ import {
 export type SiteAdminConfig = {
   programConfig: ProgramConfig;
   dashboardConfigs: Record<string, DashboardConfig>;
+  /**
+   * Selected Card Configuration Google Doc id per dashboard/card id.
+   * When set, that Doc is the source of truth for card fields (host values are cache).
+   */
+  cardConfigDocumentIds: Record<string, string>;
   customCards: CustomCardRecord[];
   adminCredentials: {
     password: string;
@@ -29,6 +34,7 @@ export type SiteAdminConfig = {
 export type SiteConfigPublic = {
   programConfig: ProgramConfig;
   dashboardConfigs: Record<string, DashboardConfig>;
+  cardConfigDocumentIds: Record<string, string>;
   customCards: CustomCardRecord[];
   recoveryEmail: string;
   persisted: boolean;
@@ -39,6 +45,12 @@ export type SiteConfigPatch = {
   programConfig?: ProgramConfig;
   dashboardConfigs?: Record<string, DashboardConfig>;
   dashboardConfig?: DashboardConfig;
+  cardConfigDocumentIds?: Record<string, string>;
+  /**
+   * When true with `dashboardConfig`, write that card's text into its mapped
+   * Google Doc so every user session can pull the update.
+   */
+  publishCardConfigToGoogleDoc?: boolean;
   customCards?: CustomCardRecord[];
   adminCredentials?: {
     password?: string;
@@ -173,6 +185,22 @@ export function sanitizeCustomCards(raw: unknown): CustomCardRecord[] {
     .filter((entry): entry is CustomCardRecord => entry != null);
 }
 
+/** Keep only fixed/custom card ids mapped to non-empty Google Doc ids. */
+export function sanitizeCardConfigDocumentIds(
+  raw: unknown,
+): Record<string, string> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isFixedDashboardId(id) && !isCustomCardId(id)) continue;
+    if (typeof value !== "string") continue;
+    const documentId = value.trim();
+    if (!documentId) continue;
+    out[id] = documentId;
+  }
+  return out;
+}
+
 export function sanitizeAdminCredentials(
   raw: unknown,
   fallbackPassword: string,
@@ -196,6 +224,7 @@ export function createDefaultSiteAdminConfig(): SiteAdminConfig {
   return {
     programConfig: { ...DEFAULT_PROGRAM_CONFIG },
     dashboardConfigs: cloneDefaultDashboardConfigs(),
+    cardConfigDocumentIds: {},
     customCards: [],
     adminCredentials: {
       password,
@@ -226,9 +255,21 @@ export function sanitizeSiteAdminConfig(raw: unknown): SiteAdminConfig {
     }
   }
 
+  const cardConfigDocumentIds = sanitizeCardConfigDocumentIds(
+    entry.cardConfigDocumentIds,
+  );
+  // Drop orphaned document bindings for removed custom cards.
+  for (const id of Object.keys(cardConfigDocumentIds)) {
+    if (isFixedDashboardId(id)) continue;
+    if (!customCards.some((card) => card.id === id)) {
+      delete cardConfigDocumentIds[id];
+    }
+  }
+
   return {
     programConfig: sanitizeProgramConfig(entry.programConfig),
     dashboardConfigs,
+    cardConfigDocumentIds,
     customCards,
     adminCredentials: sanitizeAdminCredentials(
       entry.adminCredentials,
@@ -245,6 +286,7 @@ export function toPublicSiteConfig(config: SiteAdminConfig): SiteConfigPublic {
   return {
     programConfig: config.programConfig,
     dashboardConfigs: config.dashboardConfigs,
+    cardConfigDocumentIds: { ...config.cardConfigDocumentIds },
     customCards: config.customCards,
     recoveryEmail: config.adminCredentials.recoveryEmail,
     persisted: config.updatedAt != null,
@@ -252,7 +294,10 @@ export function toPublicSiteConfig(config: SiteAdminConfig): SiteConfigPublic {
   };
 }
 
-/** Prefer host-persisted card config; fall back to the compiled default slot. */
+/**
+ * Prefer live/host card config (already overlaid from the selected Google Doc
+ * when a document id is mapped); fall back to the compiled default slot.
+ */
 export function resolveHostDashboardConfig(
   dashboardId: DashboardId,
   hostConfigs: Record<string, DashboardConfig>,
@@ -271,6 +316,7 @@ export function applySiteConfigPatch(
     ...current,
     programConfig: { ...current.programConfig },
     dashboardConfigs: { ...current.dashboardConfigs },
+    cardConfigDocumentIds: { ...current.cardConfigDocumentIds },
     customCards: current.customCards.map((card) => ({
       id: card.id,
       config: { ...card.config },
@@ -303,6 +349,13 @@ export function applySiteConfigPatch(
     }
   }
 
+  if (patch.cardConfigDocumentIds) {
+    next.cardConfigDocumentIds = {
+      ...next.cardConfigDocumentIds,
+      ...sanitizeCardConfigDocumentIds(patch.cardConfigDocumentIds),
+    };
+  }
+
   if (patch.customCards) {
     next.customCards = sanitizeCustomCards(patch.customCards);
     for (const card of next.customCards) {
@@ -312,6 +365,12 @@ export function applySiteConfigPatch(
       if (isFixedDashboardId(id as FixedDashboardId)) continue;
       if (!next.customCards.some((card) => card.id === id)) {
         delete next.dashboardConfigs[id];
+      }
+    }
+    for (const id of Object.keys(next.cardConfigDocumentIds)) {
+      if (isFixedDashboardId(id as FixedDashboardId)) continue;
+      if (!next.customCards.some((card) => card.id === id)) {
+        delete next.cardConfigDocumentIds[id];
       }
     }
   }

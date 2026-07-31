@@ -5,10 +5,13 @@ import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { syncCustomCardConfig } from "./custom-cards-store";
-import { writeDashboardConfig } from "./dashboard-config-store";
+import { bindCardConfigGoogleDoc } from "./dashboard-config-store";
 import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
-import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
 import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import {
+  getCachedSiteConfig,
+  refreshSiteConfigFromHost,
+} from "./site-config-client";
 import type { DashboardConfig } from "../lib/dashboard-config";
 import {
   formatDashboardConfigText,
@@ -28,8 +31,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [deployMessage, setDeployMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const titleId = useId();
   const errorId = useId();
 
@@ -49,7 +52,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
 
   async function handleLoadConfigFile(base: DashboardConfig = config) {
     setLoading(true);
-    setLoadError(null);
+    setActionError(null);
+    setStatusMessage(null);
     setLoaded(false);
     try {
       const picked = await pickAdminConfigDriveFile("card");
@@ -60,17 +64,24 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
       const next = await loadCardConfigFromDriveFile(picked.id, base);
       if (isCustomCardId(next.dashboardId)) {
         await syncCustomCardConfig(next);
-      } else {
-        await writeDashboardConfig(next);
       }
-      applyConfig(next);
-      const deploy = await noteConfigLoadedAndDeployIfReady({ card: next });
-      setDeployMessage(deploy.message);
+      // Bind the selected Google Doc and publish card fields for all users.
+      await bindCardConfigGoogleDoc({
+        config: next,
+        documentId: picked.id,
+      });
+      await refreshSiteConfigFromHost();
+      const published =
+        getCachedSiteConfig().dashboardConfigs[next.dashboardId] ?? next;
+      applyConfig(published);
       setLoaded(true);
+      setStatusMessage(
+        "Card Configuration loaded from Google Drive and saved for all users. Dashboards refresh every 3 minutes.",
+      );
     } catch (err) {
       setLoaded(false);
-      setDeployMessage(null);
-      setLoadError(
+      setStatusMessage(null);
+      setActionError(
         err instanceof Error
           ? err.message
           : "Failed to load Card Configuration from Google Drive.",
@@ -84,8 +95,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     if (!open) return;
     applyConfig(config);
     setLoaded(false);
-    setLoadError(null);
-    setDeployMessage(null);
+    setStatusMessage(null);
+    setActionError(null);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -152,9 +163,10 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Read-only view of this card&apos;s Configuration.{" "}
-                  <strong>Load Config</strong> opens a file-selection popup for
-                  the shared Google Drive folder (
+                  Read-only view of this card&apos;s Configuration. Values come
+                  from the selected Google Config file — not from the host
+                  file. <strong>Load Config</strong> opens a file-selection
+                  popup for the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -162,9 +174,8 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ). Select a Card Configuration file to continue. After both
-                  Dashboard and Card Configuration files are loaded, the
-                  combined config is deployed to all users. Each value must be
+                  ). Selecting a file updates this window and saves the card
+                  Configuration for all users immediately. Each value must be
                   inside quotes, e.g. Board Name: &quot;Digital Safety
                   Board&quot;.
                 </p>
@@ -190,16 +201,13 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                     ))}
                   </ul>
                 ) : null}
-                {loadError ? (
+                {actionError ? (
                   <p className="config-window-errors" role="alert">
-                    {loadError}
+                    {actionError}
                   </p>
                 ) : null}
-                {loaded && !hasSyntaxErrors && !loadError ? (
-                  <p className="config-window-saved">
-                    {deployMessage ??
-                      "Configuration loaded from Google Drive"}
-                  </p>
+                {loaded && statusMessage && !hasSyntaxErrors && !actionError ? (
+                  <p className="config-window-saved">{statusMessage}</p>
                 ) : null}
               </div>
             </div>,

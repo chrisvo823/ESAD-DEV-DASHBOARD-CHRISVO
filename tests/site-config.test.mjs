@@ -11,34 +11,57 @@ process.chdir(tempRoot);
 
 process.env.GOOGLE_DOCS_ACCESS_TOKEN = "test-google-docs-token";
 
-/** In-memory stand-in for the shared Dashboard Configuration Google Doc. */
-let mockGoogleDocText = formatProgramConfigText({
-  dashboardName: "Engineering Dashboard",
-  programLead: "Project Lead: ",
-  openTasksLabel: "Open Tasks",
-  overDueLabel: "Over Due",
-  currentTaskLabel: "Current Task",
-  nextTaskLabel: "Next Task",
-  ledGreenAtMost: 1,
-  ledYellowAtLeast: 3,
-  ledRedAtLeast: 5,
-});
+const DASHBOARD_CONFIG_GOOGLE_DOC_ID =
+  "15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA";
+
+/** In-memory stand-in for Google Docs keyed by document id. */
+const mockGoogleDocs = new Map([
+  [
+    DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+    formatProgramConfigText({
+      dashboardName: "Engineering Dashboard",
+      programLead: "Project Lead: ",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    }),
+  ],
+]);
+
+function readMockDoc(documentId) {
+  return mockGoogleDocs.get(documentId) ?? "";
+}
+
+function writeMockDoc(documentId, text) {
+  mockGoogleDocs.set(documentId, text);
+}
+
+function documentIdFromDocsUrl(url) {
+  const match = url.match(/\/documents\/([^/:]+)/);
+  return match ? decodeURIComponent(match[1]) : DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+}
 
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = String(input);
   if (url.includes("docs.googleapis.com/v1/documents/")) {
-    if (url.endsWith(":batchUpdate") && init?.method === "POST") {
+    const documentId = documentIdFromDocsUrl(url);
+    if (url.includes(":batchUpdate") && init?.method === "POST") {
       const body = JSON.parse(String(init.body ?? "{}"));
       const inserted = body?.requests?.find((request) => request.insertText)
         ?.insertText?.text;
-      if (typeof inserted === "string") mockGoogleDocText = inserted;
+      if (typeof inserted === "string") writeMockDoc(documentId, inserted);
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     }
-    const lines = mockGoogleDocText.split("\n");
+    const text = readMockDoc(documentId);
+    const lines = text.split("\n");
     return new Response(
       JSON.stringify({
         body: {
@@ -66,7 +89,11 @@ globalThis.fetch = async (input, init) => {
     );
   }
   if (url.includes("docs.google.com/document/") && url.includes("export")) {
-    return new Response(mockGoogleDocText, { status: 200 });
+    const match = url.match(/\/document\/d\/([^/]+)\//);
+    const documentId = match
+      ? decodeURIComponent(match[1])
+      : DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+    return new Response(readMockDoc(documentId), { status: 200 });
   }
   return originalFetch(input, init);
 };
@@ -75,6 +102,7 @@ const {
   applySiteConfigPatch,
   createDefaultSiteAdminConfig,
   resolveHostDashboardConfig,
+  sanitizeCardConfigDocumentIds,
   sanitizeProgramConfig,
   sanitizeSiteAdminConfig,
   toPublicSiteConfig,
@@ -253,6 +281,36 @@ test("applySiteConfigPatch updates nested admin fields", () => {
   assert.ok(next.updatedAt);
 });
 
+test("sanitizeCardConfigDocumentIds keeps fixed and custom card mappings", () => {
+  const sanitized = sanitizeCardConfigDocumentIds({
+    "1": " doc-dsb ",
+    "3": "doc-pri",
+    weird: "nope",
+    "custom-ok": "doc-custom",
+    "2": "",
+  });
+  assert.deepEqual(sanitized, {
+    "1": "doc-dsb",
+    "3": "doc-pri",
+    "custom-ok": "doc-custom",
+  });
+});
+
+test("applySiteConfigPatch stores selected card Google Doc ids", () => {
+  const base = createDefaultSiteAdminConfig();
+  const next = applySiteConfigPatch(base, {
+    cardConfigDocumentIds: { "3": "card-doc-pri" },
+    dashboardConfig: {
+      ...base.dashboardConfigs["3"],
+      boardNickname: "CPLD",
+    },
+  });
+  assert.equal(next.cardConfigDocumentIds["3"], "card-doc-pri");
+  assert.equal(next.dashboardConfigs["3"]?.boardNickname, "CPLD");
+  const publicConfig = toPublicSiteConfig(next);
+  assert.equal(publicConfig.cardConfigDocumentIds["3"], "card-doc-pri");
+});
+
 test("resolveHostDashboardConfig prefers host card configuration", () => {
   const fallback = createDefaultSiteAdminConfig().dashboardConfigs["1"];
   const host = {
@@ -317,8 +375,8 @@ test("Dashboard Configuration saves to and loads from the shared Google Doc", as
     },
   });
 
-  assert.match(mockGoogleDocText, /Google Doc Dashboard/);
-  assert.match(mockGoogleDocText, /Google Doc Lead/);
+  assert.match(readMockDoc(DASHBOARD_CONFIG_GOOGLE_DOC_ID), /Google Doc Dashboard/);
+  assert.match(readMockDoc(DASHBOARD_CONFIG_GOOGLE_DOC_ID), /Google Doc Lead/);
 
   // Clear host cache + memory so load must come from the Google Doc.
   globalThis.__esadSiteAdminConfig__ = undefined;
@@ -396,30 +454,36 @@ test("every Dashboard Configuration save writes and verifies the host file", asy
 });
 
 test("forceGoogleDocRefresh bypasses TTL so live Hero stays Doc-sourced", async () => {
-  mockGoogleDocText = formatProgramConfigText({
-    dashboardName: "Cached Doc Name",
-    programLead: "Cached Lead",
-    openTasksLabel: "Open Tasks",
-    overDueLabel: "Over Due",
-    currentTaskLabel: "Current Task",
-    nextTaskLabel: "Next Task",
-    ledGreenAtMost: 1,
-    ledYellowAtLeast: 3,
-    ledRedAtLeast: 5,
-  });
+  writeMockDoc(
+    DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+    formatProgramConfigText({
+      dashboardName: "Cached Doc Name",
+      programLead: "Cached Lead",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    }),
+  );
   await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
 
-  mockGoogleDocText = formatProgramConfigText({
-    dashboardName: "Fresh Doc Hero",
-    programLead: "Fresh Doc Lead",
-    openTasksLabel: "Open Tasks",
-    overDueLabel: "Over Due",
-    currentTaskLabel: "Current Task",
-    nextTaskLabel: "Next Task",
-    ledGreenAtMost: 1,
-    ledYellowAtLeast: 3,
-    ledRedAtLeast: 5,
-  });
+  writeMockDoc(
+    DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+    formatProgramConfigText({
+      dashboardName: "Fresh Doc Hero",
+      programLead: "Fresh Doc Lead",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    }),
+  );
 
   const stale = await loadSiteAdminConfig();
   assert.equal(stale.programConfig.dashboardName, "Cached Doc Name");
@@ -427,4 +491,42 @@ test("forceGoogleDocRefresh bypasses TTL so live Hero stays Doc-sourced", async 
   const fresh = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
   assert.equal(fresh.programConfig.dashboardName, "Fresh Doc Hero");
   assert.equal(fresh.programConfig.programLead, "Fresh Doc Lead");
+});
+
+test("Card Configuration save publishes to the selected Google Doc for all users", async () => {
+  const cardDocId = "card-config-doc-3";
+  const base = createDefaultSiteAdminConfig().dashboardConfigs["3"];
+  const published = {
+    ...base,
+    boardNickname: "CPLD",
+    responsibleEngineer: "Doc Engineer",
+  };
+
+  await updateSiteAdminConfig({
+    dashboardConfig: published,
+    cardConfigDocumentIds: { "3": cardDocId },
+    publishCardConfigToGoogleDoc: true,
+  });
+
+  assert.match(readMockDoc(cardDocId), /Board Nickname: "CPLD"/);
+  assert.match(readMockDoc(cardDocId), /Responsible Engineer: "Doc Engineer"/);
+
+  // Clear host cache so the next load must come from the selected card Doc.
+  globalThis.__esadSiteAdminConfig__ = undefined;
+  await rm(path.join(tempRoot, ".data"), { recursive: true, force: true });
+
+  // Seed only the document id mapping on a fresh host file.
+  await updateSiteAdminConfig(
+    {
+      cardConfigDocumentIds: { "3": cardDocId },
+    },
+    { skipGoogleDoc: true },
+  );
+  globalThis.__esadSiteAdminConfig__ = undefined;
+  globalThis.__esadGoogleDocCardConfigCache__ = undefined;
+
+  const loaded = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
+  assert.equal(loaded.cardConfigDocumentIds["3"], cardDocId);
+  assert.equal(loaded.dashboardConfigs["3"]?.boardNickname, "CPLD");
+  assert.equal(loaded.dashboardConfigs["3"]?.responsibleEngineer, "Doc Engineer");
 });

@@ -182,13 +182,6 @@ export function DriveFilePickerModal({
             <p className="drive-file-picker-kicker">Select file</p>
             <h3 id={titleId}>Choose a {kindLabel(kind)} file</h3>
           </div>
-          <button
-            type="button"
-            className="config-window-close"
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
         </header>
         <p className="drive-file-picker-help">
           Google Docs in the shared Admin Drive folder. Select one, then

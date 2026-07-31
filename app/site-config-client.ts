@@ -6,6 +6,7 @@ import type { ProgramConfig } from "../lib/program-config";
 import type { SiteConfigPatch, SiteConfigPublic } from "../lib/site-config";
 import {
   cloneDefaultDashboardConfigs,
+  sanitizeCardConfigDocumentIds,
   sanitizeCustomCards,
   sanitizeDashboardConfigs,
   sanitizeProgramConfig,
@@ -79,6 +80,7 @@ function defaultPublicConfig(): SiteConfigCache {
   return {
     programConfig: sanitizeProgramConfig(null),
     dashboardConfigs: cloneDefaultDashboardConfigs(),
+    cardConfigDocumentIds: {},
     customCards: [],
     recoveryEmail: "",
     persisted: false,
@@ -211,6 +213,9 @@ export function seedSiteConfigFromServer(initial: SiteConfigPublic): void {
     {
       programConfig: sanitizeProgramConfig(initial.programConfig),
       dashboardConfigs: sanitizeDashboardConfigs(initial.dashboardConfigs),
+      cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
+        initial.cardConfigDocumentIds,
+      ),
       customCards: sanitizeCustomCards(initial.customCards),
       recoveryEmail:
         typeof initial.recoveryEmail === "string" ? initial.recoveryEmail : "",
@@ -245,6 +250,9 @@ export async function hydrateSiteConfigFromHost(): Promise<SiteConfigCache> {
       const maybeMigrated = await migrateLegacyIfNeeded({
         programConfig: sanitizeProgramConfig(host.programConfig),
         dashboardConfigs: sanitizeDashboardConfigs(host.dashboardConfigs),
+        cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
+          host.cardConfigDocumentIds,
+        ),
         customCards: sanitizeCustomCards(host.customCards),
         recoveryEmail:
           typeof host.recoveryEmail === "string" ? host.recoveryEmail : "",
@@ -305,6 +313,12 @@ export async function persistSiteConfigPatch(
             [patch.dashboardConfig.dashboardId]: patch.dashboardConfig,
           }
         : current.dashboardConfigs,
+    cardConfigDocumentIds: patch.cardConfigDocumentIds
+      ? {
+          ...current.cardConfigDocumentIds,
+          ...sanitizeCardConfigDocumentIds(patch.cardConfigDocumentIds),
+        }
+      : current.cardConfigDocumentIds,
     customCards: patch.customCards
       ? sanitizeCustomCards(patch.customCards)
       : current.customCards,
@@ -348,12 +362,21 @@ export async function persistSiteConfigPatch(
 
   const payload = (await response.json()) as SiteConfigCache & {
     googleDocWritten?: boolean;
+    cardGoogleDocWritten?: boolean;
     hostFileWritten?: boolean;
     hostFilePath?: string;
   };
   if (patch.programConfig && payload.googleDocWritten === false) {
     throw new Error(
       "Dashboard Configuration was not written to the shared Google Doc.",
+    );
+  }
+  if (
+    patch.publishCardConfigToGoogleDoc &&
+    payload.cardGoogleDocWritten === false
+  ) {
+    throw new Error(
+      "Card Configuration was not written to the selected Google Doc.",
     );
   }
   // Require explicit write confirmation — never treat a silent/partial save as success.
@@ -364,6 +387,9 @@ export async function persistSiteConfigPatch(
   const saved: SiteConfigCache = {
     programConfig: sanitizeProgramConfig(payload.programConfig),
     dashboardConfigs: sanitizeDashboardConfigs(payload.dashboardConfigs),
+    cardConfigDocumentIds: sanitizeCardConfigDocumentIds(
+      payload.cardConfigDocumentIds,
+    ),
     customCards: sanitizeCustomCards(payload.customCards),
     recoveryEmail:
       typeof payload.recoveryEmail === "string" ? payload.recoveryEmail : "",
@@ -385,6 +411,10 @@ export function readCachedProgramConfig(): ProgramConfig {
 
 export function readCachedDashboardConfigs(): Record<string, DashboardConfig> {
   return getCachedSiteConfig().dashboardConfigs;
+}
+
+export function readCachedCardConfigDocumentIds(): Record<string, string> {
+  return getCachedSiteConfig().cardConfigDocumentIds;
 }
 
 export function readCachedCustomCards(): CustomCardRecord[] {

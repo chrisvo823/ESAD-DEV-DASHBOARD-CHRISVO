@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     ...config,
     googleDocUrl: getDashboardConfigGoogleDocUrl(),
     dashboardConfigSource: "google-doc",
+    cardConfigSource: "google-doc",
   });
 }
 
@@ -63,6 +64,9 @@ export async function PUT(request: Request) {
       ...toPublicSiteConfig(updated),
       googleDocUrl: getDashboardConfigGoogleDocUrl(),
       googleDocWritten: Boolean(patch.programConfig),
+      cardGoogleDocWritten: Boolean(
+        patch.publishCardConfigToGoogleDoc && patch.dashboardConfig,
+      ),
       hostFileWritten: true,
       hostFilePath: hostPath,
     });
@@ -70,12 +74,13 @@ export async function PUT(request: Request) {
     const message =
       err instanceof Error
         ? err.message
-        : "Failed to save Dashboard Configuration to the Google Doc.";
+        : "Failed to save configuration to Google Docs.";
     return NextResponse.json(
       {
         error: message,
         googleDocUrl: getDashboardConfigGoogleDocUrl(),
         googleDocWritten: false,
+        cardGoogleDocWritten: false,
         hostFileWritten: false,
       },
       { status: 500 },
