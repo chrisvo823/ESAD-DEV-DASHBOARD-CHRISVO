@@ -810,8 +810,16 @@ test("keeps dashboard metadata and project data in source", async () => {
     /normalizeSmartsheetDisplayDate/,
   );
   assert.match(
+    await readFile(new URL("../lib/dsb-schedule.ts", import.meta.url), "utf8"),
+    /UTC midnight/,
+  );
+  assert.match(
     await readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    /formatSchedulePercentComplete\(current\.percentComplete\)/,
+    /formatSchedulePercentComplete\(current\.percentComplete \?\? 0\)/,
+  );
+  assert.match(
+    await readFile(new URL("../lib/dsb-schedule.ts", import.meta.url), "utf8"),
+    /calendarDateWallIsoFromUtcParts/,
   );
   assert.match(packageJson, /"name": "site-creator-vinext-starter"/);
   assert.doesNotMatch(page, /SkeletonPreview|react-loading-skeleton/);
