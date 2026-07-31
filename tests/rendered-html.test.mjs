@@ -661,7 +661,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /config-window-editor--led/);
   assert.match(programConfigWindow, /status LED/);
   assert.match(programConfigWindow, /metric labels/);
-  assert.match(programConfigWindow, /Open Tasks, Over/);
+  assert.match(programConfigWindow, /Tasks, Over Due/);
   assert.match(programConfigWindow, /Load Config/);
   assert.doesNotMatch(programConfigWindow, /Load Config File…/);
   assert.match(programConfigWindow, /file-selection[\s\n]+popup/);
