@@ -463,8 +463,19 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigStore, /readAllCardConfigsFromGoogleDoc/);
   assert.match(siteConfigStore, /cardConfigDocumentIds/);
   assert.match(siteConfigStore, /Card #/);
-  assert.match(siteConfigStore, /rename\(DATA_FILE_TMP,\s*DATA_FILE\)/);
+  assert.match(siteConfigStore, /rename\(dataFileTmp,\s*dataFile\)/);
+  assert.match(siteConfigStore, /unlink\(dataFile\)/);
+  assert.match(siteConfigStore, /ESAD_SITE_CONFIG_DIR/);
   assert.match(siteConfigStore, /read-back did not match/);
+  const viteConfigSource = await readFile(
+    new URL("../vite.config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(viteConfigSource, /ESAD_SITE_CONFIG_DIR/);
+  assert.match(viteConfigSource, /esad-dashboard-data/);
+  assert.match(viteConfigSource, /host:\s*"0\.0\.0\.0"/);
+  assert.match(viteConfigSource, /esad-seed-local-site-config/);
+  assert.match(viteConfigSource, /seedWorkerSiteConfigFromRepo/);
   const companyAuthGate = await readFile(
     new URL("../app/company-auth-gate.tsx", import.meta.url),
     "utf8",
