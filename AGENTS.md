@@ -43,3 +43,9 @@ Non-obvious caveats:
   `app/page.tsx` or `app/layout.tsx` may require updating `tests/rendered-html.test.mjs`.
 - The dashboard is fully static content in `app/page.tsx` — there is no auth, form, or API to
   exercise; verify changes by loading `http://localhost:3000/` and inspecting the rendered HTML.
+- Dual hosting: OpenAI Sites uses `vinext build` + Worker env bindings; Firebase App Hosting
+  uses `NEXT_PRIVATE_STANDALONE=true` → `next build` → `.next/standalone/` and reads secrets
+  from Cloud Run / `apphosting.yaml`. Site secrets do **not** carry over to Firebase.
+  Without `SMARTSHEET_ACCESS_TOKEN` on the Firebase backend, Current/Next Task show
+  **Unavailable**. Without Firebase web config (`FIREBASE_WEBAPP_CONFIG` at build or
+  `NEXT_PUBLIC_FIREBASE_*`), Auth stays in preview mode.

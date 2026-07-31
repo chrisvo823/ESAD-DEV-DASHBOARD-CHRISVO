@@ -1,0 +1,42 @@
+# Firebase App Hosting backend configuration.
+# https://firebase.google.com/docs/app-hosting/configure
+#
+# OpenAI Sites / Cloudflare Workers secrets do NOT apply here. Create the
+# Smartsheet secret and grant the App Hosting backend access before rollout:
+#
+#   firebase apphosting:secrets:set SMARTSHEET_ACCESS_TOKEN
+#   firebase apphosting:secrets:grantaccess SMARTSHEET_ACCESS_TOKEN --backend <BACKEND_ID>
+#
+# Optional (Admin Doc/Drive without interactive Google login):
+#   firebase apphosting:secrets:set GOOGLE_SERVICE_ACCOUNT_JSON
+#   firebase apphosting:secrets:grantaccess GOOGLE_SERVICE_ACCOUNT_JSON --backend <BACKEND_ID>
+# then add under env: (same shape as SMARTSHEET_ACCESS_TOKEN below).
+#
+# Console env vars (App Hosting → Backend → Settings → Environment) also work
+# and take precedence over this file. Console vars are available at BUILD+RUNTIME.
+#
+# FIREBASE_WEBAPP_CONFIG is injected automatically at BUILD when the backend is
+# linked to a Firebase web app. next.config.mjs maps it onto NEXT_PUBLIC_FIREBASE_*
+# so Auth works without duplicating Project settings into Dashboard secrets.
+
+runConfig:
+  # SSR fetches Smartsheet + Google on each dashboard load.
+  cpu: 1
+  memoryMiB: 512
+  maxInstances: 20
+  minInstances: 0
+  concurrency: 80
+
+env:
+  # Live Current Task / Next Task % Complete (server-only).
+  - variable: SMARTSHEET_ACCESS_TOKEN
+    secret: SMARTSHEET_ACCESS_TOKEN
+    availability:
+      - RUNTIME
+
+  # Restrict Google sign-in to the company domain (public; safe at BUILD+RUNTIME).
+  - variable: NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN
+    value: machindustries.com
+    availability:
+      - BUILD
+      - RUNTIME
