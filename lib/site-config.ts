@@ -49,8 +49,12 @@ export type SiteConfigPatch = {
   /**
    * When true with `dashboardConfig`, write that card's text into its mapped
    * Google Doc so every user session can pull the update.
+   * When true with `cardConfigsToPublish`, write every listed Card # section
+   * into the shared Card Configuration Google Doc (full document replace).
    */
   publishCardConfigToGoogleDoc?: boolean;
+  /** Multi-card Card Configuration editor payload for Google Doc publish. */
+  cardConfigsToPublish?: DashboardConfig[];
   customCards?: CustomCardRecord[];
   adminCredentials?: {
     password?: string;

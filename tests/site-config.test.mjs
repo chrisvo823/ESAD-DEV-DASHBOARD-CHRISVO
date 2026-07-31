@@ -530,3 +530,36 @@ test("Card Configuration save publishes to the selected Google Doc for all users
   assert.equal(loaded.dashboardConfigs["3"]?.boardNickname, "CPLD");
   assert.equal(loaded.dashboardConfigs["3"]?.responsibleEngineer, "Doc Engineer");
 });
+
+test("Card Configuration multi-card save writes every Card # section to one Google Doc", async () => {
+  const cardDocId = "card-config-doc-all";
+  const defaults = createDefaultSiteAdminConfig().dashboardConfigs;
+  const configs = [
+    {
+      ...defaults["1"],
+      responsibleEngineer: "Engineer One",
+      boardNickname: "ONE",
+    },
+    {
+      ...defaults["2"],
+      responsibleEngineer: "George Madden",
+      boardNickname: "HVFB",
+    },
+  ];
+
+  await updateSiteAdminConfig({
+    dashboardConfigs: {
+      "1": configs[0],
+      "2": configs[1],
+    },
+    cardConfigDocumentIds: { "1": cardDocId, "2": cardDocId },
+    publishCardConfigToGoogleDoc: true,
+    cardConfigsToPublish: configs,
+  });
+
+  const docText = readMockDoc(cardDocId);
+  assert.match(docText, /Card #: "1"/);
+  assert.match(docText, /Responsible Engineer: "Engineer One"/);
+  assert.match(docText, /Card #: "2"/);
+  assert.match(docText, /Responsible Engineer: "George Madden"/);
+});

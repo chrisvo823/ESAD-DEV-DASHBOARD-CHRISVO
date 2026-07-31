@@ -340,35 +340,80 @@ export async function updateSiteAdminConfig(
     };
   }
 
-  if (patch.publishCardConfigToGoogleDoc && patch.dashboardConfig) {
-    const dashboardId = patch.dashboardConfig.dashboardId;
-    const documentId =
-      next.cardConfigDocumentIds[dashboardId]?.trim() ||
-      patch.cardConfigDocumentIds?.[dashboardId]?.trim() ||
-      "";
-    if (!documentId) {
-      throw new Error(
-        "Select a Card Configuration Google Doc with Load Config before Saving.",
-      );
+  if (patch.publishCardConfigToGoogleDoc) {
+    const multiConfigs = (patch.cardConfigsToPublish ?? []).filter(
+      (config) => config?.dashboardId,
+    );
+    if (multiConfigs.length > 0) {
+      const documentId =
+        multiConfigs
+          .map((config) => next.cardConfigDocumentIds[config.dashboardId]?.trim())
+          .find(Boolean) ||
+        multiConfigs
+          .map(
+            (config) =>
+              patch.cardConfigDocumentIds?.[config.dashboardId]?.trim() ?? "",
+          )
+          .find(Boolean) ||
+        "";
+      if (!documentId) {
+        throw new Error(
+          "Select a Card Configuration Google Doc with Load Config before Saving.",
+        );
+      }
+      const written = await writeCardConfigToGoogleDoc(multiConfigs, documentId, {
+        accessToken: options?.googleAccessToken,
+      });
+      const cardCache = (globalThis as GlobalGoogleCardDocCache)[
+        GOOGLE_CARD_DOC_CACHE_KEY
+      ] ?? { byDocumentId: {} };
+      const configsById: Record<string, (typeof multiConfigs)[number]> = {};
+      for (const config of multiConfigs) {
+        configsById[config.dashboardId] = {
+          ...(next.dashboardConfigs[config.dashboardId] ?? config),
+          dashboardId: config.dashboardId,
+        };
+      }
+      cardCache.byDocumentId[documentId] = {
+        configsById: {
+          ...(cardCache.byDocumentId[documentId]?.configsById ?? {}),
+          ...configsById,
+        },
+        fetchedAtMs: Date.now(),
+      };
+      (globalThis as GlobalGoogleCardDocCache)[GOOGLE_CARD_DOC_CACHE_KEY] =
+        cardCache;
+      void written;
+    } else if (patch.dashboardConfig) {
+      const dashboardId = patch.dashboardConfig.dashboardId;
+      const documentId =
+        next.cardConfigDocumentIds[dashboardId]?.trim() ||
+        patch.cardConfigDocumentIds?.[dashboardId]?.trim() ||
+        "";
+      if (!documentId) {
+        throw new Error(
+          "Select a Card Configuration Google Doc with Load Config before Saving.",
+        );
+      }
+      const savedConfig = {
+        ...(next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig),
+        dashboardId,
+      };
+      const written = await writeCardConfigToGoogleDoc(savedConfig, documentId, {
+        accessToken: options?.googleAccessToken,
+      });
+      const cardCache = (globalThis as GlobalGoogleCardDocCache)[
+        GOOGLE_CARD_DOC_CACHE_KEY
+      ] ?? { byDocumentId: {} };
+      const existing = cardCache.byDocumentId[documentId]?.configsById ?? {};
+      cardCache.byDocumentId[documentId] = {
+        configsById: { ...existing, [dashboardId]: savedConfig },
+        fetchedAtMs: Date.now(),
+      };
+      (globalThis as GlobalGoogleCardDocCache)[GOOGLE_CARD_DOC_CACHE_KEY] =
+        cardCache;
+      void written;
     }
-    const savedConfig = {
-      ...(next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig),
-      dashboardId,
-    };
-    const written = await writeCardConfigToGoogleDoc(savedConfig, documentId, {
-      accessToken: options?.googleAccessToken,
-    });
-    const cardCache = (globalThis as GlobalGoogleCardDocCache)[
-      GOOGLE_CARD_DOC_CACHE_KEY
-    ] ?? { byDocumentId: {} };
-    const existing = cardCache.byDocumentId[documentId]?.configsById ?? {};
-    cardCache.byDocumentId[documentId] = {
-      configsById: { ...existing, [dashboardId]: savedConfig },
-      fetchedAtMs: Date.now(),
-    };
-    (globalThis as GlobalGoogleCardDocCache)[GOOGLE_CARD_DOC_CACHE_KEY] =
-      cardCache;
-    void written;
   }
 
   // Write + verify disk first, then memory — save never succeeds without a host file.
