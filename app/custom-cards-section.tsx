@@ -21,7 +21,7 @@ export function CustomCardsSection() {
             type="button"
             className="config-window-trigger"
             onClick={() => {
-              addCustomCard();
+              void addCustomCard();
             }}
           >
             Add Card

@@ -159,22 +159,30 @@ export function normalizeConfigDocText(text: string): string {
 }
 
 /** Text-based configuration content shown in the Configuration Window. */
-export function formatDashboardConfigText(config: DashboardConfig): string {
+export function formatDashboardConfigText(
+  config: DashboardConfig,
+  options?: { quoted?: boolean },
+): string {
+  const quoted = options?.quoted !== false;
+  const value = (raw: string) => (quoted ? `"${raw}"` : raw);
   return [
-    `Card #: "${config.dashboardId}"`,
-    `Responsible Engineer: "${config.responsibleEngineer}"`,
-    `Board Name: "${config.boardName}"`,
-    `Board Nickname: "${config.boardNickname}"`,
-    `Google Drive Link: "${config.googleDriveLink}"`,
-    `Smartsheet Link: "${config.smartsheetLink}"`,
+    `Card #: ${value(String(config.dashboardId))}`,
+    `Responsible Engineer: ${value(config.responsibleEngineer)}`,
+    `Board Name: ${value(config.boardName)}`,
+    `Board Nickname: ${value(config.boardNickname)}`,
+    `Google Drive Link: ${value(config.googleDriveLink)}`,
+    `Smartsheet Link: ${value(config.smartsheetLink)}`,
   ].join("\n");
 }
 
 /** Join multiple card config blocks for the top-level Card Configuration view. */
 export function formatAllDashboardConfigsText(
   configs: readonly DashboardConfig[],
+  options?: { quoted?: boolean },
 ): string {
-  return configs.map((config) => formatDashboardConfigText(config)).join("\n\n");
+  return configs
+    .map((config) => formatDashboardConfigText(config, options))
+    .join("\n\n");
 }
 
 function escapeRegExp(value: string): string {
@@ -408,8 +416,6 @@ export function parseDashboardConfigText(
   const cardNumber = normalizeCardNumber(cardNumberRaw);
   if (!cardNumber) {
     valueErrors.push('Card # must be a number like "1".');
-  } else if (!isFixedDashboardId(cardNumber)) {
-    valueErrors.push('Card # must be "1", "2", "3", or "4".');
   }
   if (!boardName.trim()) {
     valueErrors.push("Board Name cannot be empty.");

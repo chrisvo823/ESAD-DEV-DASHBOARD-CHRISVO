@@ -6,13 +6,24 @@ import {
   isCustomCardId,
   type CustomCardRecord,
 } from "../lib/custom-cards";
-import type { DashboardConfig } from "../lib/dashboard-config";
-import { writeDashboardConfig } from "./dashboard-config-store";
 import {
+  DASHBOARD_CONFIGS,
+  FIXED_DASHBOARD_IDS,
+  type DashboardConfig,
+} from "../lib/dashboard-config";
+import {
+  saveAllCardConfigsToGoogleDoc,
+  writeDashboardConfig,
+} from "./dashboard-config-store";
+import { ensureGoogleDriveAccessToken } from "./ensure-google-drive-access";
+import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
+import {
+  getCachedSiteConfig,
   hydrateSiteConfigFromHost,
   persistSiteConfigPatch,
   readCachedCustomCards,
   readCachedDashboardConfigs,
+  refreshSiteConfigFromHost,
   subscribeSiteConfig,
 } from "./site-config-client";
 
@@ -32,21 +43,79 @@ export function readCustomCards(): CustomCardRecord[] {
   return readCachedCustomCards();
 }
 
-export function addCustomCard(): CustomCardRecord {
+function resolveBoundCardConfigDocumentId(): string | null {
+  const ids = getCachedSiteConfig().cardConfigDocumentIds;
+  for (const id of FIXED_DASHBOARD_IDS) {
+    const documentId = ids[id]?.trim();
+    if (documentId) return documentId;
+  }
+  for (const documentId of Object.values(ids)) {
+    const trimmed = documentId?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+function allCardConfigsForPublish(
+  customCards: CustomCardRecord[],
+): DashboardConfig[] {
+  const cached = readCachedDashboardConfigs();
+  const fixed = FIXED_DASHBOARD_IDS.map(
+    (id) => cached[id] ?? { ...DASHBOARD_CONFIGS[id] },
+  );
+  const extras = customCards.map(
+    (card) => cached[card.id] ?? { ...card.config, dashboardId: card.id },
+  );
+  return [...fixed, ...extras];
+}
+
+/**
+ * Append a new board card with the next sequential Card #, persist host
+ * config, and immediately write every Card # section to the bound Google Doc.
+ */
+export async function addCustomCard(): Promise<CustomCardRecord> {
   const existing = readCustomCards();
-  const card = createCustomCardRecord(existing.length + 1);
+  const cachedConfigs = readCachedDashboardConfigs();
+  const card = createCustomCardRecord([
+    ...FIXED_DASHBOARD_IDS,
+    ...Object.keys(cachedConfigs),
+    ...existing.map((entry) => entry.id),
+  ]);
   const cards = [...existing, card];
   const dashboardConfigs = {
-    ...readCachedDashboardConfigs(),
+    ...cachedConfigs,
     [card.id]: card.config,
   };
   emitCards(cards);
-  void persistSiteConfigPatch({
-    customCards: cards,
-    dashboardConfigs,
-  }).catch(() => {
-    // Host save failures are surfaced by re-hydration in persist helper.
+
+  let documentId = resolveBoundCardConfigDocumentId();
+  if (!documentId) {
+    const picked = await pickAdminConfigDriveFile("card");
+    if (!picked) {
+      // Still persist locally/host so the card appears; Drive write deferred.
+      await persistSiteConfigPatch({
+        customCards: cards,
+        dashboardConfigs,
+      });
+      return card;
+    }
+    documentId = picked.id;
+  }
+
+  try {
+    await ensureGoogleDriveAccessToken({
+      reason:
+        "Sign in with Google Drive so the new card can be written to the Card Configuration Doc.",
+    });
+  } catch {
+    // Server service-account / env token may still publish the Doc.
+  }
+
+  await saveAllCardConfigsToGoogleDoc({
+    configs: allCardConfigsForPublish(cards),
+    documentId,
   });
+  await refreshSiteConfigFromHost();
   return card;
 }
 
@@ -61,6 +130,27 @@ export function removeCustomCard(id: string): CustomCardRecord[] {
   }).catch(() => {
     // Host save failures are surfaced by re-hydration in persist helper.
   });
+
+  const documentId = resolveBoundCardConfigDocumentId();
+  if (documentId) {
+    void (async () => {
+      try {
+        await ensureGoogleDriveAccessToken({
+          reason:
+            "Sign in with Google Drive so Card Configuration can be updated.",
+        });
+      } catch {
+        // best-effort
+      }
+      await saveAllCardConfigsToGoogleDoc({
+        configs: allCardConfigsForPublish(next),
+        documentId,
+      });
+      await refreshSiteConfigFromHost();
+    })().catch(() => {
+      // Host/Drive failures surface via re-hydration.
+    });
+  }
   return next;
 }
 

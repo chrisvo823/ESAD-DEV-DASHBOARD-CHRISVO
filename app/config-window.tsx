@@ -19,19 +19,24 @@ import {
 import {
   DASHBOARD_CONFIGS,
   FIXED_DASHBOARD_IDS,
-  formatAllDashboardConfigsText,
   parseAllDashboardConfigsFromText,
   type DashboardConfig,
 } from "../lib/dashboard-config";
+import { formatCardConfigDocumentText } from "../lib/google-doc-card-config";
 
-function readFixedCardConfigs(): DashboardConfig[] {
+function readAllManagedCardConfigs(): DashboardConfig[] {
   const cached = getCachedSiteConfig().dashboardConfigs;
-  return FIXED_DASHBOARD_IDS.map(
+  const customCards = getCachedSiteConfig().customCards;
+  const fixed = FIXED_DASHBOARD_IDS.map(
     (id) => cached[id] ?? { ...DASHBOARD_CONFIGS[id] },
   );
+  const extras = customCards.map(
+    (card) => cached[card.id] ?? { ...card.config, dashboardId: card.id },
+  );
+  return [...fixed, ...extras];
 }
 
-/** Prefer a Doc id already bound by Load Config for any fixed card. */
+/** Prefer a Doc id already bound by Load Config for any card. */
 function resolveBoundCardConfigDocumentId(): string | null {
   const ids = getCachedSiteConfig().cardConfigDocumentIds;
   for (const id of FIXED_DASHBOARD_IDS) {
@@ -45,13 +50,18 @@ function resolveBoundCardConfigDocumentId(): string | null {
   return null;
 }
 
+function formatEditorDraft(configs: DashboardConfig[]): string {
+  // Prefer Doc-style formatting (quoted fixed cards, bare added cards).
+  return formatCardConfigDocumentText(configs);
+}
+
 /** Top-level Card Configuration control (admin toolbar). */
 export function ConfigWindow() {
   const authenticated = useAdminAuthenticated();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [draft, setDraft] = useState(() =>
-    formatAllDashboardConfigsText(readFixedCardConfigs()),
+    formatEditorDraft(readAllManagedCardConfigs()),
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,7 +81,7 @@ export function ConfigWindow() {
   }, [authenticated]);
 
   function applyConfigs(configs: DashboardConfig[], options?: { dirty?: boolean }) {
-    const nextDraft = formatAllDashboardConfigsText(configs);
+    const nextDraft = formatEditorDraft(configs);
     setDraft(nextDraft);
     const parsed = parseAllDashboardConfigsFromText(nextDraft);
     setErrors("error" in parsed ? parsed.errors : []);
@@ -103,8 +113,7 @@ export function ConfigWindow() {
         documentId: picked.id,
       });
       await refreshSiteConfigFromHost();
-      const published = readFixedCardConfigs();
-      applyConfigs(published);
+      applyConfigs(readAllManagedCardConfigs());
       const cardLabels = configs
         .map((config) => `Card #${config.dashboardId}`)
         .join(", ");
@@ -154,7 +163,7 @@ export function ConfigWindow() {
         documentId,
       });
       await refreshSiteConfigFromHost();
-      applyConfigs(readFixedCardConfigs());
+      applyConfigs(readAllManagedCardConfigs());
       const cardLabels = parsed.configs
         .map((config) => `Card #${config.dashboardId}`)
         .join(", ");
@@ -175,7 +184,7 @@ export function ConfigWindow() {
 
   useEffect(() => {
     if (!open) return;
-    applyConfigs(readFixedCardConfigs());
+    applyConfigs(readAllManagedCardConfigs());
     setStatusMessage(null);
     setActionError(null);
     const onKeyDown = (event: KeyboardEvent) => {
@@ -184,7 +193,7 @@ export function ConfigWindow() {
     window.addEventListener("keydown", onKeyDown);
     const unsubscribe = subscribeSiteConfig(() => {
       if (dirtyRef.current) return;
-      applyConfigs(readFixedCardConfigs());
+      applyConfigs(readAllManagedCardConfigs());
     });
     return () => {
       window.removeEventListener("keydown", onKeyDown);

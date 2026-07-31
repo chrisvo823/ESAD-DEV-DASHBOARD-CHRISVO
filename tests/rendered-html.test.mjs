@@ -310,12 +310,22 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configDeploy, /persistSiteConfigPatch/);
   assert.match(configDeploy, /deployed to all users/i);
 
-  const customCardsSection = await readFile(
-    new URL("../app/custom-cards-section.tsx", import.meta.url),
-    "utf8",
-  );
+  const [customCardsSection, customCardsStore] = await Promise.all([
+    readFile(
+      new URL("../app/custom-cards-section.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/custom-cards-store.ts", import.meta.url),
+      "utf8",
+    ),
+  ]);
   assert.match(customCardsSection, /Add Card/);
   assert.match(customCardsSection, /addCustomCard/);
+  assert.match(customCardsSection, /void addCustomCard/);
+  assert.match(customCardsStore, /createCustomCardRecord/);
+  assert.match(customCardsStore, /saveAllCardConfigsToGoogleDoc/);
+  assert.match(customCardsStore, /refreshSiteConfigFromHost/);
   assert.match(customCardsSection, /custom-systems-grid/);
   assert.match(customCardsSection, /layout="custom"/);
   assert.match(customCardsSection, /Remove Card/);
