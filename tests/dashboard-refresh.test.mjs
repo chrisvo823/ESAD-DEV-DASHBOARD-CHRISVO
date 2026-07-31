@@ -29,4 +29,21 @@ test("dashboard refresh client re-pulls Google Drive config and RSC card data", 
   assert.match(source, /visibilitychange/);
   assert.match(source, /inFlightRef/);
   assert.match(source, /Google Drive/);
+  assert.match(source, /Smartsheet/);
+  assert.match(source, /fetchAllProjectScheduleStats/);
+});
+
+test("home page force-dynamic re-fetches Smartsheet on router.refresh", async () => {
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const smartsheet = await readFile(
+    new URL("../lib/smartsheet.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /export const dynamic = "force-dynamic"/);
+  assert.match(page, /fetchAllProjectScheduleStats/);
+  assert.match(page, /DashboardRefresh/);
+  assert.match(smartsheet, /cache:\s*"no-store"/);
 });

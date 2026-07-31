@@ -400,6 +400,7 @@ const projects: Project[] = [
             "2026-08-07T08:00:00",
             "2026-08-07T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "0%",
         valueHref: smartsheetRowUrl(3505984567443332),
         focusTaskId: 3505984567443332,
         hideValueBar: true,
@@ -468,6 +469,7 @@ const projects: Project[] = [
             "2026-08-07T08:00:00",
             "2026-08-07T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "0%",
         valueHref: smartsheetRowUrl(3646722055798660),
         focusTaskId: 3646722055798660,
         hideValueBar: true,
@@ -526,6 +528,7 @@ const projects: Project[] = [
             "2026-08-11T08:00:00",
             "2026-09-21T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "10%",
         valueHref: smartsheetRowUrl(5087449440780164),
         focusTaskId: 5087449440780164,
         hideValueBar: true,
@@ -591,6 +594,7 @@ const projects: Project[] = [
             "2026-08-11T08:00:00",
             "2026-09-21T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "10%",
         valueHref: smartsheetRowUrl(6977330597986180),
         focusTaskId: 6977330597986180,
         hideValueBar: true,
@@ -723,6 +727,11 @@ function metricsWithScheduleStats(
 
     if (metric.label === "Next Task") {
       const next = schedule.nextTask;
+      // Always show Completion % beside Next Task when a task is selected.
+      // Blank Smartsheet cells display as 0% (same as Current Task).
+      const percentLabel = next
+        ? formatSchedulePercentComplete(next.percentComplete ?? 0)
+        : undefined;
       const valueText = next?.name ?? "—";
       return {
         ...metric,
@@ -734,6 +743,7 @@ function metricsWithScheduleStats(
         valueHref: isSchedulePlaceholder(valueText)
           ? undefined
           : (next?.permalink ?? smartsheetConfigHref),
+        valuePercentLabel: percentLabel ?? undefined,
         focusTaskId: next?.id,
         hideValueBar: true,
         barPercent: undefined,
