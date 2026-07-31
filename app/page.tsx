@@ -919,7 +919,7 @@ function applyLiveProjectStats(
   });
 }
 
-/** Overlay host-persisted card Configuration onto the static project slots. */
+/** Overlay host/Google-Doc card Configuration onto the static project slots. */
 function withHostCardConfigs(
   projectList: Project[],
   hostConfigs: Record<string, DashboardConfig>,

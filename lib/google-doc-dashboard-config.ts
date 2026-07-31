@@ -13,6 +13,10 @@ export const DASHBOARD_CONFIG_GOOGLE_DOC_ID =
 export const DASHBOARD_CONFIG_GOOGLE_DOC_URL =
   `https://docs.google.com/document/d/${DASHBOARD_CONFIG_GOOGLE_DOC_ID}/edit?tab=t.0`;
 
+export function googleDocEditUrl(documentId: string): string {
+  return `https://docs.google.com/document/d/${documentId}/edit`;
+}
+
 const DOCS_API_BASE = "https://docs.googleapis.com/v1";
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const DOCS_SCOPES = [
@@ -272,6 +276,17 @@ async function fetchGoogleDocPlainText(options: {
   return publicResponse.text();
 }
 
+/** Read plain text from any Google Doc id (Docs API, then public export fallback). */
+export async function readGoogleDocPlainText(options: {
+  documentId: string;
+  accessToken?: string | null;
+}): Promise<string> {
+  return fetchGoogleDocPlainText({
+    documentId: options.documentId,
+    accessToken: options.accessToken,
+  });
+}
+
 /** Parse Dashboard Configuration text from the Google Doc body. */
 export function parseDashboardConfigFromGoogleDocText(
   text: string,
@@ -294,17 +309,20 @@ export async function readProgramConfigFromGoogleDoc(options?: {
 }
 
 /**
- * Replace the Google Doc body with Dashboard Configuration text.
- * Requires Docs API edit access via token / service account.
+ * Replace a Google Doc body with plain text via the Docs API.
+ * Requires Docs edit access via token / service account.
  */
-export async function writeProgramConfigToGoogleDoc(
-  config: ProgramConfig,
+export async function writePlainTextToGoogleDoc(
+  documentId: string,
+  text: string,
   options?: {
     accessToken?: string | null;
-    documentId?: string;
   },
 ): Promise<{ documentId: string; documentUrl: string; text: string }> {
-  const documentId = options?.documentId ?? DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+  const id = documentId.trim();
+  if (!id) {
+    throw new Error("A Google Doc id is required to save configuration.");
+  }
   const accessToken = await resolveGoogleDocsAccessToken(options?.accessToken);
   if (!accessToken) {
     throw new Error(
@@ -312,8 +330,8 @@ export async function writeProgramConfigToGoogleDoc(
     );
   }
 
-  const text = `${formatProgramConfigText(sanitizeProgramConfig(config)).trimEnd()}\n`;
-  const { endIndex } = await fetchGoogleDocViaApi(documentId, accessToken);
+  const bodyText = `${text.trimEnd()}\n`;
+  const { endIndex } = await fetchGoogleDocViaApi(id, accessToken);
   const requests: Array<Record<string, unknown>> = [];
   if (endIndex > 2) {
     requests.push({
@@ -328,12 +346,12 @@ export async function writeProgramConfigToGoogleDoc(
   requests.push({
     insertText: {
       location: { index: 1 },
-      text,
+      text: bodyText,
     },
   });
 
   const response = await fetch(
-    `${DOCS_API_BASE}/documents/${documentId}:batchUpdate`,
+    `${DOCS_API_BASE}/documents/${id}:batchUpdate`,
     {
       method: "POST",
       headers: {
@@ -353,9 +371,34 @@ export async function writeProgramConfigToGoogleDoc(
   }
 
   return {
-    documentId,
-    documentUrl: DASHBOARD_CONFIG_GOOGLE_DOC_URL,
-    text,
+    documentId: id,
+    documentUrl: googleDocEditUrl(id),
+    text: bodyText,
+  };
+}
+
+/**
+ * Replace the Google Doc body with Dashboard Configuration text.
+ * Requires Docs API edit access via token / service account.
+ */
+export async function writeProgramConfigToGoogleDoc(
+  config: ProgramConfig,
+  options?: {
+    accessToken?: string | null;
+    documentId?: string;
+  },
+): Promise<{ documentId: string; documentUrl: string; text: string }> {
+  const documentId = options?.documentId ?? DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+  const text = formatProgramConfigText(sanitizeProgramConfig(config));
+  const written = await writePlainTextToGoogleDoc(documentId, text, {
+    accessToken: options?.accessToken,
+  });
+  return {
+    ...written,
+    documentUrl:
+      documentId === DASHBOARD_CONFIG_GOOGLE_DOC_ID
+        ? DASHBOARD_CONFIG_GOOGLE_DOC_URL
+        : written.documentUrl,
   };
 }
 

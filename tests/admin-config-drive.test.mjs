@@ -143,7 +143,8 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   );
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
-  assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
+  assert.match(configWindow, /bindCardConfigGoogleDoc/);
+  assert.match(configWindow, /saveCardConfigToGoogleDoc/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
   assert.match(configWindow, /file-selection[\s\n]+popup/);
   assert.match(configWindow, /User cancelled the file picker/);
@@ -163,11 +164,12 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
     configWindow,
     /<a[\s\S]*className="config-window-trigger"/,
   );
-  assert.doesNotMatch(configWindow, /\bSave\b/);
-  assert.doesNotMatch(configWindow, /editable card fields/);
-  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
-  assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
-  assert.doesNotMatch(globalsCss, /\.config-window-save(?!d)/);
+  assert.match(configWindow, /Editable card fields/);
+  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(configWindow, /config-window-save/);
+  assert.match(globalsCss, /\.config-window-save\b/);
+  assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
+  assert.doesNotMatch(configWindow, /readOnly/);
   assert.match(globalsCss, /\.drive-file-picker\b/);
   assert.match(globalsCss, /\.drive-login-modal\b/);
   assert.match(globalsCss, /\.drive-file-picker-backdrop[\s\S]*z-index:\s*120/);

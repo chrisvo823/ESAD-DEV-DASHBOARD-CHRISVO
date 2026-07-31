@@ -85,3 +85,23 @@ test("extracts plain text from Google Docs API structural elements", () => {
   assert.match(text, /Dashboard Name: "From API"/);
   assert.match(text, /Program Lead: "API Lead"/);
 });
+
+test("exposes Card Configuration Google Doc read/write helpers", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [dashboardSource, cardSource] = await Promise.all([
+    readFile(
+      new URL("../lib/google-doc-dashboard-config.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../lib/google-doc-card-config.ts", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.match(dashboardSource, /export async function writePlainTextToGoogleDoc/);
+  assert.match(dashboardSource, /export async function readGoogleDocPlainText/);
+  assert.match(cardSource, /export async function readCardConfigFromGoogleDoc/);
+  assert.match(cardSource, /export async function writeCardConfigToGoogleDoc/);
+  assert.match(cardSource, /formatDashboardConfigText/);
+  assert.match(cardSource, /parseDashboardConfigText/);
+});

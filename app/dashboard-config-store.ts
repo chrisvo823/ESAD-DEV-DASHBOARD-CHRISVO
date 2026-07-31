@@ -64,6 +64,50 @@ export function readDashboardConfigs(): ConfigMap {
   return Object.keys(cached).length > 0 ? cached : cloneDefaults();
 }
 
+/**
+ * Bind a Card Configuration Google Doc as the source of truth for this card.
+ * Host values are only a cache; all users read from the selected Doc.
+ */
+export async function bindCardConfigGoogleDoc(options: {
+  config: DashboardConfig;
+  documentId: string;
+}): Promise<ConfigMap> {
+  const { config, documentId } = options;
+  const next = {
+    ...readDashboardConfigs(),
+    [config.dashboardId]: { ...config, dashboardId: config.dashboardId },
+  };
+  emitLegacyConfigEvent(next[config.dashboardId]!);
+  await persistSiteConfigPatch({
+    dashboardConfig: next[config.dashboardId]!,
+    cardConfigDocumentIds: { [config.dashboardId]: documentId },
+  });
+  return next;
+}
+
+/**
+ * Save editable card fields to the selected Google Doc and refresh the host
+ * cache so every user session picks up the Doc on the next pull.
+ */
+export async function saveCardConfigToGoogleDoc(options: {
+  config: DashboardConfig;
+  documentId: string;
+}): Promise<ConfigMap> {
+  const { config, documentId } = options;
+  const next = {
+    ...readDashboardConfigs(),
+    [config.dashboardId]: { ...config, dashboardId: config.dashboardId },
+  };
+  emitLegacyConfigEvent(next[config.dashboardId]!);
+  await persistSiteConfigPatch({
+    dashboardConfig: next[config.dashboardId]!,
+    cardConfigDocumentIds: { [config.dashboardId]: documentId },
+    publishCardConfigToGoogleDoc: true,
+  });
+  return next;
+}
+
+/** @deprecated Prefer bindCardConfigGoogleDoc / saveCardConfigToGoogleDoc. */
 export async function writeDashboardConfig(
   config: DashboardConfig,
 ): Promise<ConfigMap> {

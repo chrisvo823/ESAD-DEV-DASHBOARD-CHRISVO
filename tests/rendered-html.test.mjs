@@ -369,7 +369,11 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigRoute, /getHostSiteConfigPath/);
   assert.match(siteConfigRoute, /forceGoogleDocRefresh:\s*true/);
   assert.match(siteConfigRoute, /dashboardConfigSource/);
+  assert.match(siteConfigRoute, /cardConfigSource/);
+  assert.match(siteConfigRoute, /cardGoogleDocWritten/);
   assert.match(siteConfigClient, /persistSiteConfigPatch/);
+  assert.match(siteConfigClient, /publishCardConfigToGoogleDoc/);
+  assert.match(siteConfigClient, /cardConfigDocumentIds/);
   assert.match(siteConfigClient, /hydrateSiteConfigFromHost/);
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
   assert.match(siteConfigClient, /hostFetchGeneration/);
@@ -382,6 +386,10 @@ test("keeps dashboard metadata and project data in source", async () => {
     "utf8",
   );
   assert.match(siteConfigStore, /writePersistedConfig/);
+  assert.match(siteConfigStore, /applyGoogleDocCardConfigs/);
+  assert.match(siteConfigStore, /writeCardConfigToGoogleDoc/);
+  assert.match(siteConfigStore, /readCardConfigFromGoogleDoc/);
+  assert.match(siteConfigStore, /cardConfigDocumentIds/);
   assert.match(siteConfigStore, /rename\(DATA_FILE_TMP,\s*DATA_FILE\)/);
   assert.match(siteConfigStore, /read-back did not match/);
   const companyAuthGate = await readFile(
@@ -659,16 +667,18 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(configWindow, /href=\{ADMIN_CONFIG_DRIVE_FOLDER_URL\}/);
   assert.match(configWindow, /pickAdminConfigDriveFile/);
   assert.match(configWindow, /loadCardConfigFromDriveFile/);
-  assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
+  assert.match(configWindow, /bindCardConfigGoogleDoc/);
+  assert.match(configWindow, /saveCardConfigToGoogleDoc/);
   assert.match(configWindow, /Load Config/);
   assert.doesNotMatch(configWindow, /Load Config File…/);
-  assert.doesNotMatch(configWindow, /\bSave\b/);
-  assert.doesNotMatch(configWindow, /editable card fields/);
+  assert.match(configWindow, /Editable card fields/);
+  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(configWindow, /config-window-save/);
+  assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.doesNotMatch(configWindow, /Saved on the host/);
   assert.match(configWindow, /1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks/);
   assert.match(configWindow, /ADMIN_CONFIG_DRIVE_FOLDER_URL/);
-  assert.match(configWindow, /readOnly/);
-  assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.doesNotMatch(configWindow, /readOnly/);
   assert.doesNotMatch(
     configWindow,
     /<a[\s\S]*className="config-window-trigger"/,

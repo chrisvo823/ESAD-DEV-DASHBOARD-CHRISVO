@@ -17,7 +17,7 @@ test("deploys combined host config after both Drive loads", async () => {
   assert.match(source, /3 minutes/);
 });
 
-test("Load Config windows trigger deploy-when-both-ready", async () => {
+test("Load Config windows trigger deploy-when-both-ready for Dashboard only", async () => {
   const [programWindow, configWindow] = await Promise.all([
     readFile(
       new URL("../app/program-config-window.tsx", import.meta.url),
@@ -28,7 +28,8 @@ test("Load Config windows trigger deploy-when-both-ready", async () => {
   assert.match(programWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(programWindow, /dashboard:\s*next/);
   assert.match(programWindow, /deployMessage/);
-  assert.match(configWindow, /noteConfigLoadedAndDeployIfReady/);
-  assert.match(configWindow, /card:\s*next/);
-  assert.match(configWindow, /deployMessage/);
+  assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
+  assert.match(configWindow, /saveCardConfigToGoogleDoc/);
+  assert.match(configWindow, /bindCardConfigGoogleDoc/);
+  assert.match(configWindow, /\{saving \? "Saving…" : "Save"\}/);
 });
