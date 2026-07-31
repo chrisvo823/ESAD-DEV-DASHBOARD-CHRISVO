@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { refreshSiteConfigFromHost } from "./site-config-client";
 
-/** How often the dashboard re-pulls Google Drive config + card data. */
+/** How often the dashboard re-pulls Google Drive config + Smartsheet card data. */
 export const DASHBOARD_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 /**
  * Periodically refresh host Admin config from Google Drive and re-render
- * server card metrics (Google Sheets / Smartsheet). Uses Next.js
- * router.refresh() so RSC data is re-fetched without a full browser reload.
+ * server card metrics (Google Sheets Open/Over Due + Smartsheet Current/Next).
+ * Uses Next.js router.refresh() so RSC re-runs `fetchAllProjectScheduleStats`
+ * and related server fetches without a full browser reload (every 3 minutes).
  */
 export function DashboardRefresh() {
   const router = useRouter();

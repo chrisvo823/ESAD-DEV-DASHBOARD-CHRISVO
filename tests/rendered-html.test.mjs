@@ -207,9 +207,18 @@ test("server-renders the Google Drive–configured dashboard", async () => {
   // Today (late Jul 2026): Schematic is Current; Schematic Review is Next.
   assert.match(html, /Schematic/);
   assert.match(html, /Jul 24 – Aug 6, 2026/);
-  assert.match(html, /metric-task-percent[\s\S]*?10%/);
+  // Current Task Completion % from Smartsheet (value can change live).
+  assert.match(
+    html,
+    /task-hover-trigger--current[\s\S]*?metric-task-percent">\d+(?:\.\d+)?%</,
+  );
   assert.match(html, /Schematic Review/);
   assert.match(html, /Aug 7, 2026/);
+  // Next Task blank Smartsheet % Complete displays as 0%.
+  assert.match(
+    html,
+    /Schematic Review[\s\S]*?metric-task-date[\s\S]*?Aug 7, 2026[\s\S]*?metric-task-percent[\s\S]*?0%/,
+  );
   // DSB Block Diagram + Review must keep Smartsheet Start/Finish (07/17–07/23).
   assert.match(html, /Block Diagram \+ Review/);
   assert.match(html, /2026-07-17T08:00:00/);
@@ -285,6 +294,14 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(page, /smartsheetConfigHref/);
   assert.match(page, /smartsheetHrefFromConfig/);
   assert.match(page, /metricsWithScheduleStats/);
+  assert.match(
+    page,
+    /label === "Next Task"[\s\S]*?valuePercentLabel: percentLabel/,
+  );
+  assert.match(
+    page,
+    /Blank Smartsheet cells display as 0% \(same as Current Task\)/,
+  );
   assert.match(page, /fallbackScheduleFromMetrics/);
   assert.match(page, /findCurrentScheduleTask/);
   assert.match(page, /findNextScheduleTask/);
