@@ -1,6 +1,13 @@
 /**
  * Public Firebase web app config (safe to expose to the browser).
- * Prefer NEXT_PUBLIC_FIREBASE_* vars, or a single FIREBASE_WEB_CONFIG JSON blob.
+ *
+ * Resolution order:
+ * 1) FIREBASE_WEB_CONFIG / NEXT_PUBLIC_FIREBASE_WEB_CONFIG JSON
+ * 2) FIREBASE_WEBAPP_CONFIG JSON (Firebase App Hosting auto-injects at BUILD)
+ * 3) Individual NEXT_PUBLIC_FIREBASE_* vars
+ *
+ * On App Hosting, next.config.mjs also maps FIREBASE_WEBAPP_CONFIG onto
+ * NEXT_PUBLIC_FIREBASE_* so the client bundle receives the values.
  */
 
 export type FirebaseWebConfig = {
@@ -73,7 +80,10 @@ function parseFirebaseWebConfigJson(
 export function readFirebaseWebConfigFromEnv(): FirebaseWebConfig | null {
   const fromJson = parseFirebaseWebConfigJson(
     readEnvValue("FIREBASE_WEB_CONFIG") ??
-      readEnvValue("NEXT_PUBLIC_FIREBASE_WEB_CONFIG"),
+      readEnvValue("NEXT_PUBLIC_FIREBASE_WEB_CONFIG") ??
+      // Firebase App Hosting system env (BUILD by default; may also be RUNTIME
+      // when overridden in the console / apphosting.yaml).
+      readEnvValue("FIREBASE_WEBAPP_CONFIG"),
   );
   if (fromJson) return fromJson;
 

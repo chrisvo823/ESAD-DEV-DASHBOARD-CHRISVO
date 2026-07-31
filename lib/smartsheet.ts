@@ -22,13 +22,19 @@ export type SmartsheetConnection = {
   sheets: SmartsheetSheetSummary[];
 };
 
+function readSmartsheetAccessTokenEnv(): string | undefined {
+  // Bracket access keeps the value runtime-resolvable on Next.js standalone
+  // (Firebase App Hosting / Cloud Run) when the secret is RUNTIME-only.
+  return process.env["SMARTSHEET_ACCESS_TOKEN"]?.trim() || undefined;
+}
+
 function getAccessToken(
-  token: string | undefined = process.env.SMARTSHEET_ACCESS_TOKEN,
+  token: string | undefined = readSmartsheetAccessTokenEnv(),
 ): string {
   const trimmed = token?.trim();
   if (!trimmed) {
     throw new Error(
-      "SMARTSHEET_ACCESS_TOKEN is not set. Add it to your environment or .env file.",
+      "SMARTSHEET_ACCESS_TOKEN is not set. Add it to your environment, .env file, OpenAI Sites secrets, or Firebase App Hosting secrets (see apphosting.yaml).",
     );
   }
   return trimmed;
@@ -37,15 +43,15 @@ function getAccessToken(
 /**
  * Resolve SMARTSHEET_ACCESS_TOKEN from (in order):
  * 1) explicit argument
- * 2) process.env — populated by local `.env`, the
- *    `nodejs_compat_populate_process_env` flag, and/or
- *    `mirrorEnvBindingsToProcessEnv` in `worker/index.ts` (OpenAI Sites secrets)
+ * 2) process.env — local `.env`, Firebase App Hosting / Cloud Run runtime
+ *    secrets (`apphosting.yaml`), OpenAI Sites via
+ *    `nodejs_compat_populate_process_env` + `mirrorEnvBindingsToProcessEnv`
  * 3) globalThis (miniflare)
  */
 function resolveAccessToken(token?: string): string {
   if (token?.trim()) return token.trim();
 
-  const fromProcess = process.env.SMARTSHEET_ACCESS_TOKEN?.trim();
+  const fromProcess = readSmartsheetAccessTokenEnv();
   if (fromProcess) return fromProcess;
 
   // Cloudflare Workers expose bindings via the global env in some runtimes;

@@ -79,6 +79,8 @@ for (const key of googleDocsEnvKeys) {
 const firebaseEnvKeys = [
   "FIREBASE_WEB_CONFIG",
   "NEXT_PUBLIC_FIREBASE_WEB_CONFIG",
+  // Firebase App Hosting system name (also accepted locally for parity).
+  "FIREBASE_WEBAPP_CONFIG",
   "NEXT_PUBLIC_FIREBASE_API_KEY",
   "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
   "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
