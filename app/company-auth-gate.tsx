@@ -221,11 +221,9 @@ export function CompanyAuthGate({
           type="button"
           className="company-auth-google"
           onClick={handleGoogleSignIn}
-          disabled={busy || state.status === "loading"}
+          disabled={busy}
         >
-          {busy || state.status === "loading"
-            ? "Working…"
-            : "Sign in with Google"}
+          {busy ? "Working…" : "Sign in with Google"}
         </button>
       </section>
     </main>
