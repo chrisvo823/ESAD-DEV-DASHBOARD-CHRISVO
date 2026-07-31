@@ -127,7 +127,7 @@ async function loadBaseSiteAdminConfig(): Promise<SiteAdminConfig> {
   if (persisted) return persisted;
 
   const memory = memoryStore();
-  if (memory) return memory;
+  if (memory) return sanitizeSiteAdminConfig(memory);
 
   return createDefaultSiteAdminConfig();
 }
@@ -203,8 +203,9 @@ async function applyGoogleDocCardConfigs(
 ): Promise<SiteAdminConfig> {
   if (options?.skipGoogleDoc) return base;
 
+  const mappedDocumentIds = base.cardConfigDocumentIds ?? {};
   const uniqueDocumentIds = [
-    ...new Set(Object.values(base.cardConfigDocumentIds).map((id) => id.trim())),
+    ...new Set(Object.values(mappedDocumentIds).map((id) => id.trim())),
   ].filter(Boolean);
   if (uniqueDocumentIds.length === 0) return base;
 
@@ -212,7 +213,7 @@ async function applyGoogleDocCardConfigs(
   const cache = cacheStore[GOOGLE_CARD_DOC_CACHE_KEY] ?? { byDocumentId: {} };
   const now = Date.now();
   const nextConfigs = { ...base.dashboardConfigs };
-  const nextDocumentIds = { ...base.cardConfigDocumentIds };
+  const nextDocumentIds = { ...mappedDocumentIds };
   let changed = false;
 
   await Promise.all(
