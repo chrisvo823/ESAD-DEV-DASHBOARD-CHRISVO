@@ -104,6 +104,8 @@ test("parses multiple Card # sections from one document", () => {
 
 test("normalizes Card # labels", () => {
   assert.equal(normalizeCardNumber("1"), "1");
+  assert.equal(normalizeCardNumber('"1"'), "1");
+  assert.equal(normalizeCardNumber("'2'"), "2");
   assert.equal(normalizeCardNumber("Card #2"), "2");
   assert.equal(normalizeCardNumber("#3"), "3");
   assert.equal(formatCardNumberLabel("4"), "Card #4");
@@ -152,6 +154,34 @@ test("accepts Card #2 headings and smart quotes", () => {
   assert.equal(parsed.configs.length, 1);
   assert.equal(parsed.configs[0]?.dashboardId, "2");
   assert.equal(parsed.configs[0]?.responsibleEngineer, "George Madden");
+});
+
+test("parses Card # when the number is inside single or double quotes", () => {
+  for (const cardLine of [
+    'Card #: "2"',
+    "Card #: '2'",
+    'Card #: "2".',
+    '1. Card #: "2"',
+    '- Card #: "2"',
+  ]) {
+    const text = [
+      cardLine,
+      'Responsible Engineer: "George Madden"',
+      'Board Name: "High Voltage Filter Board"',
+      'Board Nickname: "HVFB"',
+      'Google Drive Link: ""',
+      'Smartsheet Link: ""',
+    ].join("\n");
+
+    const parsed = parseAllDashboardConfigsFromText(text);
+    assert.ok("configs" in parsed, `failed for ${cardLine}`);
+    assert.equal(parsed.configs[0]?.dashboardId, "2", `id for ${cardLine}`);
+    assert.equal(
+      parsed.configs[0]?.responsibleEngineer,
+      "George Madden",
+      `engineer for ${cardLine}`,
+    );
+  }
 });
 
 test("flags missing closing quote as a syntax error", () => {
