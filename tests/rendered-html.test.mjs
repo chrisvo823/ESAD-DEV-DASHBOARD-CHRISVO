@@ -204,18 +204,20 @@ test("server-renders the Google Drive–configured dashboard", async () => {
     html,
     /task-hover-trigger--next[\s\S]*?metric-task-name metric-source-flag--error/,
   );
-  // Today (late Jul 2026): Schematic is Current; Layout is Next (not Rev B Requirements).
+  // Today (late Jul 2026): Schematic is Current; Schematic Review is Next.
   assert.match(html, /Schematic/);
   assert.match(html, /Jul 24 – Aug 6, 2026/);
   assert.match(html, /metric-task-percent[\s\S]*?10%/);
-  assert.match(html, /Layout/);
-  assert.match(html, /Aug 21 – Sep 29, 2026/);
+  assert.match(html, /Schematic Review/);
+  assert.match(html, /Aug 7, 2026/);
   // DSB Block Diagram + Review must keep Smartsheet Start/Finish (07/17–07/23).
   assert.match(html, /Block Diagram \+ Review/);
   assert.match(html, /2026-07-17T08:00:00/);
   assert.match(html, /2026-07-23T16:59:59/);
   assert.doesNotMatch(html, /2026-07-22T16:59:59/);
-  assert.doesNotMatch(html, /2026-08-07T08:00:00/);
+  // Next Task Schematic Review Start/Finish (08/07/26) appears in schedule payload.
+  assert.match(html, /2026-08-07T08:00:00/);
+  assert.match(html, /2026-08-07T16:59:59/);
   assert.doesNotMatch(html, />Schedule</);
   assert.doesNotMatch(
     html,

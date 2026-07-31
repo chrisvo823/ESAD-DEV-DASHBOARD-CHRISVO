@@ -228,16 +228,16 @@ test("prefers Smartsheet displayValue dates so Start/Finish match the sheet", ()
         id: 3705936781605108,
         parentId: 4631884474285956,
         cells: [
-          { columnId: 5067326880960388, value: "Layout" },
+          { columnId: 5067326880960388, value: "Schematic Review" },
           {
             columnId: 7319126694645636,
-            value: "2026-08-21T15:00:00Z",
-            displayValue: "08/21/26",
+            value: "2026-08-07T15:00:00Z",
+            displayValue: "08/07/26",
           },
           {
             columnId: 1689627160432516,
-            value: "2026-09-29T23:59:59Z",
-            displayValue: "09/29/26",
+            value: "2026-08-07T23:59:59Z",
+            displayValue: "08/07/26",
           },
         ],
       },
@@ -245,9 +245,17 @@ test("prefers Smartsheet displayValue dates so Start/Finish match the sheet", ()
         id: 4913359450996612,
         parentId: 4631884474285956,
         cells: [
-          { columnId: 5067326880960388, value: "Requirements" },
-          { columnId: 7319126694645636, value: "2026-09-29T16:59:59" },
-          { columnId: 1689627160432516, value: "2026-09-29T16:59:59" },
+          { columnId: 5067326880960388, value: "Layout" },
+          {
+            columnId: 7319126694645636,
+            value: "2026-08-11T15:00:00Z",
+            displayValue: "08/11/26",
+          },
+          {
+            columnId: 1689627160432516,
+            value: "2026-08-24T23:59:59Z",
+            displayValue: "08/24/26",
+          },
         ],
       },
     ],
@@ -260,14 +268,14 @@ test("prefers Smartsheet displayValue dates so Start/Finish match the sheet", ()
   assert.equal(stats.currentTask?.start, "2026-07-23T08:00:00");
   assert.equal(stats.currentTask?.finish, "2026-08-19T16:59:59");
   assert.equal(stats.currentTask?.percentComplete, 45);
-  assert.equal(stats.nextTask?.name, "Layout");
+  assert.equal(stats.nextTask?.name, "Schematic Review");
   assert.equal(
     formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
     "Jul 23 – Aug 19, 2026",
   );
   assert.equal(
     formatScheduleDateRange(stats.nextTask?.start, stats.nextTask?.finish),
-    "Aug 21 – Sep 29, 2026",
+    "Aug 7, 2026",
   );
   assert.equal(formatSchedulePercentComplete(stats.currentTask?.percentComplete), "45%");
 });
@@ -313,9 +321,9 @@ test("Smartsheet DATE epoch/UTC-midnight uses calendar day (not LA shift)", () =
         id: 3705936781605108,
         parentId: 4631884474285956,
         cells: [
-          { columnId: 5067326880960388, value: "Layout" },
-          { columnId: 7319126694645636, value: "2026-08-21" },
-          { columnId: 1689627160432516, value: "2026-09-29" },
+          { columnId: 5067326880960388, value: "Schematic Review" },
+          { columnId: 7319126694645636, value: "2026-08-07" },
+          { columnId: 1689627160432516, value: "2026-08-07" },
         ],
       },
     ],
@@ -331,8 +339,8 @@ test("Smartsheet DATE epoch/UTC-midnight uses calendar day (not LA shift)", () =
     formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
     "Jul 24 – Aug 20, 2026",
   );
-  assert.equal(stats.nextTask?.start, "2026-08-21T08:00:00");
-  assert.equal(stats.nextTask?.finish, "2026-09-29T16:59:59");
+  assert.equal(stats.nextTask?.start, "2026-08-07T08:00:00");
+  assert.equal(stats.nextTask?.finish, "2026-08-07T16:59:59");
 });
 
 test("blank Smartsheet % Complete formats as 0% for Current Task display", () => {
@@ -342,7 +350,7 @@ test("blank Smartsheet % Complete formats as 0% for Current Task display", () =>
   assert.equal(formatSchedulePercentComplete(null ?? 0), "0%");
 });
 
-test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by Jul 27", () => {
+test("DSB handoff: Design Analyses on Jul 23, Schematic current / Schematic Review next by Jul 27", () => {
   const revisions = [
     {
       id: 1,
@@ -374,16 +382,26 @@ test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by
         },
         {
           id: 25,
+          name: "Schematic Review",
+          start: "2026-08-07T08:00:00",
+          finish: "2026-08-07T16:59:59",
+          percentComplete: null,
+          status: null,
+          assignee: null,
+          permalink: "https://example.test/schematic-review",
+        },
+        {
+          id: 30,
           name: "Layout",
-          start: "2026-08-21T08:00:00",
-          finish: "2026-09-29T16:59:59",
+          start: "2026-08-11T08:00:00",
+          finish: "2026-08-24T16:59:59",
           percentComplete: null,
           status: null,
           assignee: null,
           permalink: "https://example.test/layout",
         },
         {
-          id: 30,
+          id: 40,
           name: "Requirements",
           start: "2026-09-29T16:59:59",
           finish: "2026-09-29T16:59:59",
@@ -406,14 +424,14 @@ test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by
     10,
   );
 
-  // Jul 27 afternoon LA — Schematic is current; Next is Layout (not Rev B Requirements).
+  // Jul 27 afternoon LA — Schematic is current; Next is Schematic Review (not Layout / Rev B).
   assert.equal(
     findCurrentScheduleTaskId(revisions, new Date("2026-07-27T20:00:00Z")),
     20,
   );
   assert.equal(
     findNextScheduleTask(revisions, new Date("2026-07-27T20:00:00Z"))?.name,
-    "Layout",
+    "Schematic Review",
   );
   assert.notEqual(
     findNextScheduleTask(revisions, new Date("2026-07-27T20:00:00Z"))?.name,
@@ -491,19 +509,28 @@ const flatCpldFixture = {
       cells: [
         {
           columnId: 5067326880960388,
-          value: "Design and Validation using SDK Platform",
+          value: "Design & Validation using SDK platform",
         },
         { columnId: 7319126694645636, value: "2026-08-11T08:00:00" },
-        { columnId: 1689627160432516, value: "2026-08-14T16:59:59" },
+        { columnId: 1689627160432516, value: "2026-09-21T16:59:59" },
       ],
     },
     {
       id: 7512395840126668,
       parentId: 3398599580516228,
       cells: [
-        { columnId: 5067326880960388, value: "Verification on ESAD hardware" },
-        { columnId: 7319126694645636, value: "2026-08-15T08:00:00" },
-        { columnId: 1689627160432516, value: "2026-09-25T16:59:59" },
+        { columnId: 5067326880960388, value: "Verification on hardware" },
+        { columnId: 7319126694645636, value: "2026-09-22T08:00:00" },
+        { columnId: 1689627160432516, value: "2026-10-12T16:59:59" },
+      ],
+    },
+    {
+      id: 8623406951237772,
+      parentId: 3398599580516228,
+      cells: [
+        { columnId: 5067326880960388, value: "Validation on hardware" },
+        { columnId: 7319126694645636, value: "2026-10-13T08:00:00" },
+        { columnId: 1689627160432516, value: "2026-10-26T16:59:59" },
       ],
     },
   ],
@@ -598,9 +625,9 @@ test("prefers the later DSB board row when Task Name is duplicated", () => {
         parentId: 201,
         rowNumber: 2321,
         cells: [
-          { columnId: taskNameCol, value: "Layout" },
+          { columnId: taskNameCol, value: "Schematic Review" },
           { columnId: startCol, value: "2026-08-07T08:00:00" },
-          { columnId: finishCol, value: "2026-09-04T16:59:59" },
+          { columnId: finishCol, value: "2026-08-07T16:59:59" },
         ],
       },
     ],
@@ -640,7 +667,7 @@ test("prefers the later DSB board row when Task Name is duplicated", () => {
     "Jul 24 – Aug 6, 2026",
   );
   assert.equal(formatSchedulePercentComplete(stats.currentTask?.percentComplete), "10%");
-  assert.equal(stats.nextTask?.name, "Layout");
+  assert.equal(stats.nextTask?.name, "Schematic Review");
 });
 
 test("builds a flat schedule for CPLD boards without Rev A/B", () => {
@@ -668,7 +695,7 @@ test("CPLD Next Task follows Block Diagram Review on the schedule", () => {
   assert.equal(stats.currentTask?.name, "Block Diagram Review");
   assert.equal(
     stats.nextTask?.name,
-    "Design and Validation using SDK Platform",
+    "Design & Validation using SDK platform",
   );
 });
 
