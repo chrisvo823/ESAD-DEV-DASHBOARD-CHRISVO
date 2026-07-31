@@ -157,7 +157,7 @@ test("parses Smartsheet % Complete display and fraction values", () => {
   assert.equal(formatScheduleDateRange("2026-07-23T08:00:00", null), "Jul 23, 2026");
 });
 
-test("prefers Smartsheet raw date values over localized displayValue", () => {
+test("prefers Smartsheet displayValue dates so Start/Finish match the sheet", () => {
   const sheet = {
     permalink:
       "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1",
@@ -214,6 +214,11 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
             value: "2026-08-20T23:59:59Z",
             displayValue: "08/19/26",
           },
+          {
+            columnId: 282252276879236,
+            value: 0.45,
+            displayValue: "45%",
+          },
         ],
       },
       {
@@ -221,8 +226,16 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
         parentId: 4631884474285956,
         cells: [
           { columnId: 5067326880960388, value: "Layout" },
-          { columnId: 7319126694645636, value: "2026-08-21T15:00:00Z" },
-          { columnId: 1689627160432516, value: "2026-09-29T23:59:59Z" },
+          {
+            columnId: 7319126694645636,
+            value: "2026-08-21T15:00:00Z",
+            displayValue: "08/21/26",
+          },
+          {
+            columnId: 1689627160432516,
+            value: "2026-09-29T23:59:59Z",
+            displayValue: "09/29/26",
+          },
         ],
       },
       {
@@ -237,21 +250,29 @@ test("prefers Smartsheet raw date values over localized displayValue", () => {
     ],
   };
 
-  // Prefer raw ISO value (Jul 24 LA) over misleading displayValue.
+  // displayValue calendar days drive Start/Finish and current-task windows.
   const stats = buildDsbScheduleStats(sheet, new Date("2026-07-27T20:00:00Z"));
   assert.ok(stats);
   assert.equal(stats.currentTask?.name, "Schematic");
-  assert.equal(stats.currentTask?.start, "2026-07-24T15:00:00Z");
-  assert.equal(stats.currentTask?.finish, "2026-08-20T23:59:59Z");
+  assert.equal(stats.currentTask?.start, "2026-07-23T08:00:00");
+  assert.equal(stats.currentTask?.finish, "2026-08-19T16:59:59");
+  assert.equal(stats.currentTask?.percentComplete, 45);
   assert.equal(stats.nextTask?.name, "Layout");
   assert.equal(
     formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
-    "Jul 24 – Aug 20, 2026",
+    "Jul 23 – Aug 19, 2026",
   );
   assert.equal(
     formatScheduleDateRange(stats.nextTask?.start, stats.nextTask?.finish),
     "Aug 21 – Sep 29, 2026",
   );
+  assert.equal(formatSchedulePercentComplete(stats.currentTask?.percentComplete), "45%");
+});
+
+test("blank Smartsheet % Complete stays blank (not forced to 0%)", () => {
+  assert.equal(formatSchedulePercentComplete(null), null);
+  assert.equal(formatSchedulePercentComplete(undefined), null);
+  assert.equal(formatSchedulePercentComplete(0), "0%");
 });
 
 test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by Jul 27", () => {

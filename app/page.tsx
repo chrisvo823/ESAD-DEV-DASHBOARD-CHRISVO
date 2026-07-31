@@ -673,9 +673,9 @@ function metricsWithScheduleStats(
   return metrics.map((metric) => {
     if (metric.label === "Current Task") {
       const current = schedule.currentTask;
-      // Blank Smartsheet % Complete cells read as 0% for in-progress work.
+      // Use Smartsheet % Complete as-is; blank cells stay blank (not forced to 0%).
       const percentLabel = current
-        ? formatSchedulePercentComplete(current.percentComplete ?? 0)
+        ? formatSchedulePercentComplete(current.percentComplete)
         : undefined;
       const valueText = current?.name ?? "—";
       return {

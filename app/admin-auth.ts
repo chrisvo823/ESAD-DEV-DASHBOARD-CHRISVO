@@ -16,25 +16,6 @@ export function getAdminSessionPassword(): string {
   return window.sessionStorage.getItem(ADMIN_SESSION_PASSWORD_KEY)?.trim() ?? "";
 }
 
-/**
- * Admin-mode gate for Google Drive configuration writes.
- * Drive Docs must only be updated while an Admin session is active.
- */
-export function requireAdminSessionForDriveWrite(): string {
-  if (!isAdminAuthenticated()) {
-    throw new Error(
-      "Admin mode is required to write Google Drive configuration files.",
-    );
-  }
-  const password = getAdminSessionPassword();
-  if (!password) {
-    throw new Error(
-      "Admin session required to write Google Drive configuration files.",
-    );
-  }
-  return password;
-}
-
 export function setAdminAuthenticated(
   authenticated: boolean,
   sessionPassword?: string,

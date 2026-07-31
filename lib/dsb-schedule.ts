@@ -85,26 +85,64 @@ function cellById(
 }
 
 /**
- * Prefer Smartsheet raw date `value` (ISO / epoch) over localized displayValue
- * so Start/Finish match the sheet columns used for scheduling.
+ * Prefer Smartsheet `displayValue` so Start/Finish match the sheet UI.
+ * Fall back to raw ISO / epoch when displayValue is absent.
  */
-function cellDateValue(row: SmartsheetRow, columnId: number): string | null {
+function cellDateValue(
+  row: SmartsheetRow,
+  columnId: number,
+  role: "start" | "finish" = "start",
+): string | null {
   const cell = cellById(row, columnId);
   if (!cell) return null;
 
+  if (cell.displayValue != null && String(cell.displayValue).trim() !== "") {
+    return normalizeSmartsheetDisplayDate(String(cell.displayValue), role);
+  }
+
   if (typeof cell.value === "number" && Number.isFinite(cell.value)) {
-    return new Date(cell.value).toISOString().replace(/\.\d{3}Z$/, "Z");
+    return epochMsToScheduleWallIso(cell.value, role);
   }
 
   if (cell.value != null && String(cell.value).trim() !== "") {
     return String(cell.value);
   }
 
-  if (cell.displayValue != null && String(cell.displayValue).trim() !== "") {
-    return String(cell.displayValue);
-  }
-
   return null;
+}
+
+/**
+ * Convert Smartsheet date displayValue (e.g. "07/23/26") into a wall-time ISO
+ * string in the schedule timezone so formatting + current-task windows match
+ * the sheet.
+ */
+function normalizeSmartsheetDisplayDate(
+  display: string,
+  role: "start" | "finish",
+): string {
+  const trimmed = display.trim();
+  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!match) return trimmed;
+  let year = Number(match[3]);
+  if (year < 100) year += 2000;
+  const month = String(Number(match[1])).padStart(2, "0");
+  const day = String(Number(match[2])).padStart(2, "0");
+  const time = role === "finish" ? "16:59:59" : "08:00:00";
+  return `${year}-${month}-${day}T${time}`;
+}
+
+/** Map epoch ms to a schedule-TZ wall ISO so display matches Smartsheet days. */
+function epochMsToScheduleWallIso(
+  epochMs: number,
+  role: "start" | "finish",
+): string {
+  const parts = getZonedParts(new Date(epochMs), DSB_SCHEDULE_TIME_ZONE);
+  const time =
+    role === "finish"
+      ? { hour: 16, minute: 59, second: 59 }
+      : { hour: 8, minute: 0, second: 0 };
+  // Prefer calendar day from the epoch in schedule TZ; use role default clock.
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}:${String(time.second).padStart(2, "0")}`;
 }
 
 /**
@@ -198,8 +236,8 @@ function toScheduleTask(
   return {
     id: row.id,
     name: cellValue(row, COLUMN.taskName) ?? "Untitled task",
-    start: cellDateValue(row, COLUMN.start),
-    finish: cellDateValue(row, COLUMN.finish),
+    start: cellDateValue(row, COLUMN.start, "start"),
+    finish: cellDateValue(row, COLUMN.finish, "finish"),
     percentComplete: parsePercentCompleteCell(
       cellById(row, COLUMN.percentComplete),
     ),
@@ -260,8 +298,8 @@ export function buildScheduleStats(
       return {
         id: revisionRow.id,
         name: cellValue(revisionRow, COLUMN.taskName) ?? "Revision",
-        start: cellDateValue(revisionRow, COLUMN.start),
-        finish: cellDateValue(revisionRow, COLUMN.finish),
+        start: cellDateValue(revisionRow, COLUMN.start, "start"),
+        finish: cellDateValue(revisionRow, COLUMN.finish, "finish"),
         assignee: cellValue(revisionRow, COLUMN.assignee),
         permalink: rowPermalink(
           sheetPermalink,
@@ -279,8 +317,8 @@ export function buildScheduleStats(
       {
         id: boardRow.id,
         name: "Schedule",
-        start: cellDateValue(boardRow, COLUMN.start),
-        finish: cellDateValue(boardRow, COLUMN.finish),
+        start: cellDateValue(boardRow, COLUMN.start, "start"),
+        finish: cellDateValue(boardRow, COLUMN.finish, "finish"),
         assignee: cellValue(boardRow, COLUMN.assignee),
         permalink: rowPermalink(sheetPermalink, boardRow.id, boardRow.permalink),
         tasks: directChildren.map((taskRow) =>
@@ -290,8 +328,8 @@ export function buildScheduleStats(
     ];
   }
 
-  const boardStart = cellDateValue(boardRow, COLUMN.start);
-  const boardFinish = cellDateValue(boardRow, COLUMN.finish);
+  const boardStart = cellDateValue(boardRow, COLUMN.start, "start");
+  const boardFinish = cellDateValue(boardRow, COLUMN.finish, "finish");
   const currentTask = findCurrentScheduleTask(revisions, now);
   const nextTask = findNextScheduleTask(revisions, now);
 

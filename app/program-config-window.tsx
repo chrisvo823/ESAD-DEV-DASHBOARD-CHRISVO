@@ -103,6 +103,9 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
         return;
       }
       const next = await loadProgramConfigFromDriveFile(picked.id);
+      // Paint loaded identity immediately so the editor cannot stay empty if
+      // the subsequent Drive/host write or refresh is slow or partial.
+      applyConfig(next);
       await writeProgramConfig(next, { documentId: picked.id });
       await refreshSiteConfigFromHost();
       applyConfig(next);

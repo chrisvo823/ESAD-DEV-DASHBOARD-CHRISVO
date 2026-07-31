@@ -11,7 +11,6 @@ import {
   FIXED_DASHBOARD_IDS,
   type DashboardConfig,
 } from "../lib/dashboard-config";
-import { requireAdminSessionForDriveWrite } from "./admin-auth";
 import {
   saveAllCardConfigsToGoogleDoc,
   writeDashboardConfig,
@@ -75,7 +74,6 @@ function allCardConfigsForPublish(
  * config, and immediately write every Card # section to the bound Google Doc.
  */
 export async function addCustomCard(): Promise<CustomCardRecord> {
-  requireAdminSessionForDriveWrite();
   const existing = readCustomCards();
   const cachedConfigs = readCachedDashboardConfigs();
   const card = createCustomCardRecord([
