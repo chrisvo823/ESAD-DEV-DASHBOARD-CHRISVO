@@ -4,30 +4,37 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
-import { syncCustomCardConfig } from "./custom-cards-store";
-import { bindCardConfigGoogleDoc } from "./dashboard-config-store";
-import { loadCardConfigFromDriveFile } from "./load-config-from-drive";
+import { bindAllCardConfigsGoogleDoc } from "./dashboard-config-store";
+import { loadAllCardConfigsFromDriveFile } from "./load-config-from-drive";
 import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import {
   getCachedSiteConfig,
   refreshSiteConfigFromHost,
+  subscribeSiteConfig,
 } from "./site-config-client";
-import type { DashboardConfig } from "../lib/dashboard-config";
 import {
-  formatDashboardConfigText,
-  validateDashboardConfigSyntax,
+  DASHBOARD_CONFIGS,
+  FIXED_DASHBOARD_IDS,
+  formatAllDashboardConfigsText,
+  parseAllDashboardConfigsFromText,
+  type DashboardConfig,
 } from "../lib/dashboard-config";
-import { isCustomCardId } from "../lib/custom-cards";
 
-type ConfigWindowProps = {
-  config: DashboardConfig;
-};
+function readFixedCardConfigs(): DashboardConfig[] {
+  const cached = getCachedSiteConfig().dashboardConfigs;
+  return FIXED_DASHBOARD_IDS.map(
+    (id) => cached[id] ?? { ...DASHBOARD_CONFIGS[id] },
+  );
+}
 
-export function ConfigWindow({ config }: ConfigWindowProps) {
+/** Top-level Card Configuration control (admin toolbar). */
+export function ConfigWindow() {
   const authenticated = useAdminAuthenticated();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [draft, setDraft] = useState(() => formatDashboardConfigText(config));
+  const [draft, setDraft] = useState(() =>
+    formatAllDashboardConfigsText(readFixedCardConfigs()),
+  );
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -44,13 +51,14 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
     if (!authenticated) setOpen(false);
   }, [authenticated]);
 
-  function applyConfig(next: DashboardConfig) {
-    const nextDraft = formatDashboardConfigText(next);
+  function applyConfigs(configs: DashboardConfig[]) {
+    const nextDraft = formatAllDashboardConfigsText(configs);
     setDraft(nextDraft);
-    setErrors(validateDashboardConfigSyntax(nextDraft));
+    const parsed = parseAllDashboardConfigsFromText(nextDraft);
+    setErrors("error" in parsed ? parsed.errors : []);
   }
 
-  async function handleLoadConfigFile(base: DashboardConfig = config) {
+  async function handleLoadConfigFile() {
     setLoading(true);
     setActionError(null);
     setStatusMessage(null);
@@ -61,22 +69,20 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
         // User cancelled the file picker / Drive login — not an error.
         return;
       }
-      const next = await loadCardConfigFromDriveFile(picked.id, base);
-      if (isCustomCardId(next.dashboardId)) {
-        await syncCustomCardConfig(next);
-      }
-      // Bind the selected Google Doc and publish card fields for all users.
-      await bindCardConfigGoogleDoc({
-        config: next,
+      const configs = await loadAllCardConfigsFromDriveFile(picked.id);
+      await bindAllCardConfigsGoogleDoc({
+        configs,
         documentId: picked.id,
       });
       await refreshSiteConfigFromHost();
-      const published =
-        getCachedSiteConfig().dashboardConfigs[next.dashboardId] ?? next;
-      applyConfig(published);
+      const published = readFixedCardConfigs();
+      applyConfigs(published);
       setLoaded(true);
+      const cardLabels = configs
+        .map((config) => `Card #${config.dashboardId}`)
+        .join(", ");
       setStatusMessage(
-        "Card Configuration loaded from Google Drive and saved for all users. Dashboards refresh every 3 minutes.",
+        `Loaded ${cardLabels} from Google Drive and saved for all users. Dashboards refresh every 3 minutes.`,
       );
     } catch (err) {
       setLoaded(false);
@@ -93,7 +99,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
 
   useEffect(() => {
     if (!open) return;
-    applyConfig(config);
+    applyConfigs(readFixedCardConfigs());
     setLoaded(false);
     setStatusMessage(null);
     setActionError(null);
@@ -101,9 +107,13 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
       if (event.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // intentionally omit `config` — open transition captures current props
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const unsubscribe = subscribeSiteConfig(() => {
+      applyConfigs(readFixedCardConfigs());
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe();
+    };
   }, [open]);
 
   if (!authenticated) return null;
@@ -117,7 +127,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
         className="config-window-trigger"
         onClick={() => setOpen(true)}
       >
-        Configuration
+        Card Configuration
       </button>
       {mounted && open
         ? createPortal(
@@ -129,7 +139,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
               }}
             >
               <div
-                className="config-window"
+                className="config-window config-window--program"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
@@ -137,9 +147,11 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
               >
                 <header className="config-window-header">
                   <div>
-                    <p className="config-window-kicker">Configuration Window</p>
+                    <p className="config-window-kicker">
+                      Card Configuration
+                    </p>
                     <h3 id={titleId}>
-                      {config.boardNickname} · card configuration
+                      Card # fields for every board card
                     </h3>
                   </div>
                   <div className="config-window-actions">
@@ -163,10 +175,10 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Read-only view of this card&apos;s Configuration. Values come
-                  from the selected Google Config file — not from the host
-                  file. <strong>Load Config</strong> opens a file-selection
-                  popup for the shared Google Drive folder (
+                  Read-only view of Card Configuration. Values come from the
+                  selected Google Config file — not from the host file.{" "}
+                  <strong>Load Config</strong> opens a file-selection popup for
+                  the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -174,10 +186,9 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ). Selecting a file updates this window and saves the card
-                  Configuration for all users immediately. Each value must be
-                  inside quotes, e.g. Board Name: &quot;Digital Safety
-                  Board&quot;.
+                  ). Each Card #: &quot;1&quot;–&quot;4&quot; section configures
+                  the matching card immediately for all users. Example: Card #:
+                  &quot;1&quot; updates Card #1.
                 </p>
                 <textarea
                   className={`config-window-editor config-window-editor--readonly${
@@ -188,7 +199,7 @@ export function ConfigWindow({ config }: ConfigWindowProps) {
                   readOnly
                   aria-readonly="true"
                   aria-invalid={hasSyntaxErrors}
-                  aria-label={`Configuration for ${config.boardNickname}`}
+                  aria-label="Card Configuration for all cards"
                 />
                 {hasSyntaxErrors ? (
                   <ul

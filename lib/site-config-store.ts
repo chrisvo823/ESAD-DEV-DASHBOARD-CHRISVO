@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAdminCredentials, type DashboardConfig } from "./dashboard-config";
 import {
-  readCardConfigFromGoogleDoc,
+  readAllCardConfigsFromGoogleDoc,
   writeCardConfigToGoogleDoc,
 } from "./google-doc-card-config";
 import {
@@ -43,7 +43,7 @@ type GlobalGoogleDocCache = typeof globalThis & {
 };
 
 type GoogleDocCardCacheEntry = {
-  config: DashboardConfig;
+  configsById: Record<string, DashboardConfig>;
   fetchedAtMs: number;
 };
 
@@ -194,8 +194,8 @@ async function applyGoogleDocProgramConfig(
 
 /**
  * Overlay Card Configuration from each selected Google Doc.
- * When a card has a mapped document id, that Doc is the source of truth for
- * every user. Host file values are only a cache / offline fallback.
+ * Docs may contain one or more Card # sections; each section configures the
+ * matching card id for every user. Host file values are only a cache.
  */
 async function applyGoogleDocCardConfigs(
   base: SiteAdminConfig,
@@ -203,18 +203,20 @@ async function applyGoogleDocCardConfigs(
 ): Promise<SiteAdminConfig> {
   if (options?.skipGoogleDoc) return base;
 
-  const documentIds = base.cardConfigDocumentIds;
-  const entries = Object.entries(documentIds);
-  if (entries.length === 0) return base;
+  const uniqueDocumentIds = [
+    ...new Set(Object.values(base.cardConfigDocumentIds).map((id) => id.trim())),
+  ].filter(Boolean);
+  if (uniqueDocumentIds.length === 0) return base;
 
   const cacheStore = globalThis as GlobalGoogleCardDocCache;
   const cache = cacheStore[GOOGLE_CARD_DOC_CACHE_KEY] ?? { byDocumentId: {} };
   const now = Date.now();
   const nextConfigs = { ...base.dashboardConfigs };
+  const nextDocumentIds = { ...base.cardConfigDocumentIds };
   let changed = false;
 
   await Promise.all(
-    entries.map(async ([dashboardId, documentId]) => {
+    uniqueDocumentIds.map(async (documentId) => {
       const cached = cache.byDocumentId[documentId];
       const canUseCache =
         !options?.forceGoogleDocRefresh &&
@@ -223,40 +225,32 @@ async function applyGoogleDocCardConfigs(
         now - cached.fetchedAtMs < GOOGLE_DOC_CACHE_TTL_MS;
 
       try {
-        let fromDoc = canUseCache ? cached.config : null;
+        let configsById = canUseCache ? cached.configsById : null;
         if (!canUseCache) {
-          const fallback =
-            nextConfigs[dashboardId] ??
-            createDefaultSiteAdminConfig().dashboardConfigs[dashboardId] ??
-            ({
-              dashboardId,
-              responsibleEngineer: "",
-              boardName: "New Board",
-              boardNickname: "NEW",
-              googleDriveLink: "",
-              smartsheetLink: "",
-            } satisfies DashboardConfig);
-          fromDoc = await readCardConfigFromGoogleDoc(
-            { ...fallback, dashboardId },
-            {
-              documentId,
-              accessToken: options?.googleAccessToken,
-            },
-          );
-          if (fromDoc) {
-            cache.byDocumentId[documentId] = {
-              config: fromDoc,
-              fetchedAtMs: now,
-            };
-          } else {
+          const configs = await readAllCardConfigsFromGoogleDoc({
+            documentId,
+            accessToken: options?.googleAccessToken,
+          });
+          if (!configs || configs.length === 0) {
             delete cache.byDocumentId[documentId];
+            return;
           }
+          configsById = Object.fromEntries(
+            configs.map((config) => [config.dashboardId, config]),
+          );
+          cache.byDocumentId[documentId] = {
+            configsById,
+            fetchedAtMs: now,
+          };
         }
-        if (!fromDoc) return;
-        nextConfigs[dashboardId] = { ...fromDoc, dashboardId };
-        changed = true;
+        if (!configsById) return;
+        for (const [dashboardId, config] of Object.entries(configsById)) {
+          nextConfigs[dashboardId] = { ...config, dashboardId };
+          nextDocumentIds[dashboardId] = documentId;
+          changed = true;
+        }
       } catch {
-        // Keep host cache for this card when the Doc is briefly unreachable.
+        // Keep host cache when the Doc is briefly unreachable.
       }
     }),
   );
@@ -267,6 +261,7 @@ async function applyGoogleDocCardConfigs(
   const next: SiteAdminConfig = {
     ...base,
     dashboardConfigs: nextConfigs,
+    cardConfigDocumentIds: nextDocumentIds,
     customCards: base.customCards.map((card) => ({
       id: card.id,
       config: nextConfigs[card.id]
@@ -355,19 +350,19 @@ export async function updateSiteAdminConfig(
         "Select a Card Configuration Google Doc with Load Config before Saving.",
       );
     }
-    const written = await writeCardConfigToGoogleDoc(
-      next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig,
-      documentId,
-      { accessToken: options?.googleAccessToken },
-    );
+    const savedConfig = {
+      ...(next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig),
+      dashboardId,
+    };
+    const written = await writeCardConfigToGoogleDoc(savedConfig, documentId, {
+      accessToken: options?.googleAccessToken,
+    });
     const cardCache = (globalThis as GlobalGoogleCardDocCache)[
       GOOGLE_CARD_DOC_CACHE_KEY
     ] ?? { byDocumentId: {} };
+    const existing = cardCache.byDocumentId[documentId]?.configsById ?? {};
     cardCache.byDocumentId[documentId] = {
-      config: {
-        ...(next.dashboardConfigs[dashboardId] ?? patch.dashboardConfig),
-        dashboardId,
-      },
+      configsById: { ...existing, [dashboardId]: savedConfig },
       fetchedAtMs: Date.now(),
     };
     (globalThis as GlobalGoogleCardDocCache)[GOOGLE_CARD_DOC_CACHE_KEY] =

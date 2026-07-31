@@ -142,8 +142,8 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
     /<button[\s\S]*className="config-window-load"[\s\S]*Load Config File…/,
   );
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
-  assert.match(configWindow, /loadCardConfigFromDriveFile/);
-  assert.match(configWindow, /bindCardConfigGoogleDoc/);
+  assert.match(configWindow, /loadAllCardConfigsFromDriveFile/);
+  assert.match(configWindow, /bindAllCardConfigsGoogleDoc/);
   assert.match(configWindow, /\{loading \? "Loading…" : "Load Config"\}/);
   assert.match(configWindow, /file-selection[\s\n]+popup/);
   assert.match(configWindow, /User cancelled the file picker/);
@@ -157,18 +157,29 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   );
   assert.match(
     configWindow,
-    /<button\s+type="button"\s+className="config-window-trigger"\s+onClick=\{\(\) => setOpen\(true\)\}\s*>\s*Configuration\s*<\/button>/,
+    /<button\s+type="button"\s+className="config-window-trigger"\s+onClick=\{\(\) => setOpen\(true\)\}\s*>\s*Card Configuration\s*<\/button>/,
   );
   assert.doesNotMatch(
     configWindow,
     /<a[\s\S]*className="config-window-trigger"/,
   );
   assert.match(configWindow, /saved for all users/i);
+  assert.match(configWindow, /Card #:/);
   assert.doesNotMatch(configWindow, /saveCardConfigToGoogleDoc/);
   assert.doesNotMatch(configWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.doesNotMatch(configWindow, /config-window-save(?!d)/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(configWindow, /readOnly/);
+  const heroHeader = await readFile(
+    new URL("../app/hero-header.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(heroHeader, /ProgramConfigWindow/);
+  assert.match(heroHeader, /ConfigWindow/);
+  assert.match(
+    heroHeader,
+    /ProgramConfigWindow[\s\S]*ConfigWindow/,
+  );
   const drivePicker = await readFile(
     new URL("../app/drive-file-picker-modal.tsx", import.meta.url),
     "utf8",

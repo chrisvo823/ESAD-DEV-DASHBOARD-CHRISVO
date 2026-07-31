@@ -1,7 +1,6 @@
 "use client";
 
 import type { KeyboardEvent, MouseEvent } from "react";
-import { ConfigWindow } from "./config-window";
 import { useDashboardConfig } from "./dashboard-config-store";
 import { useProgramConfig } from "./program-config-store";
 import { useHostProgramConfig } from "./site-config-bootstrap";
@@ -11,7 +10,10 @@ import {
   useSelectedCardId,
 } from "./selected-card-store";
 import { TaskHoverLabel } from "./task-hover";
-import type { DashboardConfig } from "../lib/dashboard-config";
+import {
+  formatCardNumberLabel,
+  type DashboardConfig,
+} from "../lib/dashboard-config";
 import type { EsadProjectCode } from "../lib/esad-projects";
 import type { DsbScheduleRevision } from "../lib/dsb-schedule";
 import {
@@ -276,7 +278,7 @@ export function ProjectPanel({
           <small>{progressCaption}</small>
         </div>
         <div className="panel-header-actions">
-          <ConfigWindow config={config} />
+          <p className="panel-card-number">{formatCardNumberLabel(config.dashboardId)}</p>
         </div>
       </header>
 

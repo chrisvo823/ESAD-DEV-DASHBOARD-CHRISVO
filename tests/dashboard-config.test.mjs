@@ -5,8 +5,11 @@ import {
   DASHBOARD_ID_BY_CODE,
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ADMIN_USERNAME,
+  formatCardNumberLabel,
   formatDashboardConfigText,
   getDashboardConfigForCode,
+  normalizeCardNumber,
+  parseAllDashboardConfigsFromText,
   parseDashboardConfigText,
   validateDashboardConfigSyntax,
 } from "../lib/dashboard-config.ts";
@@ -27,7 +30,7 @@ test("maps dashboard slots to board nicknames", () => {
   assert.equal(DASHBOARD_ID_BY_CODE.IND, "4");
 });
 
-test("formats DSB configuration text with Google Drive Link", () => {
+test("formats DSB configuration text with Card # and Google Drive Link", () => {
   const text = formatDashboardConfigText(DASHBOARD_CONFIGS["1"]);
   const dsbSheetLink = googleSheetEditUrl(
     ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId,
@@ -35,6 +38,7 @@ test("formats DSB configuration text with Google Drive Link", () => {
   assert.equal(
     text,
     [
+      'Card #: "1"',
       'Responsible Engineer: "Bruno Abousleiman"',
       'Board Name: "Digital Safety Board"',
       'Board Nickname: "DSB"',
@@ -50,8 +54,9 @@ test("formats DSB configuration text with Google Drive Link", () => {
   assert.match(DASHBOARD_CONFIGS["1"].googleDriveLink, /spreadsheets\/d\//);
 });
 
-test("parses editable configuration text back into card fields", () => {
+test("parses Card # as the card id", () => {
   const edited = [
+    'Card #: "2"',
     'Responsible Engineer: "Alex Rivera"',
     'Board Name: "Digital Safety Board Rev C"',
     'Board Nickname: "DSB-C"',
@@ -61,7 +66,7 @@ test("parses editable configuration text back into card fields", () => {
 
   const parsed = parseDashboardConfigText(edited, DASHBOARD_CONFIGS["1"]);
   assert.ok("config" in parsed);
-  assert.equal(parsed.config.dashboardId, "1");
+  assert.equal(parsed.config.dashboardId, "2");
   assert.equal(parsed.config.responsibleEngineer, "Alex Rivera");
   assert.equal(parsed.config.boardName, "Digital Safety Board Rev C");
   assert.equal(parsed.config.boardNickname, "DSB-C");
@@ -69,6 +74,40 @@ test("parses editable configuration text back into card fields", () => {
     parsed.config.googleDriveLink,
     "https://drive.google.com/drive/folders/example",
   );
+});
+
+test("parses multiple Card # sections from one document", () => {
+  const text = [
+    'Card #: "1"',
+    'Responsible Engineer: "One"',
+    'Board Name: "Board One"',
+    'Board Nickname: "B1"',
+    'Google Drive Link: ""',
+    'Smartsheet Link: ""',
+    "",
+    'Card #: "3"',
+    'Responsible Engineer: "Three"',
+    'Board Name: "Board Three"',
+    'Board Nickname: "B3"',
+    'Google Drive Link: ""',
+    'Smartsheet Link: ""',
+  ].join("\n");
+
+  const parsed = parseAllDashboardConfigsFromText(text);
+  assert.ok("configs" in parsed);
+  assert.equal(parsed.configs.length, 2);
+  assert.equal(parsed.configs[0]?.dashboardId, "1");
+  assert.equal(parsed.configs[0]?.boardNickname, "B1");
+  assert.equal(parsed.configs[1]?.dashboardId, "3");
+  assert.equal(parsed.configs[1]?.boardNickname, "B3");
+});
+
+test("normalizes Card # labels", () => {
+  assert.equal(normalizeCardNumber("1"), "1");
+  assert.equal(normalizeCardNumber("Card #2"), "2");
+  assert.equal(normalizeCardNumber("#3"), "3");
+  assert.equal(formatCardNumberLabel("4"), "Card #4");
+  assert.equal(normalizeCardNumber("x"), null);
 });
 
 test("rejects malformed configuration text", () => {
@@ -81,6 +120,7 @@ test("rejects malformed configuration text", () => {
 
 test("flags syntax errors when values are not inside quotes", () => {
   const text = [
+    'Card #: "1"',
     "Responsible Engineer: Bruno Abousleiman",
     'Board Name: "Digital Safety Board"',
     'Board Nickname: "DSB"',
@@ -99,6 +139,7 @@ test("flags syntax errors when values are not inside quotes", () => {
 
 test("flags missing closing quote as a syntax error", () => {
   const text = [
+    'Card #: "1"',
     'Responsible Engineer: "Bruno Abousleiman"',
     'Board Name: "Digital Safety Board',
     'Board Nickname: "DSB"',

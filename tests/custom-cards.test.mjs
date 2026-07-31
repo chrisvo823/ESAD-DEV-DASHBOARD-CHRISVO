@@ -21,6 +21,7 @@ test("custom card config uses the same Configuration field format", () => {
   assert.equal(
     formatDashboardConfigText(config),
     [
+      'Card #: "custom-test"',
       'Responsible Engineer: ""',
       'Board Name: "New Board 2"',
       'Board Nickname: "NB2"',
