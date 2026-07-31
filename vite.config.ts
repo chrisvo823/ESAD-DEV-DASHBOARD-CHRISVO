@@ -1,4 +1,13 @@
-import { readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
@@ -90,10 +99,69 @@ for (const key of firebaseEnvKeys) {
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
+/**
+ * Local vinext/workerd often cannot write the repo `.data/` directory (EPERM).
+ * Seed Admin/Card config into a writable temp dir and pass the path into the
+ * Worker so Desktop / localhost preview shows Smartsheet-backed cards.
+ */
+const localSiteConfigDir =
+  process.env.ESAD_SITE_CONFIG_DIR?.trim() ||
+  path.join(os.tmpdir(), "esad-dashboard-data");
+const repoSiteConfigFile = path.join(
+  process.cwd(),
+  ".data",
+  "admin-site-config.json",
+);
+const localSiteConfigFile = path.join(
+  localSiteConfigDir,
+  "admin-site-config.json",
+);
+try {
+  mkdirSync(localSiteConfigDir, { recursive: true });
+  // Prefer the repo host snapshot whenever present so local preview picks up
+  // Card Configuration links (Smartsheet / Google Drive) after a fresh boot.
+  if (existsSync(repoSiteConfigFile)) {
+    copyFileSync(repoSiteConfigFile, localSiteConfigFile);
+  }
+} catch {
+  // Best-effort seed; Worker falls back to empty compiled slots if missing.
+}
+process.env.ESAD_SITE_CONFIG_DIR = localSiteConfigDir;
+
+// Wrangler/miniflare injects `.env` / `.dev.vars` into the Worker `process.env`.
+// Plain `vars` in the Cloudflare Vite plugin are not always mirrored there.
+function ensureLocalEnvKey(filePath: string, key: string, value: string): void {
+  try {
+    const existing = existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
+    const line = `${key}=${value}`;
+    const pattern = new RegExp(`^\\s*${key}\\s*=.*$`, "m");
+    if (pattern.test(existing)) {
+      writeFileSync(filePath, existing.replace(pattern, line), "utf8");
+    } else {
+      const prefix =
+        existing.length === 0 || existing.endsWith("\n") ? "" : "\n";
+      appendFileSync(filePath, `${prefix}${line}\n`, "utf8");
+    }
+  } catch {
+    // Ignore — preview still works when the host seed is readable another way.
+  }
+}
+ensureLocalEnvKey(
+  path.join(process.cwd(), ".env"),
+  "ESAD_SITE_CONFIG_DIR",
+  localSiteConfigDir,
+);
+ensureLocalEnvKey(
+  path.join(process.cwd(), ".dev.vars"),
+  "ESAD_SITE_CONFIG_DIR",
+  localSiteConfigDir,
+);
+
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   vars: {
+    ESAD_SITE_CONFIG_DIR: localSiteConfigDir,
     ...(smartsheetAccessToken
       ? { SMARTSHEET_ACCESS_TOKEN: smartsheetAccessToken }
       : {}),
@@ -121,6 +189,41 @@ const localBindingConfig = {
     : [],
 };
 
+async function seedWorkerSiteConfigFromRepo(port: number): Promise<void> {
+  if (!existsSync(repoSiteConfigFile)) return;
+  try {
+    const disk = JSON.parse(readFileSync(repoSiteConfigFile, "utf8")) as {
+      dashboardConfigs?: Record<string, unknown>;
+      adminCredentials?: { password?: string };
+    };
+    const password =
+      disk.adminCredentials?.password?.trim() ||
+      process.env.ADMIN_PASSWORD?.trim() ||
+      "esad";
+    if (!disk.dashboardConfigs) return;
+
+    // Wait briefly for vinext/workerd to accept requests after listen.
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        const response = await fetch(`http://localhost:${port}/api/site-config`, {
+          method: "PUT",
+          headers: {
+            "content-type": "application/json",
+            "x-esad-admin-password": password,
+          },
+          body: JSON.stringify({ dashboardConfigs: disk.dashboardConfigs }),
+        });
+        if (response.ok) return;
+      } catch {
+        // Server not ready yet.
+      }
+    }
+  } catch {
+    // Preview still boots; cards stay empty until Admin Load Config.
+  }
+}
+
 export default defineConfig(async () => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
@@ -132,9 +235,15 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+    // Bind all interfaces so Cursor Desktop / port-forward preview can connect.
+    server: {
+      host: "0.0.0.0",
+      port: 3000,
+      strictPort: true,
+      ...(isCodexSeatbeltSandbox
+        ? { watch: { useFsEvents: false, usePolling: true } }
+        : {}),
+    },
     plugins: [
       vinext(),
       sites(),
@@ -142,6 +251,15 @@ export default defineConfig(async () => {
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         config: localBindingConfig,
       }),
+      {
+        name: "esad-seed-local-site-config",
+        configureServer(server) {
+          const port = Number(server.config.server.port ?? 3000);
+          server.httpServer?.once("listening", () => {
+            void seedWorkerSiteConfigFromRepo(port);
+          });
+        },
+      },
     ],
   };
 });

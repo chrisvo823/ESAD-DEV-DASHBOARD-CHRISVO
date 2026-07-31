@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAdminCredentials, type DashboardConfig } from "./dashboard-config";
 import { isCustomCardId } from "./custom-cards";
@@ -27,9 +27,27 @@ import {
 const GLOBAL_KEY = "__esadSiteAdminConfig__";
 const GOOGLE_DOC_CACHE_KEY = "__esadGoogleDocProgramConfigCache__";
 const GOOGLE_CARD_DOC_CACHE_KEY = "__esadGoogleDocCardConfigCache__";
-const DATA_DIR = path.join(process.cwd(), ".data");
-const DATA_FILE = path.join(DATA_DIR, "admin-site-config.json");
-const DATA_FILE_TMP = path.join(DATA_DIR, "admin-site-config.json.tmp");
+/**
+ * Host Admin config directory.
+ * Local vinext/workerd cannot always write the repo `.data/` tree (EPERM), so
+ * `ESAD_SITE_CONFIG_DIR` (seeded by vite for `npm run dev`) points at a writable
+ * path under the OS temp dir. Production Workers keep using cwd `.data/`.
+ */
+function getDataDir(): string {
+  return (
+    process.env.ESAD_SITE_CONFIG_DIR?.trim() ||
+    path.join(process.cwd(), ".data")
+  );
+}
+
+function getDataFile(): string {
+  return path.join(getDataDir(), "admin-site-config.json");
+}
+
+function getDataFileTmp(): string {
+  return path.join(getDataDir(), "admin-site-config.json.tmp");
+}
+
 const GOOGLE_DOC_CACHE_TTL_MS = 30_000;
 
 /** Resolve the Dashboard Configuration Google Doc id (bound Load file or shared default). */
@@ -85,12 +103,12 @@ function setMemoryStore(config: SiteAdminConfig): void {
 
 /** Absolute path of the host Admin / Dashboard Configuration file. */
 export function getHostSiteConfigPath(): string {
-  return DATA_FILE;
+  return getDataFile();
 }
 
 async function readPersistedConfig(): Promise<SiteAdminConfig | null> {
   try {
-    const text = await readFile(DATA_FILE, "utf8");
+    const text = await readFile(getDataFile(), "utf8");
     const parsed = JSON.parse(text) as unknown;
     return sanitizeSiteAdminConfig(parsed);
   } catch {
@@ -103,12 +121,32 @@ async function readPersistedConfig(): Promise<SiteAdminConfig | null> {
  * Throws if the Dashboard Configuration cannot be written/read back.
  */
 async function writePersistedConfig(config: SiteAdminConfig): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
+  const dataDir = getDataDir();
+  const dataFile = getDataFile();
+  const dataFileTmp = getDataFileTmp();
+  await mkdir(dataDir, { recursive: true });
   const payload = `${JSON.stringify(config, null, 2)}\n`;
   // Atomic replace so a crashed mid-write cannot leave an empty/corrupt host file
   // that would make the next load fall back to defaults (wiping custom config).
-  await writeFile(DATA_FILE_TMP, payload, "utf8");
-  await rename(DATA_FILE_TMP, DATA_FILE);
+  // Local vinext/workerd rejects rename-over-existing ("file already exists"),
+  // so remove the destination first when present.
+  await writeFile(dataFileTmp, payload, "utf8");
+  try {
+    await unlink(dataFile);
+  } catch {
+    // Destination did not exist yet.
+  }
+  try {
+    await rename(dataFileTmp, dataFile);
+  } catch {
+    // Last resort for restricted runtimes: write the final path directly.
+    await writeFile(dataFile, payload, "utf8");
+    try {
+      await unlink(dataFileTmp);
+    } catch {
+      // ignore
+    }
+  }
 
   // Read-back guard: never report success unless the host file contains the save.
   let verified: SiteAdminConfig | null = null;
@@ -119,7 +157,7 @@ async function writePersistedConfig(config: SiteAdminConfig): Promise<void> {
   }
   if (!verified) {
     throw new Error(
-      `Host configuration file was not readable after save (${DATA_FILE}).`,
+      `Host configuration file was not readable after save (${dataFile}).`,
     );
   }
   if (
