@@ -118,23 +118,40 @@ test("rejects malformed configuration text", () => {
   assert.ok("error" in parsed);
 });
 
-test("flags syntax errors when values are not inside quotes", () => {
+test("accepts bare (unquoted) field values from Google Docs", () => {
   const text = [
-    'Card #: "1"',
-    "Responsible Engineer: Bruno Abousleiman",
-    'Board Name: "Digital Safety Board"',
-    'Board Nickname: "DSB"',
-    'Google Drive Link: ""',
-    'Smartsheet Link: "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1"',
+    "Card #: 2",
+    "Responsible Engineer: George Madden",
+    "Board Name: High Voltage Filter Board",
+    "Board Nickname: HVFB",
+    "Google Drive Link:",
+    "Smartsheet Link:",
   ].join("\n");
 
   const errors = validateDashboardConfigSyntax(text);
-  assert.equal(errors.length, 1);
-  assert.match(errors[0], /Responsible Engineer value must be inside " "/);
+  assert.deepEqual(errors, []);
 
   const parsed = parseDashboardConfigText(text, DASHBOARD_CONFIGS["1"]);
-  assert.ok("error" in parsed);
-  assert.match(parsed.error, /must be inside " "/);
+  assert.ok("config" in parsed);
+  assert.equal(parsed.config.dashboardId, "2");
+  assert.equal(parsed.config.responsibleEngineer, "George Madden");
+});
+
+test("accepts Card #2 headings and smart quotes", () => {
+  const text = [
+    "Card #2",
+    "Responsible Engineer: \u201CGeorge Madden\u201D",
+    "Board Name: \u201CHigh Voltage Filter Board\u201D",
+    "Board Nickname: HVFB",
+    'Google Drive Link: ""',
+    'Smartsheet Link: ""',
+  ].join("\n");
+
+  const parsed = parseAllDashboardConfigsFromText(text);
+  assert.ok("configs" in parsed);
+  assert.equal(parsed.configs.length, 1);
+  assert.equal(parsed.configs[0]?.dashboardId, "2");
+  assert.equal(parsed.configs[0]?.responsibleEngineer, "George Madden");
 });
 
 test("flags missing closing quote as a syntax error", () => {
