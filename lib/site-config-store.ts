@@ -146,7 +146,7 @@ async function loadBaseSiteAdminConfig(): Promise<SiteAdminConfig> {
 /**
  * Overlay Dashboard Configuration from the shared Google Doc.
  * The Google Doc is the source of truth for Hero title / lead / metric labels /
- * LED thresholds for every user. Host file is only a cache / offline fallback.
+ * LED thresholds for every user. Host file is only a write-through Doc cache.
  */
 async function applyGoogleDocProgramConfig(
   base: SiteAdminConfig,

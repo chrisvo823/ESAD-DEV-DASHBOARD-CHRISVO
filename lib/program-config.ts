@@ -35,9 +35,10 @@ export type ProgramConfig = {
 };
 
 export const DEFAULT_PROGRAM_CONFIG: ProgramConfig = {
-  // Used when the host Dashboard Configuration file does not exist yet.
-  dashboardName: "Engineering Dashboard",
-  programLead: "Project Lead: ",
+  // Identity comes from the Google Drive Dashboard Configuration Doc.
+  // These empty placeholders must not be shown as real product copy.
+  dashboardName: "",
+  programLead: "",
   openTasksLabel: METRIC_KEYS.openTasks,
   overDueLabel: METRIC_KEYS.overDue,
   currentTaskLabel: METRIC_KEYS.currentTask,

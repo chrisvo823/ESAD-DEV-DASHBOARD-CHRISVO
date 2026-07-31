@@ -24,7 +24,7 @@ import { refreshSiteConfigFromHost } from "./site-config-client";
 
 type CompanyAuthGateProps = {
   children: ReactNode;
-  /** Host Dashboard Configuration title for the sign-in screen. */
+  /** Google Drive Dashboard Configuration title for the sign-in screen. */
   dashboardName?: string;
 };
 
@@ -40,7 +40,7 @@ export function CompanyAuthGate({
   dashboardName,
 }: CompanyAuthGateProps) {
   const allowedDomain = useMemo(() => getAllowedEmailDomain(), []);
-  const signInTitle = dashboardName?.trim() || "Engineering Dashboard";
+  const signInTitle = dashboardName?.trim() || "Dashboard";
   // Prefer preview immediately when build-time Firebase config is absent; still
   // hydrate from /api/firebase-web-config in case runtime secrets exist.
   const [state, setState] = useState<GateState>(() =>

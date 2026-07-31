@@ -130,17 +130,17 @@ test("public site config never exposes admin password", async () => {
   assert.equal("password" in pub, false);
   assert.equal(pub.recoveryEmail, "");
   assert.equal(pub.persisted, false);
-  assert.equal(pub.programConfig.dashboardName, "Engineering Dashboard");
-  assert.equal(pub.programConfig.programLead, "Project Lead: ");
+  assert.equal(pub.programConfig.dashboardName, "");
+  assert.equal(pub.programConfig.programLead, "");
 });
 
-test("sanitizeProgramConfig falls back to Engineering Dashboard defaults", () => {
+test("sanitizeProgramConfig keeps empty identity for Google Drive Dashboard Configuration", () => {
   const blank = sanitizeProgramConfig({
     dashboardName: "",
     programLead: "   ",
   });
-  assert.equal(blank.dashboardName, "Engineering Dashboard");
-  assert.equal(blank.programLead, "Project Lead: ");
+  assert.equal(blank.dashboardName, "");
+  assert.equal(blank.programLead, "");
   const kept = sanitizeProgramConfig({
     dashboardName: "Custom Board Dashboard",
     programLead: "Project Lead: Ada ",

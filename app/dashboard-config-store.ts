@@ -9,6 +9,7 @@ import {
   type FixedDashboardId,
 } from "../lib/dashboard-config";
 import { isCustomCardId } from "../lib/custom-cards";
+import { requireAdminSessionForDriveWrite } from "./admin-auth";
 import {
   getCachedSiteConfig,
   hydrateSiteConfigFromHost,
@@ -95,6 +96,7 @@ export async function bindAllCardConfigsGoogleDoc(options: {
   configs: DashboardConfig[];
   documentId: string;
 }): Promise<ConfigMap> {
+  requireAdminSessionForDriveWrite();
   const { configs, documentId } = options;
   const next = { ...readDashboardConfigs() };
   const cardConfigDocumentIds: Record<string, string> = {};
@@ -144,6 +146,7 @@ export async function saveAllCardConfigsToGoogleDoc(options: {
   configs: DashboardConfig[];
   documentId: string;
 }): Promise<ConfigMap> {
+  requireAdminSessionForDriveWrite();
   const { configs, documentId } = options;
   if (configs.length === 0) {
     throw new Error("Nothing to save — add at least one Card # section.");

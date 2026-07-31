@@ -1,8 +1,3 @@
-import {
-  AVIONICS_MASTER_SCHEDULE_PERMALINK,
-  ESAD_PROJECT_INTEGRATIONS,
-  googleSheetEditUrl,
-} from "./esad-projects";
 import type { EsadProjectCode } from "./esad-projects";
 
 /** Fixed dashboard slots: 1 top-left, 2 top-right, 3 bottom-left, 4 bottom-right. */
@@ -52,51 +47,33 @@ export function getAdminCredentials(): { username: string; password: string } {
 }
 
 /**
- * Per-dashboard configuration.
- * Layout: #1 top-left, #2 top-right, #3 bottom-left, #4 bottom-right.
- * Quoted values in the Configuration Window populate each card.
+ * Empty fixed-slot Card Configuration placeholders.
+ * User-visible identity (engineer, board name/nickname, links) comes from the
+ * selected Google Drive Card Configuration Doc — not from compiled defaults.
+ */
+export function emptyFixedDashboardConfig(
+  id: FixedDashboardId,
+): DashboardConfig {
+  return {
+    dashboardId: id,
+    responsibleEngineer: "",
+    boardName: "",
+    boardNickname: "",
+    googleDriveLink: "",
+    smartsheetLink: "",
+  };
+}
+
+/**
+ * Per-dashboard configuration slots (1–4).
+ * Identity fields are intentionally empty — Load/Save Card Configuration from
+ * Google Drive populates them for every user.
  */
 export const DASHBOARD_CONFIGS: Record<FixedDashboardId, DashboardConfig> = {
-  "1": {
-    dashboardId: "1",
-    responsibleEngineer: "Bruno Abousleiman",
-    boardName: "Digital Safety Board",
-    boardNickname: "DSB",
-    googleDriveLink: googleSheetEditUrl(
-      ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId,
-    ),
-    smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
-  },
-  "2": {
-    dashboardId: "2",
-    responsibleEngineer: "Bruno Abousleiman",
-    boardName: "High Voltage Fireset Board",
-    boardNickname: "HVFB",
-    googleDriveLink: googleSheetEditUrl(
-      ESAD_PROJECT_INTEGRATIONS.HVFB.googleSheetId,
-    ),
-    smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
-  },
-  "3": {
-    dashboardId: "3",
-    responsibleEngineer: "Shane Olson",
-    boardName: "CPLD - Primary",
-    boardNickname: "PRI",
-    googleDriveLink: googleSheetEditUrl(
-      ESAD_PROJECT_INTEGRATIONS.PRI.googleSheetId,
-    ),
-    smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
-  },
-  "4": {
-    dashboardId: "4",
-    responsibleEngineer: "Gary Mejia Martinez",
-    boardName: "CPLD - Independent",
-    boardNickname: "IND",
-    googleDriveLink: googleSheetEditUrl(
-      ESAD_PROJECT_INTEGRATIONS.IND.googleSheetId,
-    ),
-    smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
-  },
+  "1": emptyFixedDashboardConfig("1"),
+  "2": emptyFixedDashboardConfig("2"),
+  "3": emptyFixedDashboardConfig("3"),
+  "4": emptyFixedDashboardConfig("4"),
 };
 
 export const DASHBOARD_ID_BY_CODE: Record<EsadProjectCode, FixedDashboardId> = {

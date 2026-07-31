@@ -5,6 +5,7 @@ import {
   DASHBOARD_ID_BY_CODE,
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ADMIN_USERNAME,
+  emptyFixedDashboardConfig,
   formatCardNumberLabel,
   formatDashboardConfigText,
   getDashboardConfigForCode,
@@ -19,11 +20,22 @@ import {
   googleSheetEditUrl,
 } from "../lib/esad-projects.ts";
 
-test("maps dashboard slots to board nicknames", () => {
-  assert.equal(DASHBOARD_CONFIGS["1"].boardNickname, "DSB");
-  assert.equal(DASHBOARD_CONFIGS["2"].boardNickname, "HVFB");
-  assert.equal(DASHBOARD_CONFIGS["3"].boardNickname, "PRI");
-  assert.equal(DASHBOARD_CONFIGS["4"].boardNickname, "IND");
+/** Sample Card Configuration (Google Drive Doc content — not compiled defaults). */
+const SAMPLE_CARD_1 = {
+  dashboardId: "1",
+  responsibleEngineer: "Bruno Abousleiman",
+  boardName: "Digital Safety Board",
+  boardNickname: "DSB",
+  googleDriveLink: googleSheetEditUrl(
+    ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId,
+  ),
+  smartsheetLink: AVIONICS_MASTER_SCHEDULE_PERMALINK,
+};
+
+test("fixed slots leave Card Configuration identity empty for Google Drive", () => {
+  for (const id of ["1", "2", "3", "4"]) {
+    assert.deepEqual(DASHBOARD_CONFIGS[id], emptyFixedDashboardConfig(id));
+  }
   assert.equal(DASHBOARD_ID_BY_CODE.DSB, "1");
   assert.equal(DASHBOARD_ID_BY_CODE.HVFB, "2");
   assert.equal(DASHBOARD_ID_BY_CODE.PRI, "3");
@@ -31,7 +43,7 @@ test("maps dashboard slots to board nicknames", () => {
 });
 
 test("formats DSB configuration text with Card # and Google Drive Link", () => {
-  const text = formatDashboardConfigText(DASHBOARD_CONFIGS["1"]);
+  const text = formatDashboardConfigText(SAMPLE_CARD_1);
   const dsbSheetLink = googleSheetEditUrl(
     ESAD_PROJECT_INTEGRATIONS.DSB.googleSheetId,
   );
@@ -51,7 +63,6 @@ test("formats DSB configuration text with Card # and Google Drive Link", () => {
   assert.doesNotMatch(text, /^Green:/m);
   assert.doesNotMatch(text, /^Yellow:/m);
   assert.doesNotMatch(text, /^Red:/m);
-  assert.match(DASHBOARD_CONFIGS["1"].googleDriveLink, /spreadsheets\/d\//);
 });
 
 test("parses Card # as the card id", () => {
@@ -215,7 +226,7 @@ test("flags missing closing quote as a syntax error", () => {
 
 test("resolves dashboard config by project code", () => {
   assert.equal(getDashboardConfigForCode("DSB").dashboardId, "1");
-  assert.equal(getDashboardConfigForCode("IND").boardName, "CPLD - Independent");
+  assert.equal(getDashboardConfigForCode("IND").boardName, "");
 });
 
 test("exposes default admin credentials", () => {

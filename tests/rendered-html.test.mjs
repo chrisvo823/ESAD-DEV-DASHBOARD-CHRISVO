@@ -16,9 +16,23 @@ async function readHostProgramIdentity() {
     return {
       dashboardName: parsed.programConfig?.dashboardName?.trim() ?? "",
       programLead: parsed.programConfig?.programLead?.trim() ?? "",
+      boardNames: ["1", "2", "3", "4"]
+        .map((id) => parsed.dashboardConfigs?.[id]?.boardName?.trim() ?? "")
+        .filter(Boolean),
+      engineers: ["1", "2", "3", "4"]
+        .map(
+          (id) =>
+            parsed.dashboardConfigs?.[id]?.responsibleEngineer?.trim() ?? "",
+        )
+        .filter(Boolean),
     };
   } catch {
-    return { dashboardName: "", programLead: "" };
+    return {
+      dashboardName: "",
+      programLead: "",
+      boardNames: [],
+      engineers: [],
+    };
   }
 }
 
@@ -43,14 +57,15 @@ async function render() {
   );
 }
 
-test("server-renders the host-configured dashboard", async () => {
+test("server-renders the Google Drive–configured dashboard", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  // Identity must come from host Dashboard Configuration (not compiled defaults).
-  const { dashboardName, programLead } = await readHostProgramIdentity();
+  // Identity comes from Google Drive Docs (host file is Doc cache only).
+  const { dashboardName, programLead, boardNames, engineers } =
+    await readHostProgramIdentity();
   if (dashboardName) {
     assert.match(
       html,
@@ -58,7 +73,7 @@ test("server-renders the host-configured dashboard", async () => {
     );
     assert.match(html, new RegExp(escapeRegExp(dashboardName)));
   } else {
-    assert.match(html, /<title>Engineering Dashboard<\/title>/i);
+    assert.match(html, /<title>Dashboard<\/title>/i);
   }
   if (programLead) {
     assert.match(html, new RegExp(escapeRegExp(programLead)));
@@ -73,15 +88,16 @@ test("server-renders the host-configured dashboard", async () => {
   );
   assert.doesNotMatch(
     await readFile(new URL("../app/company-auth-gate.tsx", import.meta.url), "utf8"),
-    /MACH ESAD Dashboard|MACH ESAD Development Dashboard/,
+    /MACH ESAD Dashboard|MACH ESAD Development Dashboard|Engineering Dashboard/,
   );
   assert.match(html, /Admin login/);
   assert.match(html, /Responsible Engineer/);
-  assert.match(html, /Bruno Abousleiman/);
-  assert.match(html, /Digital Safety Board/);
-  assert.match(html, /High Voltage Fireset Board/);
-  assert.match(html, /CPLD - Primary/);
-  assert.match(html, /CPLD - Independent/);
+  for (const engineer of engineers) {
+    assert.match(html, new RegExp(escapeRegExp(engineer)));
+  }
+  for (const boardName of boardNames) {
+    assert.match(html, new RegExp(escapeRegExp(boardName)));
+  }
   assert.match(html, /data-dashboard-id="1"/);
   assert.match(html, /data-dashboard-id="2"/);
   assert.match(html, /data-dashboard-id="3"/);
@@ -130,26 +146,44 @@ test("server-renders the host-configured dashboard", async () => {
   assert.match(html, /Over Due/);
   assert.match(html, /Current Task/);
   assert.match(html, /Next Task/);
-  assert.match(
-    html,
-    /Digital Safety Board[\s\S]*?Open Tasks[\s\S]*?<dd>\d+<\/dd>/,
-  );
-  assert.match(
-    html,
-    /Digital Safety Board[\s\S]*?Over Due[\s\S]*?<dd>\d+<\/dd>/,
-  );
-  assert.match(
-    html,
-    /High Voltage Fireset Board[\s\S]*?Open Tasks[\s\S]*?Over Due[\s\S]*?Current Task[\s\S]*?Next Task/,
-  );
-  assert.match(
-    html,
-    /CPLD - Primary[\s\S]*?Open Tasks[\s\S]*?Over Due[\s\S]*?Current Task[\s\S]*?Next Task/,
-  );
-  assert.match(
-    html,
-    /CPLD - Independent[\s\S]*?Open Tasks[\s\S]*?Over Due[\s\S]*?Current Task[\s\S]*?Next Task/,
-  );
+  if (boardNames[0]) {
+    assert.match(
+      html,
+      new RegExp(
+        `${escapeRegExp(boardNames[0])}[\\s\\S]*?Open Tasks[\\s\\S]*?<dd>\\d+<\\/dd>`,
+      ),
+    );
+    assert.match(
+      html,
+      new RegExp(
+        `${escapeRegExp(boardNames[0])}[\\s\\S]*?Over Due[\\s\\S]*?<dd>\\d+<\\/dd>`,
+      ),
+    );
+  }
+  if (boardNames[1]) {
+    assert.match(
+      html,
+      new RegExp(
+        `${escapeRegExp(boardNames[1])}[\\s\\S]*?Open Tasks[\\s\\S]*?Over Due[\\s\\S]*?Current Task[\\s\\S]*?Next Task`,
+      ),
+    );
+  }
+  if (boardNames[2]) {
+    assert.match(
+      html,
+      new RegExp(
+        `${escapeRegExp(boardNames[2])}[\\s\\S]*?Open Tasks[\\s\\S]*?Over Due[\\s\\S]*?Current Task[\\s\\S]*?Next Task`,
+      ),
+    );
+  }
+  if (boardNames[3]) {
+    assert.match(
+      html,
+      new RegExp(
+        `${escapeRegExp(boardNames[3])}[\\s\\S]*?Open Tasks[\\s\\S]*?Over Due[\\s\\S]*?Current Task[\\s\\S]*?Next Task`,
+      ),
+    );
+  }
   assert.match(html, /task-hover-trigger--open/);
   assert.match(html, /task-hover-trigger--overdue/);
   assert.match(html, /task-hover-trigger--schedule/);
@@ -218,7 +252,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   ]);
 
   assert.match(page, /const projects: Project\[\] = \[/);
-  assert.match(page, /name: "Digital Safety Board"/);
+  // Card board names are empty shells — Google Drive Card Configuration fills them.
+  assert.match(page, /name: "",\s*\n\s*code: "DSB"/);
+  assert.match(page, /withHostCardConfigs/);
   assert.match(page, /label: "Open Tasks"/);
   assert.match(page, /label: "Over Due"/);
   assert.match(page, /statusFromOverdueCount/);
@@ -543,9 +579,9 @@ test("keeps dashboard metadata and project data in source", async () => {
     await readFile(new URL("../lib/dsb-tasks.ts", import.meta.url), "utf8"),
     /https:\/\/mach\.atlassian\.net\/browse/,
   );
-  assert.match(page, /name: "High Voltage Fireset Board"/);
-  assert.match(page, /name: "CPLD - Primary"/);
-  assert.match(page, /name: "CPLD - Independent"/);
+  assert.match(page, /name: "",\s*\n\s*code: "HVFB"/);
+  assert.match(page, /name: "",\s*\n\s*code: "PRI"/);
+  assert.match(page, /name: "",\s*\n\s*code: "IND"/);
   assert.doesNotMatch(page, /label: "Open rework"/);
   assert.doesNotMatch(page, /label: "On order"/);
 
@@ -553,10 +589,12 @@ test("keeps dashboard metadata and project data in source", async () => {
     new URL("../lib/dashboard-config.ts", import.meta.url),
     "utf8",
   );
-  assert.match(configSource, /Bruno Abousleiman/);
+  assert.match(configSource, /emptyFixedDashboardConfig/);
+  assert.doesNotMatch(configSource, /Bruno Abousleiman/);
+  assert.doesNotMatch(configSource, /Digital Safety Board/);
   assert.match(configSource, /Google Drive Link/);
   assert.match(configSource, /googleDriveLink/);
-  assert.match(configSource, /googleSheetEditUrl/);
+  assert.doesNotMatch(configSource, /googleSheetEditUrl/);
   assert.doesNotMatch(configSource, /JIRA Epic Link/);
   assert.doesNotMatch(configSource, /jiraEpicLink/);
   assert.doesNotMatch(configSource, /ledGreenLessThan/);
@@ -742,13 +780,32 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(layout, /loadSiteAdminConfig/);
   assert.match(layout, /programConfig\.dashboardName/);
   assert.match(layout, /programConfig\.programLead/);
-  assert.match(layout, /Engineering Dashboard/);
+  assert.match(layout, /\|\| "Dashboard"/);
+  assert.doesNotMatch(layout, /Engineering Dashboard/);
   assert.doesNotMatch(layout, /MACH ESAD Development Dashboard/);
   assert.doesNotMatch(layout, /Engineering Program Office/);
   assert.match(layout, /og\.png/);
   assert.match(page, /dashboardName=\{siteConfig\.programConfig\.dashboardName\}/);
-  assert.match(programConfigSource, /Engineering Dashboard/);
-  assert.match(programConfigSource, /Project Lead: /);
+  assert.doesNotMatch(programConfigSource, /Engineering Dashboard/);
+  assert.match(programConfigSource, /dashboardName: ""/);
+  assert.match(programConfigSource, /programLead: ""/);
+  const adminAuth = await readFile(
+    new URL("../app/admin-auth.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(adminAuth, /requireAdminSessionForDriveWrite/);
+  assert.match(
+    await readFile(new URL("../app/site-config-client.ts", import.meta.url), "utf8"),
+    /requireAdminSessionForDriveWrite/,
+  );
+  assert.match(
+    await readFile(new URL("../app/program-config-store.ts", import.meta.url), "utf8"),
+    /requireAdminSessionForDriveWrite/,
+  );
+  assert.match(
+    await readFile(new URL("../app/dashboard-config-store.ts", import.meta.url), "utf8"),
+    /requireAdminSessionForDriveWrite/,
+  );
   assert.match(packageJson, /"name": "site-creator-vinext-starter"/);
   assert.doesNotMatch(page, /SkeletonPreview|react-loading-skeleton/);
   assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
