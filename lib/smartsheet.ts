@@ -34,6 +34,14 @@ function getAccessToken(
   return trimmed;
 }
 
+/**
+ * Resolve SMARTSHEET_ACCESS_TOKEN from (in order):
+ * 1) explicit argument
+ * 2) process.env — populated by local `.env`, the
+ *    `nodejs_compat_populate_process_env` flag, and/or
+ *    `mirrorEnvBindingsToProcessEnv` in `worker/index.ts` (OpenAI Sites secrets)
+ * 3) globalThis (miniflare)
+ */
 function resolveAccessToken(token?: string): string {
   if (token?.trim()) return token.trim();
 
