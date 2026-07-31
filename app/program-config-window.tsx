@@ -19,6 +19,7 @@ import {
   formatProgramIdentityText,
   formatProgramLedThresholdText,
   parseProgramConfigText,
+  resetProgramConfigQuotedValues,
   validateProgramConfigSyntax,
 } from "../lib/program-config";
 
@@ -90,6 +91,19 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     setStatusMessage(null);
     setActionError(null);
     syncEditorErrors(identityText, nextLed);
+  }
+
+  function handleResetConfig() {
+    setActionError(null);
+    const resetIdentity = resetProgramConfigQuotedValues(identityText);
+    const resetLed = resetProgramConfigQuotedValues(ledText);
+    dirtyRef.current = true;
+    setIdentityText(resetIdentity);
+    setLedText(resetLed);
+    syncEditorErrors(resetIdentity, resetLed);
+    setStatusMessage(
+      'Cleared values inside " ". Save to publish the reset Dashboard Configuration.',
+    );
   }
 
   async function handleLoadConfigFile() {
@@ -258,6 +272,16 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     </button>
                     <button
                       type="button"
+                      className="config-window-reset"
+                      disabled={busy}
+                      onClick={() => {
+                        handleResetConfig();
+                      }}
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
                       className="config-window-close"
                       onClick={() => setOpen(false)}
                     >
@@ -268,9 +292,10 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 <p className="config-window-help">
                   Edit Dashboard Configuration text, then{" "}
                   <strong>Save</strong> to update the selected Google Drive
-                  file immediately for all users. <strong>Load Config</strong>{" "}
-                  opens a file-selection popup for the shared Google Drive
-                  folder (
+                  file immediately for all users. <strong>Reset</strong> clears
+                  everything inside &quot; &quot; (keeps the Card LED Threshold
+                  Configuration header). <strong>Load Config</strong> opens a
+                  file-selection popup for the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -343,7 +368,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     {actionError}
                   </p>
                 ) : null}
-                {statusMessage && !hasSyntaxErrors && !actionError ? (
+                {statusMessage && !actionError ? (
                   <p className="config-window-saved">{statusMessage}</p>
                 ) : null}
               </div>

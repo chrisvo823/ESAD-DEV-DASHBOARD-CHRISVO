@@ -677,6 +677,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(programConfigWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(programConfigWindow, /\{saving \? "Saving…" : "Save"\}/);
   assert.match(programConfigWindow, /config-window-save/);
+  assert.match(programConfigWindow, /config-window-reset/);
+  assert.match(programConfigWindow, /handleResetConfig|Reset/);
+  assert.match(programConfigWindow, /resetProgramConfigQuotedValues/);
   assert.doesNotMatch(programConfigWindow, /readOnly/);
   assert.doesNotMatch(programConfigWindow, /config-window-editor--readonly/);
   assert.match(programConfigWindow, /Google Drive/);

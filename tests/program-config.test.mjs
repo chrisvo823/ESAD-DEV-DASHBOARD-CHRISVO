@@ -10,6 +10,7 @@ import {
   metricDisplayLabel,
   overdueThresholdsFromProgramConfig,
   parseProgramConfigText,
+  resetProgramConfigQuotedValues,
   validateProgramConfigSyntax,
 } from "../lib/program-config.ts";
 import { statusFromOverdueCount } from "../lib/dsb-tasks.ts";
@@ -83,6 +84,31 @@ test("combines identity and LED editors for parsing", () => {
   assert.equal(parsed.config.overDueLabel, "Over Due");
   assert.equal(parsed.config.currentTaskLabel, "Current Task");
   assert.equal(parsed.config.nextTaskLabel, "Next Task");
+});
+
+test("reset clears Dashboard Configuration values inside quotes but keeps LED section header", () => {
+  const identity = formatProgramIdentityText(SAMPLE_IDENTITY);
+  const led = formatProgramLedThresholdText(SAMPLE_IDENTITY);
+  assert.equal(
+    resetProgramConfigQuotedValues(identity),
+    [
+      'Dashboard Name: ""',
+      'Program Lead: ""',
+      'Open Tasks: ""',
+      'Over Due: ""',
+      'Current Task: ""',
+      'Next Task: ""',
+    ].join("\n"),
+  );
+  assert.equal(
+    resetProgramConfigQuotedValues(led),
+    [
+      "Card LED Threshold Configuration:",
+      'Green: ""',
+      'Yellow: ""',
+      'Red: ""',
+    ].join("\n"),
+  );
 });
 
 test("parses Dashboard Configuration text including metric labels and LED thresholds", () => {
