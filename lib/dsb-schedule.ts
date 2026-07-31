@@ -85,8 +85,11 @@ function cellById(
 }
 
 /**
- * Prefer Smartsheet `displayValue` so Start/Finish match the sheet UI.
- * Fall back to raw ISO / epoch when displayValue is absent.
+ * Prefer Smartsheet calendar dates that match the sheet UI.
+ *
+ * DATE columns store the selected day as UTC midnight (epoch or `…T00:00:00Z`).
+ * Converting that instant through America/Los_Angeles shifts the day back one —
+ * so we read the UTC/calendar Y-M-D (or displayValue) instead of the LA wall clock.
  */
 function cellDateValue(
   row: SmartsheetRow,
@@ -97,52 +100,114 @@ function cellDateValue(
   if (!cell) return null;
 
   if (cell.displayValue != null && String(cell.displayValue).trim() !== "") {
-    return normalizeSmartsheetDisplayDate(String(cell.displayValue), role);
+    const fromDisplay = normalizeSmartsheetDisplayDate(
+      String(cell.displayValue),
+      role,
+    );
+    if (fromDisplay) return fromDisplay;
   }
 
   if (typeof cell.value === "number" && Number.isFinite(cell.value)) {
-    return epochMsToScheduleWallIso(cell.value, role);
+    return calendarDateWallIsoFromUtcParts(
+      new Date(cell.value).getUTCFullYear(),
+      new Date(cell.value).getUTCMonth() + 1,
+      new Date(cell.value).getUTCDate(),
+      role,
+    );
   }
 
   if (cell.value != null && String(cell.value).trim() !== "") {
-    return String(cell.value);
+    const raw = String(cell.value).trim();
+    const dateOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) {
+      return calendarDateWallIsoFromUtcParts(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]),
+        Number(dateOnly[3]),
+        role,
+      );
+    }
+    // UTC midnight timestamps are DATE cells — use the UTC calendar day.
+    const utcMidnight = raw.match(
+      /^(\d{4})-(\d{2})-(\d{2})T00:00:00(?:\.\d+)?(?:Z|[+-]00:00)?$/,
+    );
+    if (utcMidnight) {
+      return calendarDateWallIsoFromUtcParts(
+        Number(utcMidnight[1]),
+        Number(utcMidnight[2]),
+        Number(utcMidnight[3]),
+        role,
+      );
+    }
+    return raw;
   }
 
   return null;
 }
 
 /**
- * Convert Smartsheet date displayValue (e.g. "07/23/26") into a wall-time ISO
- * string in the schedule timezone so formatting + current-task windows match
- * the sheet.
+ * Convert Smartsheet date displayValue (e.g. "07/23/26", "Jul 23, 2026") into
+ * a wall-time ISO string so formatting + current-task windows match the sheet.
  */
 function normalizeSmartsheetDisplayDate(
   display: string,
   role: "start" | "finish",
-): string {
+): string | null {
   const trimmed = display.trim();
-  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!match) return trimmed;
-  let year = Number(match[3]);
-  if (year < 100) year += 2000;
-  const month = String(Number(match[1])).padStart(2, "0");
-  const day = String(Number(match[2])).padStart(2, "0");
-  const time = role === "finish" ? "16:59:59" : "08:00:00";
-  return `${year}-${month}-${day}T${time}`;
+  if (!trimmed) return null;
+
+  const numeric = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (numeric) {
+    let year = Number(numeric[3]);
+    if (year < 100) year += 2000;
+    return calendarDateWallIsoFromUtcParts(
+      year,
+      Number(numeric[1]),
+      Number(numeric[2]),
+      role,
+    );
+  }
+
+  const months: Record<string, number> = {
+    jan: 1,
+    feb: 2,
+    mar: 3,
+    apr: 4,
+    may: 5,
+    jun: 6,
+    jul: 7,
+    aug: 8,
+    sep: 9,
+    oct: 10,
+    nov: 11,
+    dec: 12,
+  };
+  const named = trimmed.match(
+    /^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})$/,
+  );
+  if (named) {
+    const month = months[named[1].slice(0, 3).toLowerCase()];
+    if (month) {
+      return calendarDateWallIsoFromUtcParts(
+        Number(named[3]),
+        month,
+        Number(named[2]),
+        role,
+      );
+    }
+  }
+
+  return trimmed;
 }
 
-/** Map epoch ms to a schedule-TZ wall ISO so display matches Smartsheet days. */
-function epochMsToScheduleWallIso(
-  epochMs: number,
+function calendarDateWallIsoFromUtcParts(
+  year: number,
+  month: number,
+  day: number,
   role: "start" | "finish",
 ): string {
-  const parts = getZonedParts(new Date(epochMs), DSB_SCHEDULE_TIME_ZONE);
-  const time =
-    role === "finish"
-      ? { hour: 16, minute: 59, second: 59 }
-      : { hour: 8, minute: 0, second: 0 };
-  // Prefer calendar day from the epoch in schedule TZ; use role default clock.
-  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}:${String(time.second).padStart(2, "0")}`;
+  const time = role === "finish" ? "16:59:59" : "08:00:00";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${time}`;
 }
 
 /**

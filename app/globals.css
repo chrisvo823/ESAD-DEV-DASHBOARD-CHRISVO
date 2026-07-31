@@ -1270,6 +1270,7 @@ a.config-window-load[aria-disabled="true"] {
 
 .metric-task-name {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
   margin: 0;

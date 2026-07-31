@@ -269,10 +269,74 @@ test("prefers Smartsheet displayValue dates so Start/Finish match the sheet", ()
   assert.equal(formatSchedulePercentComplete(stats.currentTask?.percentComplete), "45%");
 });
 
-test("blank Smartsheet % Complete stays blank (not forced to 0%)", () => {
+test("Smartsheet DATE epoch/UTC-midnight uses calendar day (not LA shift)", () => {
+  // Jul 24 DATE cell stored as UTC midnight — must NOT become Jul 23 in LA.
+  const jul24Epoch = Date.UTC(2026, 6, 24);
+  const sheet = {
+    permalink:
+      "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1",
+    rows: [
+      {
+        id: 128284846915460,
+        cells: [
+          { columnId: 5067326880960388, value: "Digital Safety Board (DSB)" },
+          { columnId: 7319126694645636, value: "2026-07-02T08:00:00" },
+          { columnId: 1689627160432516, value: "2026-11-27T16:59:59" },
+        ],
+      },
+      {
+        id: 4631884474285956,
+        parentId: 128284846915460,
+        cells: [
+          { columnId: 5067326880960388, value: "Rev A" },
+          { columnId: 7319126694645636, value: "2026-07-02T08:00:00" },
+          { columnId: 1689627160432516, value: "2026-09-29T16:59:59" },
+        ],
+      },
+      {
+        id: 2594825670494084,
+        parentId: 4631884474285956,
+        cells: [
+          { columnId: 5067326880960388, value: "Schematic" },
+          { columnId: 7319126694645636, value: jul24Epoch },
+          {
+            columnId: 1689627160432516,
+            value: "2026-08-20T00:00:00Z",
+          },
+          { columnId: 282252276879236, value: 0.12, displayValue: "12%" },
+        ],
+      },
+      {
+        id: 3705936781605108,
+        parentId: 4631884474285956,
+        cells: [
+          { columnId: 5067326880960388, value: "Layout" },
+          { columnId: 7319126694645636, value: "2026-08-21" },
+          { columnId: 1689627160432516, value: "2026-09-29" },
+        ],
+      },
+    ],
+  };
+
+  const stats = buildDsbScheduleStats(sheet, new Date("2026-07-27T20:00:00Z"));
+  assert.ok(stats);
+  assert.equal(stats.currentTask?.name, "Schematic");
+  assert.equal(stats.currentTask?.start, "2026-07-24T08:00:00");
+  assert.equal(stats.currentTask?.finish, "2026-08-20T16:59:59");
+  assert.equal(stats.currentTask?.percentComplete, 12);
+  assert.equal(
+    formatScheduleDateRange(stats.currentTask?.start, stats.currentTask?.finish),
+    "Jul 24 – Aug 20, 2026",
+  );
+  assert.equal(stats.nextTask?.start, "2026-08-21T08:00:00");
+  assert.equal(stats.nextTask?.finish, "2026-09-29T16:59:59");
+});
+
+test("blank Smartsheet % Complete formats as 0% for Current Task display", () => {
   assert.equal(formatSchedulePercentComplete(null), null);
   assert.equal(formatSchedulePercentComplete(undefined), null);
   assert.equal(formatSchedulePercentComplete(0), "0%");
+  assert.equal(formatSchedulePercentComplete(null ?? 0), "0%");
 });
 
 test("DSB handoff: Design Analyses on Jul 23, Schematic current / Layout next by Jul 27", () => {

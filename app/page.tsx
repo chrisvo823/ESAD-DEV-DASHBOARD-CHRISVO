@@ -62,13 +62,14 @@ function scheduleTask(
   name: string,
   start: string,
   finish: string,
+  percentComplete: number | null = null,
 ): DsbScheduleRevision["tasks"][number] {
   return {
     id,
     name,
     start,
     finish,
-    percentComplete: null,
+    percentComplete,
     status: null,
     assignee: null,
     permalink: smartsheetRowUrl(id),
@@ -110,6 +111,7 @@ const dsbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         "Schematic",
         "2026-07-24T08:00:00",
         "2026-08-20T16:59:59",
+        45,
       ),
       // Next after Schematic on the Rev A schedule (not Rev B Requirements).
       scheduleTask(
@@ -171,6 +173,7 @@ const hvfbScheduleFallbackRevisions: DsbScheduleRevision[] = [
         "Schematic",
         "2026-07-24T08:00:00",
         "2026-08-20T16:59:59",
+        45,
       ),
       scheduleTask(
         3847047892716212,
@@ -218,6 +221,7 @@ const cpldPrimaryScheduleFallbackRevisions: DsbScheduleRevision[] = [
         "Block Diagram Review",
         "2026-07-24T08:00:00",
         "2026-08-10T16:59:59",
+        0,
       ),
       // Later CPLD steps — board row permalink until live Smartsheet supplies row ids.
       {
@@ -274,6 +278,7 @@ const cpldIndependentScheduleFallbackRevisions: DsbScheduleRevision[] = [
         "Block Diagram Review",
         "2026-07-24T08:00:00",
         "2026-08-10T16:59:59",
+        0,
       ),
       {
         id: 6401284739015557,
@@ -365,6 +370,7 @@ const projects: Project[] = [
             "2026-07-24T08:00:00",
             "2026-08-20T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "45%",
         valueHref: smartsheetRowUrl(2594825670494084),
         focusTaskId: 2594825670494084,
         hideValueBar: true,
@@ -432,6 +438,7 @@ const projects: Project[] = [
             "2026-07-24T08:00:00",
             "2026-08-20T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "45%",
         valueHref: smartsheetRowUrl(2735936781604996),
         focusTaskId: 2735936781604996,
         hideValueBar: true,
@@ -489,6 +496,7 @@ const projects: Project[] = [
             "2026-07-24T08:00:00",
             "2026-08-10T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "0%",
         valueHref: smartsheetRowUrl(583849813409668),
         focusTaskId: 583849813409668,
         hideValueBar: true,
@@ -553,6 +561,7 @@ const projects: Project[] = [
             "2026-07-24T08:00:00",
             "2026-08-10T16:59:59",
           ) ?? undefined,
+        valuePercentLabel: "0%",
         valueHref: smartsheetRowUrl(2473730970615684),
         focusTaskId: 2473730970615684,
         hideValueBar: true,
@@ -673,9 +682,10 @@ function metricsWithScheduleStats(
   return metrics.map((metric) => {
     if (metric.label === "Current Task") {
       const current = schedule.currentTask;
-      // Use Smartsheet % Complete as-is; blank cells stay blank (not forced to 0%).
+      // Always show Completion % beside Current Task when a task is selected.
+      // Blank Smartsheet cells display as 0% (matches sheet empty/% Complete UX).
       const percentLabel = current
-        ? formatSchedulePercentComplete(current.percentComplete)
+        ? formatSchedulePercentComplete(current.percentComplete ?? 0)
         : undefined;
       const valueText = current?.name ?? "—";
       return {
