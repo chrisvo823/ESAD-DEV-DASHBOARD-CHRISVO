@@ -161,22 +161,28 @@ test("accepts legacy operator LED threshold syntax when parsing", () => {
   assert.equal(parsed.config.ledRedAtLeast, 5);
 });
 
-test("flags syntax errors when Dashboard Configuration values are unquoted", () => {
+test("accepts bare and smart-quoted Dashboard Configuration values", () => {
   const text = [
-    "Dashboard Name: Test Dashboard",
-    'Program Lead: "Test Program Lead"',
-    'Open Tasks: "Open Tasks"',
-    'Over Due: "Over Due"',
-    'Current Task: "Current Task"',
-    'Next Task: "Next Task"',
+    "Dashboard Name: ESAD Avionics Dashboard",
+    "Program Lead: \u201CLong Nguyen\u201D",
+    "Open Tasks: Open Work",
+    "Over Due: Past Due",
+    "Current Task: Active Task",
+    "Next Task: Upcoming Task",
     "Card LED Threshold Configuration:",
-    'Green: "1"',
-    'Yellow: "2"',
-    'Red: "5"',
+    "Green: 2",
+    "Yellow: 4",
+    "Red: 9",
   ].join("\n");
   const errors = validateProgramConfigSyntax(text);
-  assert.equal(errors.length, 1);
-  assert.match(errors[0], /Dashboard Name value must be inside " "/);
+  assert.deepEqual(errors, []);
+  const parsed = parseProgramConfigText(text);
+  assert.ok("config" in parsed);
+  assert.equal(parsed.config.dashboardName, "ESAD Avionics Dashboard");
+  assert.equal(parsed.config.programLead, "Long Nguyen");
+  assert.equal(parsed.config.ledGreenAtMost, 2);
+  assert.equal(parsed.config.ledYellowAtLeast, 4);
+  assert.equal(parsed.config.ledRedAtLeast, 9);
 });
 
 test("flags invalid LED threshold syntax in Dashboard Configuration", () => {

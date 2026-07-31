@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdminAuthenticated } from "./admin-auth";
 import { ADMIN_CONFIG_DRIVE_FOLDER_URL } from "@/lib/admin-config-drive";
 import { loadProgramConfigFromDriveFile } from "./load-config-from-drive";
 import { noteConfigLoadedAndDeployIfReady } from "./config-deploy";
+import { ensureGoogleDriveAccessToken } from "./ensure-google-drive-access";
 import { pickAdminConfigDriveFile } from "./open-admin-config-drive";
 import { writeProgramConfig } from "./program-config-store";
 import type { ProgramConfig } from "../lib/program-config";
@@ -13,6 +14,7 @@ import {
   combineProgramConfigEditors,
   formatProgramIdentityText,
   formatProgramLedThresholdText,
+  parseProgramConfigText,
   validateProgramConfigSyntax,
 } from "../lib/program-config";
 
@@ -32,9 +34,10 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [deployMessage, setDeployMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dirtyRef = useRef(false);
   const titleId = useId();
   const identityEditorId = useId();
   const ledEditorId = useId();
@@ -48,7 +51,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     if (!authenticated) setOpen(false);
   }, [authenticated]);
 
-  function applyConfig(next: ProgramConfig) {
+  function applyConfig(next: ProgramConfig, options?: { dirty?: boolean }) {
     const nextIdentity = formatProgramIdentityText(next);
     const nextLed = formatProgramLedThresholdText(next);
     setIdentityText(nextIdentity);
@@ -58,12 +61,37 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
         combineProgramConfigEditors(nextIdentity, nextLed),
       ),
     );
+    dirtyRef.current = options?.dirty ?? false;
+  }
+
+  function syncEditorErrors(nextIdentity: string, nextLed: string) {
+    setErrors(
+      validateProgramConfigSyntax(
+        combineProgramConfigEditors(nextIdentity, nextLed),
+      ),
+    );
+  }
+
+  function handleIdentityChange(nextIdentity: string) {
+    dirtyRef.current = true;
+    setIdentityText(nextIdentity);
+    setStatusMessage(null);
+    setActionError(null);
+    syncEditorErrors(nextIdentity, ledText);
+  }
+
+  function handleLedChange(nextLed: string) {
+    dirtyRef.current = true;
+    setLedText(nextLed);
+    setStatusMessage(null);
+    setActionError(null);
+    syncEditorErrors(identityText, nextLed);
   }
 
   async function handleLoadConfigFile() {
     setLoading(true);
-    setLoadError(null);
-    setLoaded(false);
+    setActionError(null);
+    setStatusMessage(null);
     try {
       const picked = await pickAdminConfigDriveFile("dashboard");
       if (!picked) {
@@ -76,12 +104,13 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
       const deploy = await noteConfigLoadedAndDeployIfReady({
         dashboard: next,
       });
-      setDeployMessage(deploy.message);
-      setLoaded(true);
+      setStatusMessage(
+        deploy.message ||
+          "Loaded Dashboard Configuration from Google Drive and saved for all users.",
+      );
     } catch (err) {
-      setLoaded(false);
-      setDeployMessage(null);
-      setLoadError(
+      setStatusMessage(null);
+      setActionError(
         err instanceof Error
           ? err.message
           : "Failed to load Dashboard Configuration from Google Drive.",
@@ -91,12 +120,49 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
     }
   }
 
+  async function handleSaveConfig() {
+    setSaving(true);
+    setActionError(null);
+    setStatusMessage(null);
+    try {
+      const combined = combineProgramConfigEditors(identityText, ledText);
+      const parsed = parseProgramConfigText(combined);
+      if ("error" in parsed) {
+        setErrors(parsed.errors);
+        throw new Error(
+          parsed.errors[0] ??
+            "Fix Dashboard Configuration syntax before Saving.",
+        );
+      }
+      setErrors([]);
+
+      await ensureGoogleDriveAccessToken({
+        reason:
+          "Sign in with Google Drive so Dashboard Configuration can be saved to the shared Doc.",
+      });
+
+      const saved = await writeProgramConfig(parsed.config);
+      applyConfig(saved);
+      setStatusMessage(
+        "Saved Dashboard Configuration to Google Drive for all users. Dashboards refresh every 3 minutes.",
+      );
+    } catch (err) {
+      setStatusMessage(null);
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save Dashboard Configuration to Google Drive.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
     applyConfig(config);
-    setLoaded(false);
-    setLoadError(null);
-    setDeployMessage(null);
+    setStatusMessage(null);
+    setActionError(null);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -109,6 +175,7 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
   if (!authenticated) return null;
 
   const hasSyntaxErrors = errors.length > 0;
+  const busy = loading || saving;
 
   return (
     <>
@@ -148,12 +215,22 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     <button
                       type="button"
                       className="config-window-load"
-                      disabled={loading}
+                      disabled={busy}
                       onClick={() => {
                         void handleLoadConfigFile();
                       }}
                     >
-                      {loading ? "Loading…" : "Load Config File…"}
+                      {loading ? "Loading…" : "Load Config"}
+                    </button>
+                    <button
+                      type="button"
+                      className="config-window-save"
+                      disabled={busy || hasSyntaxErrors}
+                      onClick={() => {
+                        void handleSaveConfig();
+                      }}
+                    >
+                      {saving ? "Saving…" : "Save"}
                     </button>
                     <button
                       type="button"
@@ -165,9 +242,10 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   </div>
                 </header>
                 <p className="config-window-help">
-                  Read-only view of the active Dashboard Configuration.{" "}
-                  <strong>Load Config File…</strong> opens a file-selection
-                  popup for the shared Google Drive folder (
+                  Edit Dashboard Configuration text, then{" "}
+                  <strong>Save</strong> to write it back to the shared Google
+                  Config Doc for all users. <strong>Load Config</strong> opens
+                  a file-selection popup for the shared Google Drive folder (
                   <a
                     href={ADMIN_CONFIG_DRIVE_FOLDER_URL}
                     target="_blank"
@@ -175,13 +253,13 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                   >
                     https://drive.google.com/drive/u/0/folders/1g-pGEPe4f2sFmX0sngp-4Pm75ONGMnks
                   </a>
-                  ). Select a Dashboard Configuration file to continue. After
-                  both Dashboard and Card Configuration files are loaded, the
-                  combined config is deployed to all users. Themes stay in this
-                  browser. Each value must be inside quotes.
-                  Open Tasks, Over Due, Current Task, and Next Task set the
-                  card metric label text. Card status LED thresholds use Over
-                  Due counts: Green: &quot;1&quot; lights green when overdue is
+                  ). After both Dashboard and Card Configuration files are
+                  loaded, the combined config is deployed to all users. Themes
+                  stay in this browser. Accepted forms include Label:
+                  &quot;value&quot; or bare Label: value (smart quotes OK). Open
+                  Tasks, Over Due, Current Task, and Next Task set the card
+                  metric label text. Card status LED thresholds use Over Due
+                  counts: Green: &quot;1&quot; lights green when overdue is
                   below Yellow, Yellow: &quot;3&quot; lights yellow when overdue
                   is 3 or more, Red: &quot;5&quot; lights red when overdue is 5
                   or more.
@@ -194,15 +272,16 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </label>
                 <textarea
                   id={identityEditorId}
-                  className={`config-window-editor config-window-editor--identity config-window-editor--readonly${
+                  className={`config-window-editor config-window-editor--identity${
                     hasSyntaxErrors ? " config-window-editor--error" : ""
                   }`}
                   value={identityText}
                   spellCheck={false}
-                  readOnly
-                  aria-readonly="true"
+                  onChange={(event) => {
+                    handleIdentityChange(event.target.value);
+                  }}
                   aria-invalid={hasSyntaxErrors}
-                  aria-label="Dashboard identity configuration from Google Drive"
+                  aria-label="Dashboard identity configuration"
                 />
                 <label
                   className="config-window-section-label"
@@ -212,15 +291,16 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                 </label>
                 <textarea
                   id={ledEditorId}
-                  className={`config-window-editor config-window-editor--led config-window-editor--readonly${
+                  className={`config-window-editor config-window-editor--led${
                     hasSyntaxErrors ? " config-window-editor--error" : ""
                   }`}
                   value={ledText}
                   spellCheck={false}
-                  readOnly
-                  aria-readonly="true"
+                  onChange={(event) => {
+                    handleLedChange(event.target.value);
+                  }}
                   aria-invalid={hasSyntaxErrors}
-                  aria-label="Card LED Threshold Configuration from Google Drive"
+                  aria-label="Card LED Threshold Configuration"
                 />
                 {hasSyntaxErrors ? (
                   <ul
@@ -233,16 +313,13 @@ export function ProgramConfigWindow({ config }: ProgramConfigWindowProps) {
                     ))}
                   </ul>
                 ) : null}
-                {loadError ? (
+                {actionError ? (
                   <p className="config-window-errors" role="alert">
-                    {loadError}
+                    {actionError}
                   </p>
                 ) : null}
-                {loaded && !hasSyntaxErrors && !loadError ? (
-                  <p className="config-window-saved">
-                    {deployMessage ??
-                      "Configuration loaded from Google Drive"}
-                  </p>
+                {statusMessage && !hasSyntaxErrors && !actionError ? (
+                  <p className="config-window-saved">{statusMessage}</p>
                 ) : null}
               </div>
             </div>,

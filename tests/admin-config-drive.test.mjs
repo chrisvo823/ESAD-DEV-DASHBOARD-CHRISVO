@@ -139,8 +139,13 @@ test("Load Config and Card Configuration wire to the Drive folder picker", async
   );
   assert.match(
     programWindow,
-    /<button[\s\S]*className="config-window-load"[\s\S]*Load Config File…/,
+    /<button[\s\S]*className="config-window-load"[\s\S]*Load Config/,
   );
+  assert.doesNotMatch(programWindow, /Load Config File…/);
+  assert.match(programWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(programWindow, /config-window-save/);
+  assert.doesNotMatch(programWindow, /readOnly/);
+  assert.doesNotMatch(programWindow, /config-window-editor--readonly/);
   assert.match(configWindow, /pickAdminConfigDriveFile\("card"/);
   assert.match(configWindow, /loadAllCardConfigsFromDriveFile/);
   assert.match(configWindow, /bindAllCardConfigsGoogleDoc/);

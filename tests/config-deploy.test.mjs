@@ -27,7 +27,11 @@ test("Load Config windows trigger deploy-when-both-ready for Dashboard only", as
   ]);
   assert.match(programWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(programWindow, /dashboard:\s*next/);
-  assert.match(programWindow, /deployMessage/);
+  assert.match(programWindow, /statusMessage/);
+  assert.match(programWindow, /\{saving \? "Saving…" : "Save"\}/);
+  assert.match(programWindow, /config-window-save/);
+  assert.match(programWindow, /\{loading \? "Loading…" : "Load Config"\}/);
+  assert.doesNotMatch(programWindow, /Load Config File…/);
   assert.doesNotMatch(configWindow, /noteConfigLoadedAndDeployIfReady/);
   assert.match(configWindow, /saveAllCardConfigsToGoogleDoc/);
   assert.match(configWindow, /bindAllCardConfigsGoogleDoc/);
