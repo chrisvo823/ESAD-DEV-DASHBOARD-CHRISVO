@@ -25,7 +25,9 @@ export async function GET(request: Request) {
   });
   return NextResponse.json({
     ...config,
-    googleDocUrl: getDashboardConfigGoogleDocUrl(),
+    googleDocUrl: getDashboardConfigGoogleDocUrl(
+      config.dashboardConfigDocumentId,
+    ),
     dashboardConfigSource: "google-doc",
     cardConfigSource: "google-doc",
   });
@@ -62,7 +64,9 @@ export async function PUT(request: Request) {
     await access(hostPath);
     return NextResponse.json({
       ...toPublicSiteConfig(updated),
-      googleDocUrl: getDashboardConfigGoogleDocUrl(),
+      googleDocUrl: getDashboardConfigGoogleDocUrl(
+        updated.dashboardConfigDocumentId,
+      ),
       googleDocWritten: Boolean(patch.programConfig),
       cardGoogleDocWritten: Boolean(
         patch.publishCardConfigToGoogleDoc &&

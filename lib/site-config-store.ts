@@ -6,7 +6,9 @@ import {
   writeCardConfigToGoogleDoc,
 } from "./google-doc-card-config";
 import {
+  DASHBOARD_CONFIG_GOOGLE_DOC_ID,
   DASHBOARD_CONFIG_GOOGLE_DOC_URL,
+  googleDocEditUrl,
   readProgramConfigFromGoogleDoc,
   writeProgramConfigToGoogleDoc,
 } from "./google-doc-dashboard-config";
@@ -28,6 +30,14 @@ const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "admin-site-config.json");
 const DATA_FILE_TMP = path.join(DATA_DIR, "admin-site-config.json.tmp");
 const GOOGLE_DOC_CACHE_TTL_MS = 30_000;
+
+/** Resolve the Dashboard Configuration Google Doc id (bound Load file or shared default). */
+export function resolveDashboardConfigDocumentId(
+  boundDocumentId?: string | null,
+): string {
+  const trimmed = boundDocumentId?.trim() ?? "";
+  return trimmed || DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+}
 
 type GlobalSiteStore = typeof globalThis & {
   [GLOBAL_KEY]?: SiteAdminConfig;
@@ -160,6 +170,9 @@ async function applyGoogleDocProgramConfig(
     if (!canUseCache) {
       fromDoc = await readProgramConfigFromGoogleDoc({
         accessToken: options?.googleAccessToken,
+        documentId: resolveDashboardConfigDocumentId(
+          base.dashboardConfigDocumentId,
+        ),
       });
       if (fromDoc) {
         cacheStore[GOOGLE_DOC_CACHE_KEY] = {
@@ -330,9 +343,13 @@ export async function updateSiteAdminConfig(
   const next = applySiteConfigPatch(current, patch);
 
   if (patch.programConfig) {
-    // Dashboard Configuration saves must land in the shared Google Doc.
+    // Dashboard Configuration saves must land in the bound Google Doc immediately.
+    const documentId = resolveDashboardConfigDocumentId(
+      next.dashboardConfigDocumentId || patch.dashboardConfigDocumentId,
+    );
     await writeProgramConfigToGoogleDoc(next.programConfig, {
       accessToken: options?.googleAccessToken,
+      documentId,
     });
     (globalThis as GlobalGoogleDocCache)[GOOGLE_DOC_CACHE_KEY] = {
       programConfig: next.programConfig,
@@ -485,6 +502,11 @@ export async function resetHostAdminPassword(options: {
   return { ok: true, recoveryEmail: email };
 }
 
-export function getDashboardConfigGoogleDocUrl(): string {
-  return DASHBOARD_CONFIG_GOOGLE_DOC_URL;
+export function getDashboardConfigGoogleDocUrl(
+  boundDocumentId?: string | null,
+): string {
+  const documentId = resolveDashboardConfigDocumentId(boundDocumentId);
+  return documentId === DASHBOARD_CONFIG_GOOGLE_DOC_ID
+    ? DASHBOARD_CONFIG_GOOGLE_DOC_URL
+    : googleDocEditUrl(documentId);
 }

@@ -40,9 +40,18 @@ export async function reloadProgramConfigFromGoogleDoc(): Promise<ProgramConfig>
   return config;
 }
 
-/** Persist Dashboard Configuration loaded from a Drive file selected by Admin. */
+export type WriteProgramConfigOptions = {
+  /** Google Doc to write immediately (Load Config selection or shared default). */
+  documentId?: string;
+};
+
+/**
+ * Persist Dashboard Configuration to the bound Google Doc immediately, then
+ * refresh the host cache so every user session picks up the Doc.
+ */
 export async function writeProgramConfig(
   config: ProgramConfig,
+  options?: WriteProgramConfigOptions,
 ): Promise<ProgramConfig> {
   const lead = config.programLead.trimStart();
   const next = withDefaultProgramLedThresholds({
@@ -64,7 +73,15 @@ export async function writeProgramConfig(
       new CustomEvent(PROGRAM_CONFIG_EVENT, { detail: { config: next } }),
     );
   }
-  await persistSiteConfigPatch({ programConfig: next });
+  const patch: {
+    programConfig: ProgramConfig;
+    dashboardConfigDocumentId?: string;
+  } = { programConfig: next };
+  const documentId = options?.documentId?.trim();
+  if (documentId) {
+    patch.dashboardConfigDocumentId = documentId;
+  }
+  await persistSiteConfigPatch(patch);
   return next;
 }
 

@@ -17,6 +17,12 @@ import {
 /** Host-persisted Admin configuration (Themes stay in browser localStorage). */
 export type SiteAdminConfig = {
   programConfig: ProgramConfig;
+  /**
+   * Selected Dashboard Configuration Google Doc id.
+   * When set, that Doc is the source of truth for Hero / metric / LED fields
+   * (host values are cache). Empty means the compiled shared Doc id.
+   */
+  dashboardConfigDocumentId: string;
   dashboardConfigs: Record<string, DashboardConfig>;
   /**
    * Selected Card Configuration Google Doc id per dashboard/card id.
@@ -33,6 +39,7 @@ export type SiteAdminConfig = {
 
 export type SiteConfigPublic = {
   programConfig: ProgramConfig;
+  dashboardConfigDocumentId: string;
   dashboardConfigs: Record<string, DashboardConfig>;
   cardConfigDocumentIds: Record<string, string>;
   customCards: CustomCardRecord[];
@@ -43,6 +50,8 @@ export type SiteConfigPublic = {
 
 export type SiteConfigPatch = {
   programConfig?: ProgramConfig;
+  /** Bind / retarget the Dashboard Configuration Google Doc for Load + Save. */
+  dashboardConfigDocumentId?: string;
   dashboardConfigs?: Record<string, DashboardConfig>;
   dashboardConfig?: DashboardConfig;
   cardConfigDocumentIds?: Record<string, string>;
@@ -227,6 +236,7 @@ export function createDefaultSiteAdminConfig(): SiteAdminConfig {
   const { password } = getAdminCredentials();
   return {
     programConfig: { ...DEFAULT_PROGRAM_CONFIG },
+    dashboardConfigDocumentId: "",
     dashboardConfigs: cloneDefaultDashboardConfigs(),
     cardConfigDocumentIds: {},
     customCards: [],
@@ -236,6 +246,10 @@ export function createDefaultSiteAdminConfig(): SiteAdminConfig {
     },
     updatedAt: null,
   };
+}
+
+export function sanitizeDashboardConfigDocumentId(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim() : "";
 }
 
 export function sanitizeSiteAdminConfig(raw: unknown): SiteAdminConfig {
@@ -272,6 +286,9 @@ export function sanitizeSiteAdminConfig(raw: unknown): SiteAdminConfig {
 
   return {
     programConfig: sanitizeProgramConfig(entry.programConfig),
+    dashboardConfigDocumentId: sanitizeDashboardConfigDocumentId(
+      entry.dashboardConfigDocumentId,
+    ),
     dashboardConfigs,
     cardConfigDocumentIds,
     customCards,
@@ -289,6 +306,7 @@ export function sanitizeSiteAdminConfig(raw: unknown): SiteAdminConfig {
 export function toPublicSiteConfig(config: SiteAdminConfig): SiteConfigPublic {
   return {
     programConfig: config.programConfig,
+    dashboardConfigDocumentId: config.dashboardConfigDocumentId,
     dashboardConfigs: config.dashboardConfigs,
     cardConfigDocumentIds: { ...config.cardConfigDocumentIds },
     customCards: config.customCards,
@@ -319,6 +337,7 @@ export function applySiteConfigPatch(
   const next: SiteAdminConfig = {
     ...current,
     programConfig: { ...current.programConfig },
+    dashboardConfigDocumentId: current.dashboardConfigDocumentId,
     dashboardConfigs: { ...current.dashboardConfigs },
     cardConfigDocumentIds: { ...current.cardConfigDocumentIds },
     customCards: current.customCards.map((card) => ({
@@ -330,6 +349,12 @@ export function applySiteConfigPatch(
 
   if (patch.programConfig) {
     next.programConfig = sanitizeProgramConfig(patch.programConfig);
+  }
+
+  if (patch.dashboardConfigDocumentId !== undefined) {
+    next.dashboardConfigDocumentId = sanitizeDashboardConfigDocumentId(
+      patch.dashboardConfigDocumentId,
+    );
   }
 
   if (patch.dashboardConfigs) {

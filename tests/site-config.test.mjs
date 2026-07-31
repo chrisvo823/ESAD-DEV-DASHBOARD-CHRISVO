@@ -493,6 +493,29 @@ test("forceGoogleDocRefresh bypasses TTL so live Hero stays Doc-sourced", async 
   assert.equal(fresh.programConfig.programLead, "Fresh Doc Lead");
 });
 
+test("Dashboard Configuration save publishes immediately to the bound Google Doc", async () => {
+  const cardDocId = "dashboard-config-doc-bound";
+  await updateSiteAdminConfig({
+    programConfig: {
+      dashboardName: "Bound Doc Dashboard",
+      programLead: "Bound Lead",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    },
+    dashboardConfigDocumentId: cardDocId,
+  });
+
+  assert.match(readMockDoc(cardDocId), /Dashboard Name: "Bound Doc Dashboard"/);
+  assert.match(readMockDoc(cardDocId), /Program Lead: "Bound Lead"/);
+  const loaded = await loadSiteAdminConfig({ skipGoogleDoc: true });
+  assert.equal(loaded.dashboardConfigDocumentId, cardDocId);
+});
+
 test("Card Configuration save publishes to the selected Google Doc for all users", async () => {
   const cardDocId = "card-config-doc-3";
   const base = createDefaultSiteAdminConfig().dashboardConfigs["3"];
