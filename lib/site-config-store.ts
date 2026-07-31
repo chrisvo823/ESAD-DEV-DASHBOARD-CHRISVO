@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAdminCredentials, type DashboardConfig } from "./dashboard-config";
+import { isCustomCardId } from "./custom-cards";
 import {
   readAllCardConfigsFromGoogleDoc,
   writeCardConfigToGoogleDoc,
@@ -276,12 +277,12 @@ async function applyGoogleDocCardConfigs(
     ...base,
     dashboardConfigs: nextConfigs,
     cardConfigDocumentIds: nextDocumentIds,
-    customCards: base.customCards.map((card) => ({
-      id: card.id,
-      config: nextConfigs[card.id]
-        ? { ...nextConfigs[card.id]!, dashboardId: card.id }
-        : { ...card.config },
-    })),
+    customCards: Object.values(nextConfigs)
+      .filter((config) => isCustomCardId(String(config.dashboardId)))
+      .map((config) => ({
+        id: config.dashboardId,
+        config: { ...config, dashboardId: config.dashboardId },
+      })),
     updatedAt: base.updatedAt ?? new Date().toISOString(),
   };
 

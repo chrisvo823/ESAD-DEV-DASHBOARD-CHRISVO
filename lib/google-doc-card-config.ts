@@ -1,14 +1,29 @@
 import {
-  formatAllDashboardConfigsText,
   formatDashboardConfigText,
   parseAllDashboardConfigsFromText,
   type DashboardConfig,
 } from "./dashboard-config";
+import { isCustomCardId } from "./custom-cards";
 import {
   readGoogleDocPlainText,
   writePlainTextToGoogleDoc,
 } from "./google-doc-dashboard-config";
 
+/**
+ * Format Card Configuration Doc text. Fixed cards keep quoted values;
+ * added (custom) cards use bare values (no quotation marks).
+ */
+export function formatCardConfigDocumentText(
+  configs: readonly DashboardConfig[],
+): string {
+  return configs
+    .map((config) =>
+      formatDashboardConfigText(config, {
+        quoted: !isCustomCardId(String(config.dashboardId)),
+      }),
+    )
+    .join("\n\n");
+}
 /**
  * Read Card Configuration text from a selected Google Doc and parse every
  * Card # section into dashboard configs.
@@ -61,10 +76,7 @@ export async function writeCardConfigToGoogleDoc(
   },
 ): Promise<{ documentId: string; documentUrl: string; text: string }> {
   const configs = Array.isArray(config) ? config : [config];
-  const text =
-    configs.length === 1
-      ? formatDashboardConfigText(configs[0]!)
-      : formatAllDashboardConfigsText(configs);
+  const text = formatCardConfigDocumentText(configs);
   return writePlainTextToGoogleDoc(documentId, text, {
     accessToken: options?.accessToken,
   });

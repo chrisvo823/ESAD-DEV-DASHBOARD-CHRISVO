@@ -8,6 +8,7 @@ import {
   type DashboardId,
   type FixedDashboardId,
 } from "../lib/dashboard-config";
+import { isCustomCardId } from "../lib/custom-cards";
 import {
   getCachedSiteConfig,
   hydrateSiteConfigFromHost,
@@ -58,6 +59,15 @@ function emitLegacyConfigEvent(config: DashboardConfig) {
   );
 }
 
+function customCardsFromConfigs(configs: DashboardConfig[]) {
+  return configs
+    .filter((config) => isCustomCardId(String(config.dashboardId)))
+    .map((config) => ({
+      id: config.dashboardId,
+      config: { ...config, dashboardId: config.dashboardId },
+    }));
+}
+
 export function readDashboardConfigs(): ConfigMap {
   if (typeof window === "undefined") return cloneDefaults();
   const cached = readCachedDashboardConfigs();
@@ -98,6 +108,7 @@ export async function bindAllCardConfigsGoogleDoc(options: {
       ...next,
     },
     cardConfigDocumentIds,
+    customCards: customCardsFromConfigs(Object.values(next)),
   });
   return next;
 }
@@ -119,6 +130,7 @@ export async function saveCardConfigToGoogleDoc(options: {
   await persistSiteConfigPatch({
     dashboardConfig: next[config.dashboardId]!,
     cardConfigDocumentIds: { [config.dashboardId]: documentId },
+    customCards: customCardsFromConfigs(Object.values(next)),
     publishCardConfigToGoogleDoc: true,
   });
   return next;
@@ -137,7 +149,9 @@ export async function saveAllCardConfigsToGoogleDoc(options: {
     throw new Error("Nothing to save — add at least one Card # section.");
   }
   const next = { ...readDashboardConfigs() };
-  const cardConfigDocumentIds: Record<string, string> = {};
+  const cardConfigDocumentIds: Record<string, string> = {
+    ...getCachedSiteConfig().cardConfigDocumentIds,
+  };
   const published: DashboardConfig[] = [];
   for (const config of configs) {
     const saved = { ...config, dashboardId: config.dashboardId };
@@ -146,9 +160,19 @@ export async function saveAllCardConfigsToGoogleDoc(options: {
     published.push(saved);
     emitLegacyConfigEvent(saved);
   }
+  const publishedIds = new Set(
+    published.map((config) => String(config.dashboardId)),
+  );
+  for (const id of Object.keys(next)) {
+    if (isCustomCardId(id) && !publishedIds.has(id)) {
+      delete next[id];
+      delete cardConfigDocumentIds[id];
+    }
+  }
   await persistSiteConfigPatch({
     dashboardConfigs: next,
     cardConfigDocumentIds,
+    customCards: customCardsFromConfigs(published),
     publishCardConfigToGoogleDoc: true,
     cardConfigsToPublish: published,
   });

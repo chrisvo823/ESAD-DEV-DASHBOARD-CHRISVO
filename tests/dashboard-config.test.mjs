@@ -184,6 +184,21 @@ test("parses Card # when the number is inside single or double quotes", () => {
   }
 });
 
+test("parses Card #5 bare-value sections for added cards", () => {
+  const text = [
+    "Card #: 5",
+    "Responsible Engineer: ",
+    "Board Name: New Board 5",
+    "Board Nickname: NB5",
+    "Google Drive Link: ",
+    "Smartsheet Link: ",
+  ].join("\n");
+  const parsed = parseAllDashboardConfigsFromText(text);
+  assert.ok("configs" in parsed);
+  assert.equal(parsed.configs[0]?.dashboardId, "5");
+  assert.equal(parsed.configs[0]?.boardName, "New Board 5");
+});
+
 test("flags missing closing quote as a syntax error", () => {
   const text = [
     'Card #: "1"',
