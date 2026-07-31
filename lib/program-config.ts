@@ -221,6 +221,34 @@ export function formatProgramConfigText(config: ProgramConfig): string {
   ].join("\n");
 }
 
+/**
+ * Clear every quoted/bare field value in Dashboard Configuration text.
+ * Keeps the Card LED Threshold Configuration section header (same role as
+ * Card # in Card Configuration Reset). `Label: "value"` becomes `Label: ""`.
+ */
+export function resetProgramConfigQuotedValues(text: string): string {
+  return normalizeConfigDocText(text)
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (/^Card\s*LED\s*Threshold\s*Configuration\s*:?\s*$/i.test(trimmed)) {
+        return line;
+      }
+      if (/^[^:]+:\s*".*"\s*$/.test(trimmed)) {
+        return line.replace(/:\s*"[^"]*"\s*$/, ': ""');
+      }
+      if (/^[^:]+:\s*.+\s*$/.test(trimmed)) {
+        return line.replace(/:\s*.+\s*$/, ': ""');
+      }
+      if (/^[^:]+:\s*$/.test(trimmed)) {
+        return line.replace(/:\s*$/, ': ""');
+      }
+      return line;
+    })
+    .join("\n");
+}
+
 /** Combine the two Dashboard Configuration editors into one parseable text blob. */
 export function combineProgramConfigEditors(
   identityText: string,
