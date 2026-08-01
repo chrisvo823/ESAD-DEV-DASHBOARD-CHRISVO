@@ -5,9 +5,34 @@ import {
 } from "./dashboard-config";
 import { isCustomCardId } from "./custom-cards";
 import {
+  googleDocEditUrl,
   readGoogleDocPlainText,
   writePlainTextToGoogleDoc,
 } from "./google-doc-dashboard-config";
+
+/**
+ * Shared Google Doc that stores Card Configuration for every user
+ * (Admin Drive folder → ESAD_Cards_Config). Same recovery pattern as
+ * DASHBOARD_CONFIG_GOOGLE_DOC_ID so cards refill after ephemeral host loss.
+ * Override with CARD_CONFIG_GOOGLE_DOC_ID / ESAD_CARD_CONFIG_GOOGLE_DOC_ID.
+ */
+export const DEFAULT_CARD_CONFIG_GOOGLE_DOC_ID =
+  "1F016o0deQemL7Feo5QTZQl1VLgKOuiL5VQzwnM8JVj8";
+
+export function resolveCardConfigGoogleDocId(): string {
+  return (
+    process.env.CARD_CONFIG_GOOGLE_DOC_ID?.trim() ||
+    process.env.ESAD_CARD_CONFIG_GOOGLE_DOC_ID?.trim() ||
+    DEFAULT_CARD_CONFIG_GOOGLE_DOC_ID
+  );
+}
+
+/** @deprecated Prefer resolveCardConfigGoogleDocId() when env overrides matter. */
+export const CARD_CONFIG_GOOGLE_DOC_ID = DEFAULT_CARD_CONFIG_GOOGLE_DOC_ID;
+
+export const CARD_CONFIG_GOOGLE_DOC_URL = googleDocEditUrl(
+  DEFAULT_CARD_CONFIG_GOOGLE_DOC_ID,
+);
 
 /**
  * Format Card Configuration Doc text with quoted values.

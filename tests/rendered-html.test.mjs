@@ -470,6 +470,7 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigClient, /seedSiteConfigFromServer/);
   assert.match(siteConfigClient, /hostFetchGeneration/);
   assert.match(siteConfigClient, /preferNewerConfig/);
+  assert.match(siteConfigClient, /hasFilledCardIdentity/);
   assert.match(siteConfigClient, /hostFileWritten !== true/);
   assert.match(siteConfigClient, /x-esad-google-access-token/);
   assert.match(siteConfigClient, /\/api\/site-config/);
@@ -482,6 +483,9 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigStore, /writeCardConfigToGoogleDoc/);
   assert.match(siteConfigStore, /readAllCardConfigsFromGoogleDoc/);
   assert.match(siteConfigStore, /cardConfigDocumentIds/);
+  assert.match(siteConfigStore, /resolveCardConfigDocumentIds/);
+  assert.match(siteConfigStore, /resolveCardConfigGoogleDocId/);
+  assert.match(siteConfigStore, /hasFilledCardIdentity/);
   assert.match(siteConfigStore, /Card #/);
   assert.match(siteConfigStore, /rename\(dataFileTmp,\s*dataFile\)/);
   assert.match(siteConfigStore, /unlink\(dataFile\)/);

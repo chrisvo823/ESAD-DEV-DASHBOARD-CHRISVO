@@ -198,6 +198,7 @@ async function seedWorkerSiteConfigFromRepo(port: number): Promise<void> {
   try {
     const disk = JSON.parse(readFileSync(repoSiteConfigFile, "utf8")) as {
       dashboardConfigs?: Record<string, unknown>;
+      cardConfigDocumentIds?: Record<string, string>;
       adminCredentials?: { password?: string };
     };
     const password =
@@ -216,7 +217,15 @@ async function seedWorkerSiteConfigFromRepo(port: number): Promise<void> {
             "content-type": "application/json",
             "x-esad-admin-password": password,
           },
-          body: JSON.stringify({ dashboardConfigs: disk.dashboardConfigs }),
+          body: JSON.stringify({
+            dashboardConfigs: disk.dashboardConfigs,
+            // Persist Card Config Doc bindings when present so local preview
+            // can re-pull cards after a Worker FS reset (same as production).
+            ...(disk.cardConfigDocumentIds &&
+            typeof disk.cardConfigDocumentIds === "object"
+              ? { cardConfigDocumentIds: disk.cardConfigDocumentIds }
+              : {}),
+          }),
         });
         if (response.ok) return;
       } catch {

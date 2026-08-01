@@ -3,6 +3,7 @@ import test from "node:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { formatCardConfigDocumentText } from "../lib/google-doc-card-config.ts";
 import { formatProgramConfigText } from "../lib/program-config.ts";
 
 const tempRoot = await mkdtemp(path.join(os.tmpdir(), "esad-site-config-"));
@@ -13,6 +14,7 @@ process.env.GOOGLE_DOCS_ACCESS_TOKEN = "test-google-docs-token";
 
 const DASHBOARD_CONFIG_GOOGLE_DOC_ID =
   "15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA";
+const CARD_CONFIG_GOOGLE_DOC_ID = "1F016o0deQemL7Feo5QTZQl1VLgKOuiL5VQzwnM8JVj8";
 
 /** In-memory stand-in for Google Docs keyed by document id. */
 const mockGoogleDocs = new Map([
@@ -29,6 +31,31 @@ const mockGoogleDocs = new Map([
       ledYellowAtLeast: 3,
       ledRedAtLeast: 5,
     }),
+  ],
+  [
+    CARD_CONFIG_GOOGLE_DOC_ID,
+    formatCardConfigDocumentText([
+      {
+        dashboardId: "1",
+        responsibleEngineer: "Bruno Abousleiman",
+        boardName: "Digital Safety Board",
+        boardNickname: "DSB",
+        googleDriveLink:
+          "https://docs.google.com/spreadsheets/d/1RbnLe7FBrnT1njFWnsVyW74Iq2N5miTH9vFmRwagzps/edit",
+        smartsheetLink:
+          "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1",
+      },
+      {
+        dashboardId: "2",
+        responsibleEngineer: "George Madden",
+        boardName: "High Voltage Fireset Board",
+        boardNickname: "HVFB",
+        googleDriveLink:
+          "https://docs.google.com/spreadsheets/d/1CQrxwKHPkqQhaFarLwiuUW9zUMU_yTRlfArl_lNzdZ8/edit",
+        smartsheetLink:
+          "https://app.smartsheet.com/sheets/MQWP7M7WVcg7J7q5JFqvwV8mMpHVMx8w3wmXwMW1",
+      },
+    ]),
   ],
 ]);
 
@@ -112,6 +139,7 @@ const {
   getPublicSiteConfig,
   loadSiteAdminConfig,
   resetHostAdminPassword,
+  resolveCardConfigDocumentIds,
   updateSiteAdminConfig,
   verifyAdminLogin,
 } = await import("../lib/site-config-store.ts");
@@ -521,6 +549,8 @@ test("Card Configuration save publishes to the selected Google Doc for all users
   const base = createDefaultSiteAdminConfig().dashboardConfigs["3"];
   const published = {
     ...base,
+    // Board Name is required for Doc re-parse after empty drive-only defaults.
+    boardName: "CPLD - Primary",
     boardNickname: "CPLD",
     responsibleEngineer: "Doc Engineer",
   };
@@ -552,6 +582,36 @@ test("Card Configuration save publishes to the selected Google Doc for all users
   assert.equal(loaded.cardConfigDocumentIds["3"], cardDocId);
   assert.equal(loaded.dashboardConfigs["3"]?.boardNickname, "CPLD");
   assert.equal(loaded.dashboardConfigs["3"]?.responsibleEngineer, "Doc Engineer");
+});
+
+test("empty host recovers Card Configuration from the shared Card Config Doc", async () => {
+  // Simulate ephemeral Worker / Cloud Run FS loss: no host file, no mappings.
+  globalThis.__esadSiteAdminConfig__ = undefined;
+  globalThis.__esadGoogleDocProgramConfigCache__ = undefined;
+  globalThis.__esadGoogleDocCardConfigCache__ = undefined;
+  await rm(path.join(tempRoot, ".data"), { recursive: true, force: true });
+
+  const fallbackIds = resolveCardConfigDocumentIds({});
+  assert.equal(fallbackIds["1"], CARD_CONFIG_GOOGLE_DOC_ID);
+  assert.equal(fallbackIds["4"], CARD_CONFIG_GOOGLE_DOC_ID);
+
+  const loaded = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
+  assert.equal(loaded.dashboardConfigs["1"]?.boardNickname, "DSB");
+  assert.equal(
+    loaded.dashboardConfigs["1"]?.responsibleEngineer,
+    "Bruno Abousleiman",
+  );
+  assert.match(
+    loaded.dashboardConfigs["1"]?.googleDriveLink ?? "",
+    /spreadsheets/,
+  );
+  assert.equal(loaded.dashboardConfigs["2"]?.boardNickname, "HVFB");
+  assert.equal(loaded.cardConfigDocumentIds["1"], CARD_CONFIG_GOOGLE_DOC_ID);
+  // Explicit Load bindings still win over the shared default.
+  assert.equal(
+    resolveCardConfigDocumentIds({ "1": "custom-card-doc" })["1"],
+    "custom-card-doc",
+  );
 });
 
 test("Card Configuration multi-card save writes every Card # section to one Google Doc", async () => {

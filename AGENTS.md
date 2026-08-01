@@ -49,3 +49,6 @@ Non-obvious caveats:
   Without `SMARTSHEET_ACCESS_TOKEN` on the Firebase backend, Current/Next Task show
   **Unavailable**. Without Firebase web config (`FIREBASE_WEBAPP_CONFIG` at build or
   `NEXT_PUBLIC_FIREBASE_*`), Auth stays in preview mode.
+- Host `.data/` is ephemeral on Workers / Cloud Run. Dashboard Configuration recovers via
+  hardcoded `DASHBOARD_CONFIG_GOOGLE_DOC_ID`; Card Configuration recovers via shared
+  `CARD_CONFIG_GOOGLE_DOC_ID` (`ESAD_Cards_Config`) when `cardConfigDocumentIds` is empty.
