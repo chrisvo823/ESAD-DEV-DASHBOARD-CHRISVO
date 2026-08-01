@@ -52,7 +52,27 @@ function configUpdatedAtMs(config: SiteConfigCache | null | undefined): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-/** Keep the newer host config; never let an older GET wipe a just-saved value. */
+function hasFilledCardIdentity(config: SiteConfigCache | null | undefined): boolean {
+  if (!config) return false;
+  for (const card of Object.values(config.dashboardConfigs ?? {})) {
+    if (
+      card.boardName?.trim() ||
+      card.responsibleEngineer?.trim() ||
+      card.boardNickname?.trim() ||
+      card.googleDriveLink?.trim() ||
+      card.smartsheetLink?.trim()
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Keep the newer host config; never let an older GET wipe a just-saved value.
+ * Also never prefer a newer-but-empty card payload over filled cards (ephemeral
+ * host loss + Hero Doc write-through used to blank the UI after ~3 minutes).
+ */
 function preferNewerConfig(
   current: SiteConfigCache | null,
   incoming: SiteConfigCache,
@@ -60,6 +80,20 @@ function preferNewerConfig(
   if (!current) return incoming;
   if (configUpdatedAtMs(incoming) < configUpdatedAtMs(current)) {
     return current;
+  }
+  if (hasFilledCardIdentity(current) && !hasFilledCardIdentity(incoming)) {
+    return {
+      ...incoming,
+      dashboardConfigs: current.dashboardConfigs,
+      cardConfigDocumentIds:
+        Object.keys(incoming.cardConfigDocumentIds ?? {}).length > 0
+          ? incoming.cardConfigDocumentIds
+          : current.cardConfigDocumentIds,
+      customCards:
+        current.customCards.length > 0
+          ? current.customCards
+          : incoming.customCards,
+    };
   }
   return incoming;
 }

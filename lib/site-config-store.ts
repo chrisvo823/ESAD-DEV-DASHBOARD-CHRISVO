@@ -1,9 +1,14 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getAdminCredentials, type DashboardConfig } from "./dashboard-config";
+import {
+  FIXED_DASHBOARD_IDS,
+  getAdminCredentials,
+  type DashboardConfig,
+} from "./dashboard-config";
 import { isCustomCardId } from "./custom-cards";
 import {
   readAllCardConfigsFromGoogleDoc,
+  resolveCardConfigGoogleDocId,
   writeCardConfigToGoogleDoc,
 } from "./google-doc-card-config";
 import {
@@ -56,6 +61,48 @@ export function resolveDashboardConfigDocumentId(
 ): string {
   const trimmed = boundDocumentId?.trim() ?? "";
   return trimmed || DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+}
+
+/**
+ * Resolve Card Configuration Doc id mappings.
+ * When the host has no Load Config bindings (common after ephemeral Worker /
+ * Cloud Run FS loss), fall back to the shared Card Config Doc for fixed cards
+ * so Current/Next Task and Drive links recover without Admin re-Load.
+ */
+export function resolveCardConfigDocumentIds(
+  mappedDocumentIds?: Record<string, string> | null,
+): Record<string, string> {
+  const mapped: Record<string, string> = {};
+  for (const [id, documentId] of Object.entries(mappedDocumentIds ?? {})) {
+    const trimmed = documentId?.trim() ?? "";
+    if (trimmed) mapped[id] = trimmed;
+  }
+  if (Object.keys(mapped).length > 0) return mapped;
+
+  const sharedCardDocId = resolveCardConfigGoogleDocId();
+  const fallback: Record<string, string> = {};
+  for (const id of FIXED_DASHBOARD_IDS) {
+    fallback[id] = sharedCardDocId;
+  }
+  return fallback;
+}
+
+function hasFilledCardIdentity(
+  configs: Record<string, DashboardConfig> | undefined,
+): boolean {
+  if (!configs) return false;
+  for (const config of Object.values(configs)) {
+    if (
+      config.boardName?.trim() ||
+      config.responsibleEngineer?.trim() ||
+      config.boardNickname?.trim() ||
+      config.googleDriveLink?.trim() ||
+      config.smartsheetLink?.trim()
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 type GlobalSiteStore = typeof globalThis & {
@@ -231,11 +278,15 @@ async function applyGoogleDocProgramConfig(
       updatedAt: base.updatedAt ?? new Date().toISOString(),
     };
     // Keep a host-file cache so SSR still has the last known Doc values if
-    // Google is briefly unreachable.
-    try {
-      await writePersistedConfig(next);
-    } catch {
-      // Cache write is best-effort.
+    // Google is briefly unreachable. Skip write-through when cards are still
+    // empty placeholders — otherwise a Hero-only Doc pull stamps a newer
+    // updatedAt over empty cards and the 3-minute refresh prefers that wipe.
+    if (hasFilledCardIdentity(base.dashboardConfigs)) {
+      try {
+        await writePersistedConfig(next);
+      } catch {
+        // Cache write is best-effort.
+      }
     }
     return next;
   } catch {
@@ -248,6 +299,7 @@ async function applyGoogleDocProgramConfig(
  * Overlay Card Configuration from each selected Google Doc.
  * Docs may contain one or more Card # sections; each section configures the
  * matching card id for every user. Host file values are only a cache.
+ * When no Load Config mappings exist, fall back to the shared Card Config Doc.
  */
 async function applyGoogleDocCardConfigs(
   base: SiteAdminConfig,
@@ -255,7 +307,9 @@ async function applyGoogleDocCardConfigs(
 ): Promise<SiteAdminConfig> {
   if (options?.skipGoogleDoc) return base;
 
-  const mappedDocumentIds = base.cardConfigDocumentIds ?? {};
+  const mappedDocumentIds = resolveCardConfigDocumentIds(
+    base.cardConfigDocumentIds,
+  );
   const uniqueDocumentIds = [
     ...new Set(Object.values(mappedDocumentIds).map((id) => id.trim())),
   ].filter(Boolean);
