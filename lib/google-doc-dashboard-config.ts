@@ -6,12 +6,30 @@ import {
 } from "./program-config";
 import { sanitizeProgramConfig } from "./site-config";
 
-/** Shared Google Doc that stores Dashboard Configuration for every user. */
+/**
+ * Shared Google Doc that stores Dashboard Configuration for every user
+ * (Admin Drive folder → ESAD_Dashboard_Config). Same recovery pattern as
+ * DEFAULT_CARD_CONFIG_GOOGLE_DOC_ID so Hero fields refill after ephemeral
+ * host loss. Override with DASHBOARD_CONFIG_GOOGLE_DOC_ID /
+ * ESAD_DASHBOARD_CONFIG_GOOGLE_DOC_ID.
+ */
+export const DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID =
+  "1V10HN9EQSx4a3CpJmb_aYyV_Xr37mo1zVXDhaTHEiB0";
+
+export function resolveDashboardConfigGoogleDocId(): string {
+  return (
+    process.env.DASHBOARD_CONFIG_GOOGLE_DOC_ID?.trim() ||
+    process.env.ESAD_DASHBOARD_CONFIG_GOOGLE_DOC_ID?.trim() ||
+    DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID
+  );
+}
+
+/** Default shared Doc id (env overrides use resolveDashboardConfigGoogleDocId). */
 export const DASHBOARD_CONFIG_GOOGLE_DOC_ID =
-  "15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA";
+  DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID;
 
 export const DASHBOARD_CONFIG_GOOGLE_DOC_URL =
-  `https://docs.google.com/document/d/${DASHBOARD_CONFIG_GOOGLE_DOC_ID}/edit?tab=t.0`;
+  `https://docs.google.com/document/d/${DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID}/edit?tab=t.0`;
 
 export function googleDocEditUrl(documentId: string): string {
   return `https://docs.google.com/document/d/${documentId}/edit`;
@@ -180,7 +198,7 @@ export async function resolveGoogleDocsAccessToken(
 }
 
 export function googleDocExportTextUrl(
-  documentId = DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+  documentId = resolveDashboardConfigGoogleDocId(),
 ): string {
   return `https://docs.google.com/document/d/${documentId}/export?format=txt`;
 }
@@ -249,7 +267,8 @@ async function fetchGoogleDocPlainText(options: {
   documentId?: string;
   accessToken?: string | null;
 }): Promise<string> {
-  const documentId = options.documentId ?? DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+  const documentId =
+    options.documentId?.trim() || resolveDashboardConfigGoogleDocId();
   const accessToken = await resolveGoogleDocsAccessToken(options.accessToken);
 
   if (accessToken) {
@@ -388,7 +407,8 @@ export async function writeProgramConfigToGoogleDoc(
     documentId?: string;
   },
 ): Promise<{ documentId: string; documentUrl: string; text: string }> {
-  const documentId = options?.documentId ?? DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+  const documentId =
+    options?.documentId?.trim() || resolveDashboardConfigGoogleDocId();
   const text = formatProgramConfigText(sanitizeProgramConfig(config));
   const written = await writePlainTextToGoogleDoc(documentId, text, {
     accessToken: options?.accessToken,
@@ -396,7 +416,7 @@ export async function writeProgramConfigToGoogleDoc(
   return {
     ...written,
     documentUrl:
-      documentId === DASHBOARD_CONFIG_GOOGLE_DOC_ID
+      documentId === resolveDashboardConfigGoogleDocId()
         ? DASHBOARD_CONFIG_GOOGLE_DOC_URL
         : written.documentUrl,
   };

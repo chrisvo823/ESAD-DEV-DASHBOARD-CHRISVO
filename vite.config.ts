@@ -197,6 +197,8 @@ async function seedWorkerSiteConfigFromRepo(port: number): Promise<void> {
   if (!existsSync(repoSiteConfigFile)) return;
   try {
     const disk = JSON.parse(readFileSync(repoSiteConfigFile, "utf8")) as {
+      programConfig?: Record<string, unknown>;
+      dashboardConfigDocumentId?: string;
       dashboardConfigs?: Record<string, unknown>;
       cardConfigDocumentIds?: Record<string, string>;
       adminCredentials?: { password?: string };
@@ -218,6 +220,15 @@ async function seedWorkerSiteConfigFromRepo(port: number): Promise<void> {
             "x-esad-admin-password": password,
           },
           body: JSON.stringify({
+            ...(disk.programConfig && typeof disk.programConfig === "object"
+              ? { programConfig: disk.programConfig }
+              : {}),
+            ...(disk.dashboardConfigDocumentId?.trim()
+              ? {
+                  dashboardConfigDocumentId:
+                    disk.dashboardConfigDocumentId.trim(),
+                }
+              : {}),
             dashboardConfigs: disk.dashboardConfigs,
             // Persist Card Config Doc bindings when present so local preview
             // can re-pull cards after a Worker FS reset (same as production).

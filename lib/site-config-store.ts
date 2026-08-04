@@ -12,10 +12,10 @@ import {
   writeCardConfigToGoogleDoc,
 } from "./google-doc-card-config";
 import {
-  DASHBOARD_CONFIG_GOOGLE_DOC_ID,
   DASHBOARD_CONFIG_GOOGLE_DOC_URL,
   googleDocEditUrl,
   readProgramConfigFromGoogleDoc,
+  resolveDashboardConfigGoogleDocId,
   writeProgramConfigToGoogleDoc,
 } from "./google-doc-dashboard-config";
 import {
@@ -55,12 +55,12 @@ function getDataFileTmp(): string {
 
 const GOOGLE_DOC_CACHE_TTL_MS = 30_000;
 
-/** Resolve the Dashboard Configuration Google Doc id (bound Load file or shared default). */
+/** Resolve the Dashboard Configuration Google Doc id (bound Load file or shared Drive default). */
 export function resolveDashboardConfigDocumentId(
   boundDocumentId?: string | null,
 ): string {
   const trimmed = boundDocumentId?.trim() ?? "";
-  return trimmed || DASHBOARD_CONFIG_GOOGLE_DOC_ID;
+  return trimmed || resolveDashboardConfigGoogleDocId();
 }
 
 /**
@@ -271,9 +271,16 @@ async function applyGoogleDocProgramConfig(
     }
     if (!fromDoc) return base;
 
+    const resolvedDocumentId = resolveDashboardConfigDocumentId(
+      base.dashboardConfigDocumentId,
+    );
     const next: SiteAdminConfig = {
       ...base,
       programConfig: sanitizeProgramConfig(fromDoc),
+      // Bind the shared Drive Doc when host had no Load Config mapping so the
+      // next cold start / refresh keeps pulling Dashboard Configuration.
+      dashboardConfigDocumentId:
+        base.dashboardConfigDocumentId?.trim() || resolvedDocumentId,
       // Treat a successful Google Doc pull as persisted shared config.
       updatedAt: base.updatedAt ?? new Date().toISOString(),
     };
@@ -281,6 +288,7 @@ async function applyGoogleDocProgramConfig(
     // Google is briefly unreachable. Skip write-through when cards are still
     // empty placeholders — otherwise a Hero-only Doc pull stamps a newer
     // updatedAt over empty cards and the 3-minute refresh prefers that wipe.
+    // (Card overlay in the same load persists both Hero + cards when ready.)
     if (hasFilledCardIdentity(base.dashboardConfigs)) {
       try {
         await writePersistedConfig(next);
@@ -612,7 +620,7 @@ export function getDashboardConfigGoogleDocUrl(
   boundDocumentId?: string | null,
 ): string {
   const documentId = resolveDashboardConfigDocumentId(boundDocumentId);
-  return documentId === DASHBOARD_CONFIG_GOOGLE_DOC_ID
+  return documentId === resolveDashboardConfigGoogleDocId()
     ? DASHBOARD_CONFIG_GOOGLE_DOC_URL
     : googleDocEditUrl(documentId);
 }

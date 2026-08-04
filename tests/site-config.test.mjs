@@ -13,7 +13,7 @@ process.chdir(tempRoot);
 process.env.GOOGLE_DOCS_ACCESS_TOKEN = "test-google-docs-token";
 
 const DASHBOARD_CONFIG_GOOGLE_DOC_ID =
-  "15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA";
+  "1V10HN9EQSx4a3CpJmb_aYyV_Xr37mo1zVXDhaTHEiB0";
 const CARD_CONFIG_GOOGLE_DOC_ID = "1F016o0deQemL7Feo5QTZQl1VLgKOuiL5VQzwnM8JVj8";
 
 /** In-memory stand-in for Google Docs keyed by document id. */
@@ -140,6 +140,7 @@ const {
   loadSiteAdminConfig,
   resetHostAdminPassword,
   resolveCardConfigDocumentIds,
+  resolveDashboardConfigDocumentId,
   updateSiteAdminConfig,
   verifyAdminLogin,
 } = await import("../lib/site-config-store.ts");
@@ -584,18 +585,42 @@ test("Card Configuration save publishes to the selected Google Doc for all users
   assert.equal(loaded.dashboardConfigs["3"]?.responsibleEngineer, "Doc Engineer");
 });
 
-test("empty host recovers Card Configuration from the shared Card Config Doc", async () => {
+test("empty host recovers Dashboard + Card Configuration from shared Drive Docs", async () => {
   // Simulate ephemeral Worker / Cloud Run FS loss: no host file, no mappings.
   globalThis.__esadSiteAdminConfig__ = undefined;
   globalThis.__esadGoogleDocProgramConfigCache__ = undefined;
   globalThis.__esadGoogleDocCardConfigCache__ = undefined;
   await rm(path.join(tempRoot, ".data"), { recursive: true, force: true });
+  // Reset shared Docs — earlier tests may have overwritten the mock Dashboard Doc.
+  writeMockDoc(
+    DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+    formatProgramConfigText({
+      dashboardName: "Engineering Dashboard",
+      programLead: "Project Lead: ",
+      openTasksLabel: "Open Tasks",
+      overDueLabel: "Over Due",
+      currentTaskLabel: "Current Task",
+      nextTaskLabel: "Next Task",
+      ledGreenAtMost: 1,
+      ledYellowAtLeast: 3,
+      ledRedAtLeast: 5,
+    }),
+  );
 
+  assert.equal(
+    resolveDashboardConfigDocumentId(""),
+    DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+  );
   const fallbackIds = resolveCardConfigDocumentIds({});
   assert.equal(fallbackIds["1"], CARD_CONFIG_GOOGLE_DOC_ID);
   assert.equal(fallbackIds["4"], CARD_CONFIG_GOOGLE_DOC_ID);
 
   const loaded = await loadSiteAdminConfig({ forceGoogleDocRefresh: true });
+  assert.equal(loaded.programConfig.dashboardName, "Engineering Dashboard");
+  assert.equal(
+    loaded.dashboardConfigDocumentId,
+    DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+  );
   assert.equal(loaded.dashboardConfigs["1"]?.boardNickname, "DSB");
   assert.equal(
     loaded.dashboardConfigs["1"]?.responsibleEngineer,
@@ -611,6 +636,10 @@ test("empty host recovers Card Configuration from the shared Card Config Doc", a
   assert.equal(
     resolveCardConfigDocumentIds({ "1": "custom-card-doc" })["1"],
     "custom-card-doc",
+  );
+  assert.equal(
+    resolveDashboardConfigDocumentId("custom-dashboard-doc"),
+    "custom-dashboard-doc",
   );
 });
 
