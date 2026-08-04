@@ -142,7 +142,7 @@ test("server-renders the Google Drive–configured dashboard", async () => {
   assert.doesNotMatch(html, /60 percent on track/);
   assert.match(html, /Task progress [\d.]+ percent done versus open/);
   assert.match(html, /\d+(?:\.\d+)?% done · \d+ done \/ \d+ open/);
-  assert.match(html, /SYNC <!-- -->JUL \d{1,2}, 2026/);
+  assert.match(html, /SYNC <!-- -->(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) \d{1,2}, 2026/);
   assert.match(
     html,
     /href="https:\/\/docs\.google\.com\/spreadsheets\/d\/1RbnLe7FBrnT1njFWnsVyW74Iq2N5miTH9vFmRwagzps\/edit\?usp=drive_link"/,
@@ -203,12 +203,9 @@ test("server-renders the Google Drive–configured dashboard", async () => {
   }
   assert.match(html, /task-hover-trigger--open/);
   assert.match(html, /task-hover-trigger--overdue/);
-  assert.match(html, /task-hover-trigger--schedule/);
   assert.match(html, /metric-row--text/);
   assert.match(html, /metric-task-name/);
   assert.match(html, /metric-task-name-link/);
-  assert.match(html, /metric-task-date/);
-  assert.match(html, /Current Task[\s\S]*?metric-task-date[\s\S]*?Next Task/);
   assert.match(html, /Current Task[\s\S]*?Next Task/);
   // Current/Next Task come only from live Smartsheet — never compiled fallbacks.
   // Current/Next Task must not themselves render the Error flag.
@@ -222,6 +219,10 @@ test("server-renders the Google Drive–configured dashboard", async () => {
   );
   const smartsheetToken = await loadSmartsheetAccessToken();
   if (smartsheetToken) {
+    // Live schedule hover + date/% labels require SMARTSHEET_ACCESS_TOKEN.
+    assert.match(html, /task-hover-trigger--schedule/);
+    assert.match(html, /metric-task-date/);
+    assert.match(html, /Current Task[\s\S]*?metric-task-date[\s\S]*?Next Task/);
     // Live Avionics Master Schedule: Schematic current / Schematic Review next.
     assert.match(html, /Schematic/);
     assert.match(html, /Jul 24 – Aug 6, 2026/);
@@ -250,8 +251,14 @@ test("server-renders the Google Drive–configured dashboard", async () => {
     );
   } else {
     // Without a token, Current/Next Task show Unavailable (no offline schedule).
-    assert.match(html, /Unavailable/);
-    assert.doesNotMatch(html, /Schematic Review/);
+    assert.match(
+      html,
+      /Current Task[\s\S]*?metric-source-flag--unavailable[\s\S]*?Unavailable/,
+    );
+    assert.match(
+      html,
+      /Next Task[\s\S]*?metric-source-flag--unavailable[\s\S]*?Unavailable/,
+    );
   }
   assert.doesNotMatch(html, />Schedule</);
   assert.doesNotMatch(
@@ -485,8 +492,19 @@ test("keeps dashboard metadata and project data in source", async () => {
   assert.match(siteConfigStore, /cardConfigDocumentIds/);
   assert.match(siteConfigStore, /resolveCardConfigDocumentIds/);
   assert.match(siteConfigStore, /resolveCardConfigGoogleDocId/);
+  assert.match(siteConfigStore, /resolveDashboardConfigDocumentId/);
+  assert.match(siteConfigStore, /resolveDashboardConfigGoogleDocId/);
   assert.match(siteConfigStore, /hasFilledCardIdentity/);
   assert.match(siteConfigStore, /Card #/);
+  const dashboardDocSource = await readFile(
+    new URL("../lib/google-doc-dashboard-config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(dashboardDocSource, /DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID/);
+  assert.match(
+    dashboardDocSource,
+    /1V10HN9EQSx4a3CpJmb_aYyV_Xr37mo1zVXDhaTHEiB0/,
+  );
   assert.match(siteConfigStore, /rename\(dataFileTmp,\s*dataFile\)/);
   assert.match(siteConfigStore, /unlink\(dataFile\)/);
   assert.match(siteConfigStore, /ESAD_SITE_CONFIG_DIR/);

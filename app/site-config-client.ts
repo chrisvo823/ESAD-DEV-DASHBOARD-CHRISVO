@@ -81,9 +81,10 @@ function preferNewerConfig(
   if (configUpdatedAtMs(incoming) < configUpdatedAtMs(current)) {
     return current;
   }
+  let merged = incoming;
   if (hasFilledCardIdentity(current) && !hasFilledCardIdentity(incoming)) {
-    return {
-      ...incoming,
+    merged = {
+      ...merged,
       dashboardConfigs: current.dashboardConfigs,
       cardConfigDocumentIds:
         Object.keys(incoming.cardConfigDocumentIds ?? {}).length > 0
@@ -95,7 +96,19 @@ function preferNewerConfig(
           : incoming.customCards,
     };
   }
-  return incoming;
+  // Same guard for Hero / Dashboard Configuration identity.
+  const currentName = current.programConfig.dashboardName.trim();
+  const incomingName = incoming.programConfig.dashboardName.trim();
+  if (currentName && !incomingName) {
+    merged = {
+      ...merged,
+      programConfig: current.programConfig,
+      dashboardConfigDocumentId:
+        incoming.dashboardConfigDocumentId?.trim() ||
+        current.dashboardConfigDocumentId,
+    };
+  }
+  return merged;
 }
 
 function emitSiteConfigChange(next: SiteConfigCache) {

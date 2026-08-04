@@ -3,19 +3,29 @@ import test from "node:test";
 import {
   DASHBOARD_CONFIG_GOOGLE_DOC_ID,
   DASHBOARD_CONFIG_GOOGLE_DOC_URL,
+  DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID,
   extractPlainTextFromGoogleDoc,
   parseDashboardConfigFromGoogleDocText,
+  resolveDashboardConfigGoogleDocId,
 } from "../lib/google-doc-dashboard-config.ts";
 import { formatProgramConfigText } from "../lib/program-config.ts";
 
 test("exposes the shared Dashboard Configuration Google Doc id and url", () => {
   assert.equal(
     DASHBOARD_CONFIG_GOOGLE_DOC_ID,
-    "15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA",
+    "1V10HN9EQSx4a3CpJmb_aYyV_Xr37mo1zVXDhaTHEiB0",
+  );
+  assert.equal(
+    DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID,
+    "1V10HN9EQSx4a3CpJmb_aYyV_Xr37mo1zVXDhaTHEiB0",
+  );
+  assert.equal(
+    resolveDashboardConfigGoogleDocId(),
+    DEFAULT_DASHBOARD_CONFIG_GOOGLE_DOC_ID,
   );
   assert.match(
     DASHBOARD_CONFIG_GOOGLE_DOC_URL,
-    /15XbbNYYGVMyxCgQs6MaQAO-cMLJTyRcF_67F0dmc-vA/,
+    /1V10HN9EQSx4a3CpJmb_aYyV_Xr37mo1zVXDhaTHEiB0/,
   );
   assert.match(DASHBOARD_CONFIG_GOOGLE_DOC_URL, /tab=t\.0/);
 });
